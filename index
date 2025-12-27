@@ -26,8 +26,8 @@
 
 <script>
     // 1. 자신의 Supabase 정보로 교체하세요
-    const SUPABASE_URL = '자신의_PROJECT_URL';
-    const SUPABASE_KEY = '자신의_ANON_KEY';
+    const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_vrkXb83VlbGZRX_qfC4GkA_HYlQpP7t';
     const supabase = Object.assign(window['@supabase/supabase-js']).createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function login() {
