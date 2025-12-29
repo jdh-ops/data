@@ -168,6 +168,7 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
+<<<<<<< HEAD
     // 원본 파일명
     const originalFileName = selectedFile.name;
     
@@ -177,6 +178,13 @@
     
     // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
     const filePath = `${tableName}/${encodedFileName}`;
+=======
+    // 원본 파일명을 그대로 사용합니다.
+    const originalFileName = selectedFile.name;
+    
+    // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
+    const filePath = `${tableName}/${originalFileName}`; 
+>>>>>>> b743991e80235851255116f0fc2e6539250c3c99
 
     console.log("시도하는 버킷 이름: excel-files");
     console.log("원본 파일명:", originalFileName);
