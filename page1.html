@@ -148,8 +148,19 @@
                 return;
             }
             listEl.innerHTML = data.map(file => {
-                // 파일명 표시 (공백이 언더스코어로 변환되었을 수 있으므로 다시 공백으로 복원)
-                const displayName = file.name.replace(/_/g, ' ');
+                // 파일명 표시 (Base64로 인코딩된 파일명을 디코딩하여 표시)
+                let displayName = file.name;
+                try {
+                    // Base64로 인코딩된 파일명인지 확인하고 디코딩 시도
+                    const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
+                    const fileExt = file.name.split('.').pop();
+                    // Base64 디코딩 시도
+                    const decodedName = decodeURIComponent(escape(atob(fileNameWithoutExt)));
+                    displayName = `${decodedName}.${fileExt}`;
+                } catch (e) {
+                    // 디코딩 실패 시 원본 파일명 사용
+                    displayName = file.name;
+                }
                 const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
                 return `
                     <div class="file-row">
@@ -171,20 +182,28 @@
     // 원본 파일명
     const originalFileName = selectedFile.name;
     
-    // Supabase Storage는 파일 경로에 공백이 있으면 Invalid key 오류가 발생합니다
-    // 공백을 언더스코어로 변환하고, 특수문자도 제거합니다
-    // 한글은 유지하되, 공백만 확실히 처리합니다
-    const safeFileName = originalFileName
-        .replace(/\s/g, '_')            // 모든 공백을 언더스코어로 (정규식 \s는 모든 공백 문자 포함)
-        .replace(/[<>:"|?*\\]/g, '');   // Windows에서 문제가 되는 특수문자 제거
+    // Supabase Storage는 파일 경로에 공백이나 특수문자가 있으면 Invalid key 오류가 발생합니다
+    // 파일명을 완전히 안전한 형태로 변환합니다
+    const fileExt = originalFileName.split('.').pop(); // 확장자 추출
+    const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+    
+    // 파일명을 안전하게 변환: 공백, 한글, 특수문자 모두 처리
+    // 한글을 포함한 모든 문자를 Base64로 인코딩하여 안전한 파일명 생성
+    const encodedName = btoa(unescape(encodeURIComponent(fileNameWithoutExt)))
+        .replace(/[/+=]/g, '')  // Base64에서 문제가 되는 문자 제거
+        .substring(0, 100);      // 파일명 길이 제한
+    
+    const safeFileName = `${encodedName}.${fileExt}`;
     
     // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
     const filePath = `${tableName}/${safeFileName}`;
 
-    console.log("시도하는 버킷 이름: excel-files");
+    console.log("=== 파일 업로드 디버그 정보 ===");
     console.log("원본 파일명:", originalFileName);
-    console.log("인코딩된 파일 경로:", filePath);
+    console.log("변환된 파일명:", safeFileName);
+    console.log("전체 파일 경로:", filePath);
     console.log("tableName:", tableName);
+    console.log("=============================");
 
     try {
         const { data, error } = await _supabase.storage
