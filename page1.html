@@ -232,7 +232,7 @@ async function deleteFile(fileName) {
 
     try {
         const { error } = await _supabase.storage
-            .from('EXCEL-FILES')
+            .from('excel-files')
             .remove([`${tableName}/${fileName}`]);
 
         if (error) throw error;
