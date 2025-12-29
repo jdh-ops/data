@@ -148,28 +148,35 @@
                 return;
             }
 
+            // 모든 파일의 원본 파일명을 한 번에 조회
+            const safeFileNames = data
+                .filter(f => f.name !== '.emptyFolder')
+                .map(f => f.name);
+            
+            const { data: fileMappings } = await _supabase
+                .from('file_names')
+                .select('safe_file_name, original_file_name')
+                .eq('table_name', tableName)
+                .in('safe_file_name', safeFileNames);
+
+            // 매핑 데이터를 객체로 변환 (빠른 조회를 위해)
+            const nameMap = {};
+            if (fileMappings) {
+                fileMappings.forEach(m => {
+                    nameMap[m.safe_file_name] = m.original_file_name;
+                });
+            }
+
             listEl.innerHTML = data.map(file => {
                 if (file.name === '.emptyFolder') return '';
 
-                let displayName = file.name;
-                try {
-                    const parts = file.name.split('.');
-                    const ext = parts.pop();
-                    const hexName = parts.join('.');
-                    
-                    // 16진수를 다시 한글 문자열로 복구
-                    const bytes = new Uint8Array(hexName.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-                    displayName = new TextDecoder().decode(bytes) + '.' + ext;
-                } catch (e) {
-                    displayName = file.name; // 복구 실패 시 파일명 그대로 표시
-                }
-
-                const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+                // 테이블에서 원본 파일명 가져오기
+                const displayName = nameMap[file.name] || file.name;
                 
                 return `
                     <div class="file-row">
                         <span>📄 ${displayName}</span>
-                        <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
+                        <a href="#" onclick="downloadFile('${file.name}', ${JSON.stringify(displayName)}); return false;" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
                     </div>
                 `;
             }).join('');
@@ -187,14 +194,15 @@
         const fileExt = originalFileName.split('.').pop();
         const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
 
-        // [해결 핵심] 한글/공백 문제를 피하기 위해 파일명을 16진수(Hex) 문자열로 안전하게 변환
-        // btoa(Base64) 대신 유니코드를 안전하게 변환하는 방식을 사용합니다.
-        const safeBaseName = Array.from(new TextEncoder().encode(fileNameWithoutExt))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('')
-            .substring(0, 50); // 파일명 길이 제한
-
-        const safeFileName = `${safeBaseName}.${fileExt}`;
+        // [해결 핵심] Supabase Storage는 파일 경로에 한글, 공백, 특수문자가 있으면 Invalid key 오류 발생
+        // 파일명을 완전히 안전한 영문/숫자/언더스코어/하이픈으로만 구성
+        // 원본 파일명은 별도 테이블에 저장
+        
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 8); // 랜덤 문자열 추가
+        
+        // 안전한 파일명 생성: 영문, 숫자, 언더스코어, 하이픈만 사용
+        const safeFileName = `file_${timestamp}_${randomStr}.${fileExt}`;
         const filePath = `${tableName}/${safeFileName}`;
 
         try {
@@ -207,6 +215,23 @@
 
             if (error) throw error;
 
+            // 원본 파일명을 테이블에 저장
+            const { error: dbError } = await _supabase
+                .from('file_names')
+                .upsert({
+                    table_name: tableName,
+                    safe_file_name: safeFileName,
+                    original_file_name: originalFileName,
+                    created_at: new Date().toISOString()
+                }, {
+                    onConflict: 'table_name,safe_file_name'
+                });
+
+            if (dbError) {
+                console.error("파일명 저장 에러:", dbError);
+                // 파일명 저장 실패해도 업로드는 성공했으므로 경고만 표시
+            }
+
             status.innerText = "✅ 업로드 성공!";
             selectedFile = null;
             document.getElementById('uploadBtn').style.display = 'none';
@@ -218,6 +243,30 @@
         } catch (error) {
             console.error("상세 에러:", error);
             status.innerText = `❌ 실패: ${error.message}`;
+        }
+    }
+
+    // 다운로드 함수: 원본 파일명으로 다운로드
+    async function downloadFile(safeFileName, originalFileName) {
+        try {
+            const { data, error } = await _supabase.storage
+                .from('excel-files')
+                .download(`${tableName}/${safeFileName}`);
+            
+            if (error) throw error;
+            
+            // Blob을 다운로드 링크로 변환
+            const url = window.URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = originalFileName; // 원본 파일명으로 다운로드
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("다운로드 에러:", error);
+            alert(`다운로드 실패: ${error.message}`);
         }
     }
 
