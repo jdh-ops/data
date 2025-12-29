@@ -148,8 +148,8 @@
                 return;
             }
             listEl.innerHTML = data.map(file => {
-                // 파일명이 인코딩되어 있으면 디코딩하여 표시
-                const displayName = decodeURIComponent(file.name);
+                // 파일명 표시 (공백이 언더스코어로 변환되었을 수 있으므로 다시 공백으로 복원)
+                const displayName = file.name.replace(/_/g, ' ');
                 const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
                 return `
                     <div class="file-row">
@@ -168,27 +168,23 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-<<<<<<< HEAD
     // 원본 파일명
     const originalFileName = selectedFile.name;
     
-    // 파일명을 안전하게 인코딩 (한글 및 특수문자 처리)
-    // 경로 구분자(/)를 제거하고, 파일명만 인코딩
-    const encodedFileName = encodeURIComponent(originalFileName);
+    // 파일명을 안전하게 변환 (공백을 언더스코어로, 특수문자 제거)
+    // Supabase Storage는 경로에 공백이나 특수문자가 있으면 Invalid key 오류가 발생할 수 있습니다
+    // 하지만 한글은 유지합니다
+    const safeFileName = originalFileName
+        .replace(/\s+/g, '_')  // 공백을 언더스코어로
+        .replace(/[<>:"|?*\\]/g, '');  // Windows에서 문제가 되는 특수문자 제거
     
     // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
-    const filePath = `${tableName}/${encodedFileName}`;
-=======
-    // 원본 파일명을 그대로 사용합니다.
-    const originalFileName = selectedFile.name;
-    
-    // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
-    const filePath = `${tableName}/${originalFileName}`; 
->>>>>>> b743991e80235851255116f0fc2e6539250c3c99
+    const filePath = `${tableName}/${safeFileName}`;
 
     console.log("시도하는 버킷 이름: excel-files");
     console.log("원본 파일명:", originalFileName);
     console.log("인코딩된 파일 경로:", filePath);
+    console.log("tableName:", tableName);
 
     try {
         const { data, error } = await _supabase.storage
