@@ -147,21 +147,25 @@
                 listEl.innerHTML = "<p style='padding:20px; color:#a0aec0;'>업로드된 파일이 없습니다.</p>";
                 return;
             }
+
             listEl.innerHTML = data.map(file => {
-                // 파일명 표시 (Base64로 인코딩된 파일명을 디코딩하여 표시)
+                if (file.name === '.emptyFolder') return '';
+
                 let displayName = file.name;
                 try {
-                    // Base64로 인코딩된 파일명인지 확인하고 디코딩 시도
-                    const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
-                    const fileExt = file.name.split('.').pop();
-                    // Base64 디코딩 시도
-                    const decodedName = decodeURIComponent(escape(atob(fileNameWithoutExt)));
-                    displayName = `${decodedName}.${fileExt}`;
+                    const parts = file.name.split('.');
+                    const ext = parts.pop();
+                    const hexName = parts.join('.');
+                    
+                    // 16진수를 다시 한글 문자열로 복구
+                    const bytes = new Uint8Array(hexName.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                    displayName = new TextDecoder().decode(bytes) + '.' + ext;
                 } catch (e) {
-                    // 디코딩 실패 시 원본 파일명 사용
-                    displayName = file.name;
+                    displayName = file.name; // 복구 실패 시 파일명 그대로 표시
                 }
+
                 const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+                
                 return `
                     <div class="file-row">
                         <span>📄 ${displayName}</span>
@@ -175,56 +179,45 @@
     }
 
     async function uploadFile() {
-    if (!selectedFile) return;
-    const status = document.getElementById('uploadStatus');
-    status.innerText = "서버로 전송 중...";
+        if (!selectedFile) return;
+        const status = document.getElementById('uploadStatus');
+        status.innerText = "서버로 전송 중...";
 
-    // 원본 파일명
-    const originalFileName = selectedFile.name;
-    
-    // Supabase Storage는 파일 경로에 공백이나 특수문자가 있으면 Invalid key 오류가 발생합니다
-    // 파일명을 완전히 안전한 형태로 변환합니다
-    const fileExt = originalFileName.split('.').pop(); // 확장자 추출
-    const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-    
-    // 파일명을 안전하게 변환: 공백, 한글, 특수문자 모두 처리
-    // 한글을 포함한 모든 문자를 Base64로 인코딩하여 안전한 파일명 생성
-    const encodedName = btoa(unescape(encodeURIComponent(fileNameWithoutExt)))
-        .replace(/[/+=]/g, '')  // Base64에서 문제가 되는 문자 제거
-        .substring(0, 100);      // 파일명 길이 제한
-    
-    const safeFileName = `${encodedName}.${fileExt}`;
-    
-    // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
-    const filePath = `${tableName}/${safeFileName}`;
+        const originalFileName = selectedFile.name;
+        const fileExt = originalFileName.split('.').pop();
+        const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
 
-    console.log("=== 파일 업로드 디버그 정보 ===");
-    console.log("원본 파일명:", originalFileName);
-    console.log("변환된 파일명:", safeFileName);
-    console.log("전체 파일 경로:", filePath);
-    console.log("tableName:", tableName);
-    console.log("=============================");
+        // [해결 핵심] 한글/공백 문제를 피하기 위해 파일명을 16진수(Hex) 문자열로 안전하게 변환
+        // btoa(Base64) 대신 유니코드를 안전하게 변환하는 방식을 사용합니다.
+        const safeBaseName = Array.from(new TextEncoder().encode(fileNameWithoutExt))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('')
+            .substring(0, 50); // 파일명 길이 제한
 
-    try {
-        const { data, error } = await _supabase.storage
-            .from('excel-files')
-            .upload(filePath, selectedFile, { 
-                upsert: true,
-                contentType: selectedFile.type,
-                cacheControl: '3600'
-            });
+        const safeFileName = `${safeBaseName}.${fileExt}`;
+        const filePath = `${tableName}/${safeFileName}`;
 
-        if (error) throw error;
+        try {
+            const { data, error } = await _supabase.storage
+                .from('excel-files')
+                .upload(filePath, selectedFile, { 
+                    upsert: true,
+                    contentType: selectedFile.type
+                });
 
-        status.innerText = "✅ 업로드 성공!";
-        selectedFile = null;
-        document.getElementById('uploadBtn').style.display = 'none';
-        document.getElementById('selectedFileName').innerText = "";
-        listFiles(); // 목록 갱신
+            if (error) throw error;
 
-    } catch (error) {
-        console.error("상세 에러 내역:", error);
-        status.innerText = `❌ 실패: ${error.message}`;
+            status.innerText = "✅ 업로드 성공!";
+            selectedFile = null;
+            document.getElementById('uploadBtn').style.display = 'none';
+            document.getElementById('selectedFileName').innerText = "";
+            
+            // 업로드 성공 후 목록 갱신
+            setTimeout(() => listFiles(), 500); 
+
+        } catch (error) {
+            console.error("상세 에러:", error);
+            status.innerText = `❌ 실패: ${error.message}`;
         }
     }
 
