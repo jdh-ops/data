@@ -171,12 +171,12 @@
     // 원본 파일명
     const originalFileName = selectedFile.name;
     
-    // 파일명을 안전하게 변환 (공백을 언더스코어로, 특수문자 제거)
-    // Supabase Storage는 경로에 공백이나 특수문자가 있으면 Invalid key 오류가 발생할 수 있습니다
-    // 하지만 한글은 유지합니다
+    // Supabase Storage는 파일 경로에 공백이 있으면 Invalid key 오류가 발생합니다
+    // 공백을 언더스코어로 변환하고, 특수문자도 제거합니다
+    // 한글은 유지하되, 공백만 확실히 처리합니다
     const safeFileName = originalFileName
-        .replace(/\s+/g, '_')  // 공백을 언더스코어로
-        .replace(/[<>:"|?*\\]/g, '');  // Windows에서 문제가 되는 특수문자 제거
+        .replace(/\s/g, '_')            // 모든 공백을 언더스코어로 (정규식 \s는 모든 공백 문자 포함)
+        .replace(/[<>:"|?*\\]/g, '');   // Windows에서 문제가 되는 특수문자 제거
     
     // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
     const filePath = `${tableName}/${safeFileName}`;
