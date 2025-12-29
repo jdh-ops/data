@@ -141,7 +141,7 @@
     async function listFiles() {
     const listEl = document.getElementById('fileList');
     try {
-        const { data, error } = await _supabase.storage.from('EXCEL-FILES').list(tableName + '/');
+        const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
         if (error) throw error;
         
         if (!data || data.length === 0) {
