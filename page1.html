@@ -228,6 +228,29 @@ return `
         status.innerText = `❌ 실패: ${error.message}`;
     }
 }
+    // 파일 다운로드 함수
+async function downloadFile(url, fileName) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('파일을 가져올 수 없습니다.');
+        
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error('다운로드 중 오류 발생:', error);
+        alert('다운로드 실패: ' + error.message);
+    }
+}
+
+
+    
     // 파일 삭제 함수
 async function deleteFile(fileName) {
     if (!confirm("정말로 이 파일을 삭제하시겠습니까? 복구할 수 없습니다.")) return;
