@@ -142,7 +142,6 @@
     const listEl = document.getElementById('fileList');
     try {
         const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
-        
         if (error) throw error;
         if (!data || data.length === 0) {
             listEl.innerHTML = "<p style='padding:20px; color:#a0aec0;'>업로드된 파일이 없습니다.</p>";
@@ -152,11 +151,19 @@
         listEl.innerHTML = data.map(file => {
             if (file.name === '.emptyFolder') return '';
 
-            // 서버에서 가져온 파일명을 화면에 표시할 때 안전하게 디코딩
-            const displayName = decodeURIComponent(file.name);
-            const filePath = `${tableName}/${file.name}`;
-            
-            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(filePath);
+            let displayName = file.name;
+            try {
+                // 16진수 파일명을 다시 한글 원본으로 복구(디코딩)
+                const parts = file.name.split('.');
+                const ext = parts.pop();
+                const hex = parts.join('.');
+                const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                displayName = new TextDecoder().decode(bytes) + '.' + ext;
+            } catch (e) {
+                displayName = file.name; // 변환 실패 시 원본 표시
+            }
+
+            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
 
             return `
                 <div class="file-row">
@@ -166,7 +173,6 @@
             `;
         }).join('');
     } catch (err) {
-        console.error("목록 로드 실패:", err.message);
         listEl.innerHTML = `<p style="padding:20px; color:red;">에러: ${err.message}</p>`;
     }
 }
@@ -176,17 +182,17 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-    // [해결의 핵심] 파일명에서 모든 공백을 언더바(_)로 바꾸고, 
-    // 특수문자를 제거하여 서버가 인식하기 쉬운 '안전한 파일명'을 만듭니다.
-    const safeFileName = selectedFile.name
-        .replace(/\s+/g, '_') // 모든 공백을 _로 변경
-        .replace(/[^\w가-힣.-]/g, ''); // 영문, 숫자, 한글, 점, 하이픈, 언더바 외 제거
+    const originalName = selectedFile.name;
+    const fileExt = originalName.split('.').pop();
+    const nameNoExt = originalName.substring(0, originalName.lastIndexOf('.'));
 
+    // [필살기] 한글 이름을 서버가 거부할 수 없는 16진수 문자열로 변환합니다.
+    const hexName = Array.from(new TextEncoder().encode(nameNoExt))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+    const safeFileName = `${hexName}.${fileExt}`;
     const filePath = `${tableName}/${safeFileName}`;
-
-    console.log("=== 수정된 업로드 정보 ===");
-    console.log("원본 파일명:", selectedFile.name);
-    console.log("변환된 경로:", filePath);
 
     try {
         const { data, error } = await _supabase.storage
@@ -202,13 +208,9 @@
         selectedFile = null;
         document.getElementById('uploadBtn').style.display = 'none';
         document.getElementById('selectedFileName').innerText = "";
-        document.getElementById('dropText').innerText = "📤 파일을 여기로 끌어다 놓으세요";
         
-        // 목록 갱신
         setTimeout(() => listFiles(), 500);
-
     } catch (error) {
-        console.error("상세 에러 내역:", error);
         status.innerText = `❌ 실패: ${error.message}`;
     }
 }
