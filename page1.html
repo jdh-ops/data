@@ -166,38 +166,37 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-    // 1. 파일명 안전하게 인코딩 (한글 및 공백 문제 해결)
-    // encodeURIComponent는 한글 파일명을 URL 안전한 형식으로 바꿉니다.
-    const safeFileName = encodeURIComponent(selectedFile.name.replace(/\s+/g, '_'));
+    // [수정] 한글 파일명 문제를 피하기 위해 영문/숫자로만 구성된 파일명을 생성합니다.
+    // 만약 한글명이 필요하다면 그대로 두되, 우선 테스트를 위해 단순화합니다.
+    const fileExt = selectedFile.name.split('.').pop(); // 확장자 추출
+    const safeFileName = `file_${Date.now()}.${fileExt}`; // file_17000000.xlsx 형태
     
-    // 2. 경로(Key) 생성
-    // 만약 버킷 바로 아래에 파일을 올리고 싶다면 tableName + "/" 를 빼고 테스트해보세요.
-    const filePath = `${tableName}/${safeFileName}`;
+    // [중요] 경로 오류를 피하기 위해 폴더(tableName) 없이 파일명만 전달해봅니다.
+    const filePath = safeFileName; 
 
-    console.log("업로드 시도 경로:", filePath); // 디버깅용 로그
+    console.log("시도하는 버킷 이름: excel-files");
+    console.log("시도하는 파일 경로:", filePath);
 
-    const { data, error } = await _supabase.storage
-        .from('excel-files') // [중요] 대시보드상의 버킷 이름과 정확히 일치해야 함
-        .upload(filePath, selectedFile, { 
-            upsert: true,
-            contentType: selectedFile.type 
-        });
+    try {
+        const { data, error } = await _supabase.storage
+            .from('excel-files') // <--- 여기서 버킷 이름이 실제와 다르면 400 에러가 납니다.
+            .upload(filePath, selectedFile, { 
+                upsert: true,
+                contentType: selectedFile.type 
+            });
 
-    if (error) {
-        console.error("상세 에러 내역:", error);
-        // 에러 메시지에 따라 사용자 친화적인 안내 출력
-        if (error.message.includes("Invalid key")) {
-            status.innerText = "❌ 실패: 경로 형식이 잘못되었습니다. (버킷/폴더 설정을 확인하세요)";
-        } else {
-            status.innerText = "❌ 실패: " + error.message;
-        }
-    } else {
+        if (error) throw error;
+
         status.innerText = "✅ 업로드 성공!";
         selectedFile = null;
         document.getElementById('uploadBtn').style.display = 'none';
         document.getElementById('selectedFileName').innerText = "";
-        document.getElementById('dropText').innerText = "📤 파일을 여기로 끌어다 놓으세요";
-        listFiles();
+        listFiles(); // 목록 갱신
+
+    } catch (error) {
+        console.error("상세 에러 내역:", error);
+        // 에러가 'Invalid key'라면 버킷 이름(excel-files)이 틀렸을 확률이 매우 높습니다.
+        status.innerText = `❌ 실패: ${error.message}`;
         }
     }
 
