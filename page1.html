@@ -167,22 +167,24 @@
             } catch (e) { displayName = file.name; }
 
             // 날짜 포맷팅 (YYYY-MM-DD HH:mm)
-            const uploadDate = new Date(file.created_at).toLocaleString('ko-KR', {
-                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-            });
+            const uploadDate = new Date(file.created_at).toLocaleDateString('ko-KR', {
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit'
+});
 
-            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
 
-            return `
-                <div class="file-row" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
-                    <div style="flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${displayName}</div>
-                    <div style="flex: 1; text-align: center; font-size: 13px; color: #666;">${uploadDate}</div>
-                    <div style="flex: 1; text-align: center; display: flex; justify-content: center; gap: 10px;">
-                        <button onclick="downloadFile('${urlData.publicUrl}', '${displayName}')" class="btn-text" style="color:#3498db; cursor:pointer; background:none; border:none; font-weight:bold;">다운로드</button>
-                        <button onclick="deleteFile('${file.name}')" class="btn-text" style="color:#e74c3c; cursor:pointer; background:none; border:none; font-weight:bold;">삭제</button>
-                    </div>
-                </div>
-            `;
+return `
+    <div class="file-row" style="display: flex; align-items: center; padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+        <div style="flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${displayName}</div>
+        <div style="flex: 1; text-align: center; color: #666; font-size: 12px;">${uploadDate}</div>
+        <div style="flex: 1; text-align: center; display: flex; justify-content: center; gap: 8px;">
+            <button onclick="downloadFile('${urlData.publicUrl}', '${displayName}')" style="color:#3498db; background:none; border:none; cursor:pointer; font-weight:bold;">다운로드</button>
+            <button onclick="deleteFile('${file.name}')" style="color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">삭제</button>
+        </div>
+    </div>
+`;
         }).join('');
     } catch (err) {
         listEl.innerHTML = `<p style="padding:20px; color:red;">에러: ${err.message}</p>`;
