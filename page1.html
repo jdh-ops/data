@@ -166,13 +166,11 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-    // [수정] 한글 파일명 문제를 피하기 위해 영문/숫자로만 구성된 파일명을 생성합니다.
-    // 만약 한글명이 필요하다면 그대로 두되, 우선 테스트를 위해 단순화합니다.
-    const fileExt = selectedFile.name.split('.').pop(); // 확장자 추출
-    const safeFileName = `file_${Date.now()}.${fileExt}`; // file_17000000.xlsx 형태
+    // 원본 파일명을 그대로 사용합니다.
+    const originalFileName = selectedFile.name;
     
     // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
-    const filePath = `${tableName}/${safeFileName}`; 
+    const filePath = `${tableName}/${originalFileName}`; 
 
     console.log("시도하는 버킷 이름: excel-files");
     console.log("시도하는 파일 경로:", filePath);
