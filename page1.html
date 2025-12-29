@@ -46,85 +46,118 @@
             <p>프로젝트의 전반적인 현황을 확인합니다.</p>
         </div>
 
-        <div id="upload" class="content-section">
-            <h2>파일 업로드</h2>
-            <div class="upload-card">
-                <p>업로드할 엑셀 파일을 선택하세요.</p>
-                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
-                <button onclick="uploadFile()" style="padding: 10px 20px; background: #3498db; color:white; border:none; border-radius:5px; cursor:pointer;">서버로 전송</button>
-                <p id="uploadStatus" style="margin-top:10px; font-size:14px;"></p>
-            </div>
-            <h3>저장된 파일 목록</h3>
-            <div id="fileList" class="file-list"></div>
-        </div>
-
-        <div id="settings" class="content-section">
-            <h2>설정</h2>
-            <p>시스템 환경을 설정합니다.</p>
-        </div>
+<div id="upload" class="content-section">
+    <h2>파일 업로드</h2>
+    
+    <div id="dropZone" class="upload-card" 
+         ondragover="handleDragOver(event)" 
+         ondragleave="handleDragLeave(event)" 
+         ondrop="handleDrop(event)">
+        <p id="dropText">📤 엑셀 파일을 이리로 끌어다 놓거나 클릭하여 선택하세요.</p>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleFileSelect(event)">
+        <button onclick="document.getElementById('fileInput').click()" class="btn-select">파일 선택</button>
+        <p id="selectedFileName" style="margin-top: 10px; font-weight: bold; color: #3498db;"></p>
+        <button id="uploadBtn" onclick="uploadFile()" class="btn-primary" style="display: none; margin: 10px auto;">서버로 전송하기</button>
+        <p id="uploadStatus" style="margin-top:10px; font-size:14px;"></p>
     </div>
 
+    <h3>저장된 파일 목록</h3>
+    <div id="fileList" class="file-list"></div>
+</div>
+
+<style>
+    /* 드래그 앤 드랍 구역 스타일 추가 */
+    .upload-card {
+        border: 2px dashed #ccc;
+        background: #fff;
+        transition: all 0.3s ease;
+        padding: 40px;
+        cursor: pointer;
+    }
+    .upload-card.drag-over {
+        border-color: #3498db;
+        background: #ebf5fb;
+        transform: scale(1.02);
+    }
+    .btn-select {
+        padding: 8px 16px;
+        background: #eee;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary {
+        padding: 12px 24px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+</style>
+
 <script>
-    // Supabase 설정
-    const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w'; 
-    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let selectedFile = null;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const tableName = urlParams.get('table') || 'default';
-    document.getElementById('projectTitle').innerText = tableName.toUpperCase();
-
-    // 1. 섹션 전환 함수
-    function showSection(sectionId) {
-        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        
-        document.getElementById(sectionId).classList.add('active');
-        event.currentTarget.classList.add('active');
-
-        if(sectionId === 'upload') listFiles();
+    // 드래그 시 효과
+    function handleDragOver(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.add('drag-over');
     }
 
-    // 2. 파일 목록 불러오기 (Storage 연동)
-    async function listFiles() {
-        const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
-        const listEl = document.getElementById('fileList');
-        if (error || !data) return;
-
-        listEl.innerHTML = data.map(file => {
-            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
-            return `
-                <div class="file-row">
-                    <span>${file.name}</span>
-                    <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none;">다운로드</a>
-                </div>
-            `;
-        }).join('');
+    function handleDragLeave(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.remove('drag-over');
     }
 
-    // 3. 파일 업로드 함수
+    // 파일을 놓았을 때
+    function handleDrop(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            processFile(files[0]);
+        }
+    }
+
+    // 클릭해서 파일을 선택했을 때
+    function handleFileSelect(e) {
+        const files = e.target.files;
+        if (files.length > 0) {
+            processFile(files[0]);
+        }
+    }
+
+    // 선택된 파일 처리 및 화면 표시
+    function processFile(file) {
+        selectedFile = file;
+        document.getElementById('selectedFileName').innerText = "선택된 파일: " + file.name;
+        document.getElementById('uploadBtn').style.display = 'block'; // 전송 버튼 보이기
+        document.getElementById('dropText').innerText = "파일이 준비되었습니다!";
+    }
+
+    // 파일 업로드 함수 (기존 로직 활용)
     async function uploadFile() {
-        const fileInput = document.getElementById('fileInput');
+        if (!selectedFile) return alert("파일을 먼저 선택해주세요.");
+        
         const status = document.getElementById('uploadStatus');
-        if (!fileInput.files[0]) return alert("파일을 선택하세요.");
-
-        const file = fileInput.files[0];
-        status.innerText = "업로드 중...";
+        status.innerText = "서버로 전송 중...";
 
         const { error } = await _supabase.storage
             .from('excel-files')
-            .upload(`${tableName}/${file.name}`, file, { upsert: true });
+            .upload(`${tableName}/${selectedFile.name}`, selectedFile, { upsert: true });
 
         if (error) {
             status.innerText = "❌ 실패: " + error.message;
         } else {
             status.innerText = "✅ 업로드 성공!";
+            selectedFile = null;
+            document.getElementById('selectedFileName').innerText = "";
+            document.getElementById('uploadBtn').style.display = 'none';
+            document.getElementById('dropText').innerText = "📤 엑셀 파일을 이리로 끌어다 놓거나 클릭하여 선택하세요.";
             listFiles();
         }
     }
-
-    // 초기 실행
-    listFiles();
 </script>
 </body>
 </html>
