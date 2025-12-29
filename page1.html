@@ -162,23 +162,31 @@
     }
 
     async function uploadFile() {
-        if (!selectedFile) return;
-        const status = document.getElementById('uploadStatus');
-        status.innerText = "서버로 전송 중...";
+    if (!selectedFile) return;
+    const status = document.getElementById('uploadStatus');
+    status.innerText = "서버로 전송 중...";
 
-        const { error } = await _supabase.storage
-            .from('excel-files')
-            .upload(`${tableName}/${selectedFile.name}`, selectedFile, { upsert: true });
+    // [수정] 파일명에서 공백을 언더바(_)로 바꾸고 특수문자를 제거하여 안전하게 만듭니다.
+    const safeFileName = selectedFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9가-힣._-]/g, '');
+    const filePath = `${tableName}/${safeFileName}`;
 
-        if (error) {
-            status.innerText = "❌ 실패: " + error.message;
-        } else {
-            status.innerText = "✅ 업로드 성공!";
-            selectedFile = null;
-            document.getElementById('uploadBtn').style.display = 'none';
-            document.getElementById('selectedFileName').innerText = "";
-            document.getElementById('dropText').innerText = "📤 파일을 여기로 끌어다 놓으세요";
-            listFiles();
+    const { data, error } = await _supabase.storage
+        .from('excel-files') // 버킷 이름이 정확히 'excel-files'인지 확인!
+        .upload(filePath, selectedFile, { 
+            upsert: true,
+            contentType: selectedFile.type 
+        });
+
+    if (error) {
+        console.error("상세 에러:", error);
+        status.innerText = "❌ 실패: " + error.message;
+    } else {
+        status.innerText = "✅ 업로드 성공!";
+        selectedFile = null;
+        document.getElementById('uploadBtn').style.display = 'none';
+        document.getElementById('selectedFileName').innerText = "";
+        document.getElementById('dropText').innerText = "📤 파일을 여기로 끌어다 놓으세요";
+        listFiles();
         }
     }
 
