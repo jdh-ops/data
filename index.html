@@ -69,7 +69,7 @@
                 
                 // 3. 해당 테이블 이름을 담아 이동
                 setTimeout(() => {
-                    window.location.href = `page1.html?`;
+                    window.location.href = `page1.html?table=${encodeURIComponent(data.target_table)}`;
                 }, 800);
             }
         } catch (err) {

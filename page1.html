@@ -148,10 +148,12 @@
                 return;
             }
             listEl.innerHTML = data.map(file => {
+                // 파일명이 인코딩되어 있으면 디코딩하여 표시
+                const displayName = decodeURIComponent(file.name);
                 const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
                 return `
                     <div class="file-row">
-                        <span>📄 ${file.name}</span>
+                        <span>📄 ${displayName}</span>
                         <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
                     </div>
                 `;
@@ -166,23 +168,27 @@
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-    // [수정] 한글 파일명 문제를 피하기 위해 영문/숫자로만 구성된 파일명을 생성합니다.
-    // 만약 한글명이 필요하다면 그대로 두되, 우선 테스트를 위해 단순화합니다.
-    const fileExt = selectedFile.name.split('.').pop(); // 확장자 추출
-    const safeFileName = `file_${Date.now()}.${fileExt}`; // file_17000000.xlsx 형태
+    // 원본 파일명
+    const originalFileName = selectedFile.name;
     
-    // [중요] 경로 오류를 피하기 위해 폴더(tableName) 없이 파일명만 전달해봅니다.
-    const filePath = safeFileName; 
+    // 파일명을 안전하게 인코딩 (한글 및 특수문자 처리)
+    // 경로 구분자(/)를 제거하고, 파일명만 인코딩
+    const encodedFileName = encodeURIComponent(originalFileName);
+    
+    // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
+    const filePath = `${tableName}/${encodedFileName}`;
 
     console.log("시도하는 버킷 이름: excel-files");
-    console.log("시도하는 파일 경로:", filePath);
+    console.log("원본 파일명:", originalFileName);
+    console.log("인코딩된 파일 경로:", filePath);
 
     try {
         const { data, error } = await _supabase.storage
-            .from('excel-files') // <--- 여기서 버킷 이름이 실제와 다르면 400 에러가 납니다.
+            .from('excel-files')
             .upload(filePath, selectedFile, { 
                 upsert: true,
-                contentType: selectedFile.type 
+                contentType: selectedFile.type,
+                cacheControl: '3600'
             });
 
         if (error) throw error;
@@ -195,7 +201,6 @@
 
     } catch (error) {
         console.error("상세 에러 내역:", error);
-        // 에러가 'Invalid key'라면 버킷 이름(excel-files)이 틀렸을 확률이 매우 높습니다.
         status.innerText = `❌ 실패: ${error.message}`;
         }
     }
