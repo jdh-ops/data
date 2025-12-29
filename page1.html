@@ -139,59 +139,47 @@
 
     // --- 파일 목록 및 업로드 로직 ---
     async function listFiles() {
-    const listEl = document.getElementById('fileList');
-    try {
-        // [핵심] .list('폴더명/') 을 사용하여 해당 폴더 안만 검사합니다.
-        const { data, error } = await _supabase.storage
-            .from('excel-files')
-            .list(tableName + '/', {
-                limit: 100,
-                offset: 0,
-                sortBy: { column: 'created_at', order: 'desc' }
-            });
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            listEl.innerHTML = `<p style='padding:20px; color:#a0aec0;'>[${tableName}] 폴더에 업로드된 파일이 없습니다.</p>`;
-            return;
+        const listEl = document.getElementById('fileList');
+        try {
+            const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                listEl.innerHTML = "<p style='padding:20px; color:#a0aec0;'>업로드된 파일이 없습니다.</p>";
+                return;
+            }
+            listEl.innerHTML = data.map(file => {
+                const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+                return `
+                    <div class="file-row">
+                        <span>📄 ${file.name}</span>
+                        <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            listEl.innerHTML = `<p style="padding:20px; color:red;">에러: ${err.message}</p>`;
         }
-
-        listEl.innerHTML = data.map(file => {
-            if (file.name === '.emptyFolder') return '';
-
-            // [핵심] 다운로드 URL 생성 시에도 폴더 경로를 붙여줍니다.
-            const { data: urlData } = _supabase.storage
-                .from('excel-files')
-                .getPublicUrl(`${tableName}/${file.name}`);
-
-            return `
-                <div class="file-row">
-                    <span>📄 ${file.name}</span>
-                    <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
-                </div>
-            `;
-        }).join('');
-    } catch (err) {
-        console.error("목록 로드 실패:", err.message);
-        listEl.innerHTML = `<p style="padding:20px; color:red;">목록 로드 에러: ${err.message}</p>`;
     }
-}
 
     async function uploadFile() {
     if (!selectedFile) return;
     const status = document.getElementById('uploadStatus');
     status.innerText = "서버로 전송 중...";
 
-    // [수정] 파일명에서 공백 및 특수문자 제거 (경로 오류 방지)
-    const safeFileName = selectedFile.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9가-힣._-]/g, '');
+    // [수정] 한글 파일명 문제를 피하기 위해 영문/숫자로만 구성된 파일명을 생성합니다.
+    // 만약 한글명이 필요하다면 그대로 두되, 우선 테스트를 위해 단순화합니다.
+    const fileExt = selectedFile.name.split('.').pop(); // 확장자 추출
+    const safeFileName = `file_${Date.now()}.${fileExt}`; // file_17000000.xlsx 형태
     
-    // [핵심] 폴더 경로(tableName)를 포함한 전체 경로 설정
+    // [중요] tableName 폴더에 업로드하여 keyword별로 다른 폴더에 저장되도록 합니다.
     const filePath = `${tableName}/${safeFileName}`; 
+
+    console.log("시도하는 버킷 이름: excel-files");
+    console.log("시도하는 파일 경로:", filePath);
 
     try {
         const { data, error } = await _supabase.storage
-            .from('excel-files')
+            .from('excel-files') // <--- 여기서 버킷 이름이 실제와 다르면 400 에러가 납니다.
             .upload(filePath, selectedFile, { 
                 upsert: true,
                 contentType: selectedFile.type 
@@ -203,12 +191,11 @@
         selectedFile = null;
         document.getElementById('uploadBtn').style.display = 'none';
         document.getElementById('selectedFileName').innerText = "";
-        
-        // 업로드 후 해당 폴더 목록 갱신
-        listFiles(); 
+        listFiles(); // 목록 갱신
 
     } catch (error) {
-        console.error("상세 에러:", error);
+        console.error("상세 에러 내역:", error);
+        // 에러가 'Invalid key'라면 버킷 이름(excel-files)이 틀렸을 확률이 매우 높습니다.
         status.innerText = `❌ 실패: ${error.message}`;
         }
     }
