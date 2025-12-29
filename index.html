@@ -44,19 +44,19 @@
         // 2. DB에서 키워드 조회
         const { data, error } = await supabase
             .from('gateways')
-            .select('target_url')
+            .select('target_table')
             .eq('keyword', input)
             .single();
 
         if (error || !data) {
             message.innerText = "잘못된 키워드입니다.";
-        } else {
+} else {
             message.style.color = "#27ae60";
-            message.innerText = "접속 성공! 이동합니다...";
+            message.innerText = "접속 성공! 데이터를 불러옵니다...";
             
-            // 3. 해당 페이지로 이동
             setTimeout(() => {
-                window.location.href = data.target_url;
+                // page1.html 뒤에 ?table=실제테이블이름 을 붙여줍니다.
+                window.location.href = `page1.html?table=${data.target_table}`;
             }, 800);
         }
     }
