@@ -141,34 +141,46 @@
     async function listFiles() {
     const listEl = document.getElementById('fileList');
     try {
-        const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
+        const { data, error } = await _supabase.storage.from('EXCEL-FILES').list(tableName + '/');
         if (error) throw error;
+        
         if (!data || data.length === 0) {
             listEl.innerHTML = "<p style='padding:20px; color:#a0aec0;'>업로드된 파일이 없습니다.</p>";
             return;
         }
 
-        listEl.innerHTML = data.map(file => {
-            if (file.name === '.emptyFolder') return '';
-
+        // 파일 목록 테이블 구조 생성
+        listEl.innerHTML = `
+            <div style="padding: 10px; background: #f8f9fa; font-weight: bold; display: flex; border-bottom: 2px solid #dee2e6;">
+                <div style="flex: 2;">파일명</div>
+                <div style="flex: 1; text-align: center;">업로드 날짜</div>
+                <div style="flex: 1; text-align: center;">관리</div>
+            </div>
+        ` + data.filter(file => file.name !== '.emptyFolder').map(file => {
             let displayName = file.name;
             try {
-                // 16진수 파일명을 다시 한글 원본으로 복구(디코딩)
                 const parts = file.name.split('.');
                 const ext = parts.pop();
                 const hex = parts.join('.');
                 const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
                 displayName = new TextDecoder().decode(bytes) + '.' + ext;
-            } catch (e) {
-                displayName = file.name; // 변환 실패 시 원본 표시
-            }
+            } catch (e) { displayName = file.name; }
 
-            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+            // 날짜 포맷팅 (YYYY-MM-DD HH:mm)
+            const uploadDate = new Date(file.created_at).toLocaleString('ko-KR', {
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+            });
+
+            const { data: urlData } = _supabase.storage.from('EXCEL-FILES').getPublicUrl(`${tableName}/${file.name}`);
 
             return `
-                <div class="file-row">
-                    <span>📄 ${displayName}</span>
-                    <a href="${urlData.publicUrl}" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
+                <div class="file-row" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
+                    <div style="flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${displayName}</div>
+                    <div style="flex: 1; text-align: center; font-size: 13px; color: #666;">${uploadDate}</div>
+                    <div style="flex: 1; text-align: center; display: flex; justify-content: center; gap: 10px;">
+                        <button onclick="downloadFile('${urlData.publicUrl}', '${displayName}')" class="btn-text" style="color:#3498db; cursor:pointer; background:none; border:none; font-weight:bold;">다운로드</button>
+                        <button onclick="deleteFile('${file.name}')" class="btn-text" style="color:#e74c3c; cursor:pointer; background:none; border:none; font-weight:bold;">삭제</button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -214,7 +226,26 @@
         status.innerText = `❌ 실패: ${error.message}`;
     }
 }
+    // 파일 삭제 함수
+async function deleteFile(fileName) {
+    if (!confirm("정말로 이 파일을 삭제하시겠습니까? 복구할 수 없습니다.")) return;
 
+    try {
+        const { error } = await _supabase.storage
+            .from('EXCEL-FILES')
+            .remove([`${tableName}/${fileName}`]);
+
+        if (error) throw error;
+
+        alert("파일이 성공적으로 삭제되었습니다.");
+        listFiles(); // 목록 새로고침
+    } catch (error) {
+        console.error('삭제 중 오류 발생:', error);
+        alert('삭제 실패: ' + error.message);
+    }
+}
+
+    
     // 초기 실행
     window.onload = () => {
         if(window.location.hash === '#upload') showSection('upload');
