@@ -1,1 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>엑셀 파일 저장소</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .upload-card { border: 2px dashed #3498db; padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 30px; background: #ebf5fb; }
+        .file-list { list-style: none; padding: 0; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .btn { padding: 8px 16px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-download { background: #2ecc71; color: white; text-decoration: none; font-size: 13px; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <h2>📁 프로젝트 엑셀 저장소</h2>
+    <p id="tableInfo" style="color: #666;"></p>
+
+    <div class="upload-card">
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
+        <button class="btn btn-primary" onclick="uploadFile()">파일 서버에 올리기</button>
+        <p id="status" style="margin-top: 10px; font-size: 14px;"></p>
+    </div>
+
+    <h3>내역 목록</h3>
+    <ul id="fileList" class="file-list">
+        <li>파일을 불러오는 중...</li>
+    </ul>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w';
+    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableName = urlParams.get('table') || 'default'; // 키워드에 따른 구분용
+
+    document.getElementById('tableInfo').innerText = `현재 위치: ${tableName} 폴더`;
+
+    // 1. 파일 목록 가져오기
+    async function listFiles() {
+        const { data, error } = await _supabase.storage
+            .from('excel-files')
+            .list(tableName + '/'); // 키워드별로 폴더를 나눠서 관리
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        const listEl = document.getElementById('fileList');
+        if (data.length === 0) {
+            listEl.innerHTML = "<li>업로드된 파일이 없습니다.</li>";
+            return;
+        }
+
+        listEl.innerHTML = data.map(file => {
+            // 파일 다운로드 주소 생성
+            const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+            return `
+                <li class="file-item">
+                    <span>${file.name}</span>
+                    <a href="${urlData.publicUrl}" class="btn btn-download" download>다운로드</a>
+                </li>
+            `;
+        }).join('');
+    }
+
+    // 2. 파일 업로드하기
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        
+        if (!fileInput.files[0]) {
+            alert("파일을 선택해주세요.");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const filePath = `${tableName}/${file.name}`; // 폴더명/파일명 구조
+
+        status.innerText = "업로드 중...";
+
+        const { data, error } = await _supabase.storage
+            .from('excel-files')
+            .upload(filePath, file, { upsert: true }); // 동일 이름 있으면 덮어쓰기
+
+        if (error) {
+            status.innerText = "❌ 실패: " + error.message;
+        } else {
+            status.innerText = "✅ 업로드 완료!";
+            listFiles(); // 목록 갱신
+        }
+    }
+
+    // 초기 로드
+    listFiles();
+</script>
+</body>
+</html>
