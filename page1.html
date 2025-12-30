@@ -173,9 +173,26 @@
                 // 테이블에서 원본 파일명 가져오기
                 const displayName = nameMap[file.name] || file.name;
                 
+                // 파일명에서 날짜 추출 (--YYYYMMDD 형식)
+                const dateMatch = displayName.match(/--(\d{8})(\.[^.]+)?$/);
+                let displayText = displayName;
+                let dateDisplay = '';
+                
+                if (dateMatch) {
+                    // 날짜 부분 추출 (YYYYMMDD)
+                    const dateStr = dateMatch[1];
+                    const year = dateStr.substring(0, 4);
+                    const month = dateStr.substring(4, 6);
+                    const day = dateStr.substring(6, 8);
+                    dateDisplay = `${year}-${month}-${day}`;
+                    
+                    // 표시용 텍스트: 파일명과 날짜를 분리하여 표시
+                    displayText = displayName.replace(/--\d{8}(?=\.[^.]+)?$/, '');
+                }
+                
                 return `
                     <div class="file-row">
-                        <span>📄 ${displayName}</span>
+                        <span>📄 ${displayText}${dateDisplay ? ` <span style="color:#718096; font-size:0.9em;">(${dateDisplay})</span>` : ''}</span>
                         <a href="#" onclick="downloadFile('${file.name}', ${JSON.stringify(displayName)}); return false;" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
                     </div>
                 `;
@@ -193,6 +210,16 @@
         const originalFileName = selectedFile.name;
         const fileExt = originalFileName.split('.').pop();
         const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+
+        // 현재 날짜를 YYYYMMDD 형식으로 생성 (예: 20251230)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const dateStr = `${year}${month}${day}`;
+        
+        // 원본 파일명에 날짜 추가 (예: 파일명--20251230.xlsx)
+        const fileNameWithDate = `${fileNameWithoutExt}--${dateStr}.${fileExt}`;
 
         // [해결 핵심] Supabase Storage는 파일 경로에 한글, 공백, 특수문자가 있으면 Invalid key 오류 발생
         // 파일명을 완전히 안전한 영문/숫자/언더스코어/하이픈으로만 구성
@@ -215,13 +242,13 @@
 
             if (error) throw error;
 
-            // 원본 파일명을 테이블에 저장
+            // 원본 파일명(날짜 포함)을 테이블에 저장
             const { error: dbError } = await _supabase
                 .from('file_names')
                 .upsert({
                     table_name: tableName,
                     safe_file_name: safeFileName,
-                    original_file_name: originalFileName,
+                    original_file_name: fileNameWithDate,
                     created_at: new Date().toISOString()
                 }, {
                     onConflict: 'table_name,safe_file_name'
@@ -246,7 +273,7 @@
         }
     }
 
-    // 다운로드 함수: 원본 파일명으로 다운로드
+    // 다운로드 함수: 원본 파일명(날짜 제외)으로 다운로드
     async function downloadFile(safeFileName, originalFileName) {
         try {
             const { data, error } = await _supabase.storage
@@ -255,11 +282,14 @@
             
             if (error) throw error;
             
+            // 파일명에서 날짜 부분(--YYYYMMDD) 제거
+            const downloadFileName = originalFileName.replace(/--\d{8}(?=\.[^.]+)?$/, '');
+            
             // Blob을 다운로드 링크로 변환
             const url = window.URL.createObjectURL(data);
             const a = document.createElement('a');
             a.href = url;
-            a.download = originalFileName; // 원본 파일명으로 다운로드
+            a.download = downloadFileName; // 날짜가 제거된 원본 파일명으로 다운로드
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
