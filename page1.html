@@ -121,33 +121,35 @@
                 let displayName = file.name;
                 let displayDate = "-";
                 try {
-                    // 파일명에서 확장자 분리
+                    // 파일명 형식: hex(파일명)--YYYYMMDD.확장자
                     const lastDotIndex = file.name.lastIndexOf('.');
-                    const hex = lastDotIndex > 0 ? file.name.substring(0, lastDotIndex) : file.name;
+                    const nameWithoutExt = lastDotIndex > 0 ? file.name.substring(0, lastDotIndex) : file.name;
                     const ext = lastDotIndex > 0 ? file.name.substring(lastDotIndex) : '';
                     
-                    // hex 문자열을 바이트 배열로 변환 후 디코딩
-                    const hexBytes = hex.match(/.{1,2}/g);
-                    if (hexBytes && hexBytes.length > 0) {
-                        const bytes = new Uint8Array(hexBytes.map(byte => parseInt(byte, 16)));
-                        const decoded = new TextDecoder().decode(bytes);
+                    // --YYYYMMDD 패턴으로 날짜 부분 분리
+                    const dateMatch = nameWithoutExt.match(/^(.+?)--(\d{8})$/);
+                    if (dateMatch) {
+                        const hexName = dateMatch[1]; // hex로 인코딩된 파일명 부분
+                        const rawDate = dateMatch[2]; // 날짜 부분 (YYYYMMDD)
                         
-                        // 디코딩된 문자열에서 날짜 추출 (--YYYYMMDD 형식)
-                        if (decoded.includes('--')) {
-                            const nameParts = decoded.split('--');
-                            const rawDate = nameParts.pop(); // 마지막 부분이 날짜
-                            const fileName = nameParts.join('--'); // 나머지가 파일명
-                            displayName = fileName + ext;
-                            // 날짜 포맷: YYYY. MM. DD.
-                            if (rawDate.length === 8) {
+                        // hex 문자열을 디코딩하여 원본 파일명 복원
+                        if (hexName && /^[0-9a-f]+$/i.test(hexName) && hexName.length % 2 === 0) {
+                            const hexBytes = hexName.match(/.{1,2}/g);
+                            if (hexBytes && hexBytes.length > 0) {
+                                const bytes = new Uint8Array(hexBytes.map(byte => parseInt(byte, 16)));
+                                const decoded = new TextDecoder('utf-8').decode(bytes);
+                                displayName = decoded + ext;
+                                
+                                // 날짜 포맷: YYYY. MM. DD.
                                 displayDate = `${rawDate.substring(0,4)}. ${rawDate.substring(4,6)}. ${rawDate.substring(6,8)}.`;
                             }
-                        } else {
-                            displayName = decoded + ext;
                         }
+                    } else {
+                        // 형식이 맞지 않으면 원본 파일명 사용
+                        displayName = file.name;
                     }
                 } catch (e) { 
-                    console.error('파일명 디코딩 에러:', e);
+                    console.error('파일명 디코딩 에러:', e, file.name);
                     displayName = file.name; 
                 }
 
@@ -177,13 +179,21 @@
         const lastDotIndex = originalName.lastIndexOf('.');
         const fileExt = lastDotIndex > 0 ? originalName.substring(lastDotIndex + 1) : '';
         const nameNoExt = lastDotIndex > 0 ? originalName.substring(0, lastDotIndex) : originalName;
+        
+        // 현재 날짜를 YYYYMMDD 형식으로 생성
         const now = new Date();
-        const dateStr = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
-        // 파일명에 날짜 추가 (예: 파일명--20251230)
-        const combinedName = `${nameNoExt}--${dateStr}`;
-        // UTF-8로 인코딩 후 hex로 변환
-        const hexName = Array.from(new TextEncoder().encode(combinedName)).map(b => b.toString(16).padStart(2, '0')).join('');
-        const safeFileName = fileExt ? `${hexName}.${fileExt}` : hexName;
+        const year = String(now.getFullYear());
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const dateStr = year + month + day;
+        
+        // 파일명만 hex로 인코딩 (날짜는 제외)
+        const encoder = new TextEncoder();
+        const encoded = encoder.encode(nameNoExt);
+        const hexName = Array.from(encoded).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // hex(파일명)--YYYYMMDD.확장자 형식으로 저장
+        const safeFileName = fileExt ? `${hexName}--${dateStr}.${fileExt}` : `${hexName}--${dateStr}`;
         const filePath = `${tableName}/${safeFileName}`;
 
         try {
