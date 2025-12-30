@@ -34,6 +34,9 @@
         
         .btn-primary { padding: 12px 25px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-select { padding: 8px 15px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .btn-delete { padding: 8px 15px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-left: 10px; }
+        .btn-delete:hover { background: #c0392b; }
+        .file-actions { display: flex; align-items: center; gap: 10px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -171,7 +174,26 @@
                 if (file.name === '.emptyFolder') return '';
 
                 // 테이블에서 원본 파일명 가져오기
-                const displayName = nameMap[file.name] || file.name;
+                let displayName = nameMap[file.name] || file.name;
+                
+                // hex 인코딩된 파일명인 경우 디코딩 시도
+                if (!nameMap[file.name] && /^[0-9a-f]+(\.[^.]+)?$/i.test(displayName)) {
+                    try {
+                        // hex 문자열에서 한글 디코딩 시도
+                        const hexStr = displayName.replace(/\.[^.]+$/, '');
+                        const decoded = hexStr.match(/.{1,2}/g)
+                            .map(hex => String.fromCharCode(parseInt(hex, 16)))
+                            .join('');
+                        
+                        // 디코딩 결과가 유효한 문자열인지 확인
+                        if (decoded && /[\uac00-\ud7a3]/.test(decoded)) {
+                            const ext = displayName.match(/\.[^.]+$/)?.[0] || '';
+                            displayName = decoded + ext;
+                        }
+                    } catch (e) {
+                        // 디코딩 실패 시 원본 사용
+                    }
+                }
                 
                 // 파일명에서 날짜 추출 (--YYYYMMDD 형식)
                 const dateMatch = displayName.match(/--(\d{8})(\.[^.]+)?$/);
@@ -193,7 +215,10 @@
                 return `
                     <div class="file-row">
                         <span>📄 ${displayText}${dateDisplay ? ` <span style="color:#718096; font-size:0.9em;">(${dateDisplay})</span>` : ''}</span>
-                        <a href="#" onclick="downloadFile('${file.name}', ${JSON.stringify(displayName)}); return false;" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
+                        <div class="file-actions">
+                            <a href="#" onclick="downloadFile('${file.name}', ${JSON.stringify(displayName)}); return false;" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
+                            <button class="btn-delete" onclick="deleteFile('${file.name}'); return false;">삭제</button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -297,6 +322,40 @@
         } catch (error) {
             console.error("다운로드 에러:", error);
             alert(`다운로드 실패: ${error.message}`);
+        }
+    }
+
+    // 삭제 함수: 파일을 스토리지와 DB에서 삭제
+    async function deleteFile(safeFileName) {
+        if (!confirm('정말 이 파일을 삭제하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            // 1. 스토리지에서 파일 삭제
+            const { error: storageError } = await _supabase.storage
+                .from('excel-files')
+                .remove([`${tableName}/${safeFileName}`]);
+
+            if (storageError) throw storageError;
+
+            // 2. DB에서 파일명 매핑 삭제
+            const { error: dbError } = await _supabase
+                .from('file_names')
+                .delete()
+                .eq('table_name', tableName)
+                .eq('safe_file_name', safeFileName);
+
+            if (dbError) {
+                console.error("DB 삭제 에러:", dbError);
+                // DB 삭제 실패해도 스토리지 삭제는 성공했으므로 경고만 표시
+            }
+
+            // 목록 갱신
+            listFiles();
+        } catch (error) {
+            console.error("삭제 에러:", error);
+            alert(`삭제 실패: ${error.message}`);
         }
     }
 
