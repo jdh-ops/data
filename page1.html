@@ -125,10 +125,15 @@
                     const ext = parts.pop();
                     const hex = parts.join('.');
                     const decoded = new TextDecoder().decode(new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16))));
+                    
                     if (decoded.includes('--')) {
                         const nameParts = decoded.split('--');
-                        const rawDate = nameParts.pop();
+                        const rawDate = nameParts.pop(); // 날짜 부분 (20251230)
+                        
+                        // 화면에 표시될 파일명 (날짜 제외)
                         displayName = nameParts.join('--') + '.' + ext;
+                        
+                        // 화면에 표시될 날짜 형식 (2025. 12. 30.)
                         displayDate = `${rawDate.substring(0,4)}. ${rawDate.substring(4,6)}. ${rawDate.substring(6,8)}.`;
                     } else {
                         displayName = decoded + '.' + ext;
@@ -154,44 +159,67 @@
     }
 
     async function uploadFile() {
-        if (!selectedFile) return;
-        const status = document.getElementById('uploadStatus');
-        status.innerText = "서버로 전송 중...";
-        const originalName = selectedFile.name;
-        const fileExt = originalName.split('.').pop();
-        const nameNoExt = originalName.substring(0, originalName.lastIndexOf('.'));
-        const now = new Date();
-        const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
-        const combinedName = `${nameNoExt}--${dateStr}`;
-        const hexName = Array.from(new TextEncoder().encode(combinedName)).map(b => b.toString(16).padStart(2, '0')).join('');
-        const safeFileName = `${hexName}.${fileExt}`;
-        const filePath = `${tableName}/${safeFileName}`;
+    if (!selectedFile) return;
+    const status = document.getElementById('uploadStatus');
+    status.innerText = "서버로 전송 중...";
 
-        try {
-            const { data, error } = await _supabase.storage.from('excel-files').upload(filePath, selectedFile, { upsert: true });
-            if (error) throw error;
-            status.innerText = "✅ 업로드 성공!";
-            selectedFile = null;
-            document.getElementById('uploadBtn').style.display = 'none';
-            document.getElementById('selectedFileName').innerText = "";
-            setTimeout(() => listFiles(), 500);
-        } catch (error) { status.innerText = `❌ 실패: ${error.message}`; }
+    const originalName = selectedFile.name;
+    const fileExt = originalName.split('.').pop();
+    const nameNoExt = originalName.substring(0, originalName.lastIndexOf('.'));
+
+    // [추가] 오늘 날짜 생성 (예: 20251230)
+    const now = new Date();
+    const dateStr = now.getFullYear() + 
+                    String(now.getMonth() + 1).padStart(2, '0') + 
+                    String(now.getDate()).padStart(2, '0');
+
+    // [수정] 파일명 뒤에 구분자(--)와 날짜를 결합
+    const combinedName = `${nameNoExt}--${dateStr}`;
+
+    // 16진수 인코딩 (한글 깨짐 방지)
+    const hexName = Array.from(new TextEncoder().encode(combinedName))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+    const safeFileName = `${hexName}.${fileExt}`;
+    const filePath = `${tableName}/${safeFileName}`;
+
+    try {
+        const { data, error } = await _supabase.storage
+            .from('excel-files')
+            .upload(filePath, selectedFile, { upsert: true });
+
+        if (error) throw error;
+        status.innerText = "✅ 업로드 성공!";
+        setTimeout(() => listFiles(), 500);
+    } catch (error) {
+        status.innerText = `❌ 실패: ${error.message}`;
     }
+}
 
     async function downloadFile(url, fileName) {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(downloadUrl);
-        } catch (error) { alert('다운로드 실패'); }
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        
+        // [핵심 해결책] 파일명에서 날짜 부분(--YYYYMMDD)을 제거합니다.
+        // 예: "보고서--20251230.xlsx" -> "보고서.xlsx"
+        const cleanFileName = fileName.replace(/--\d{8}(?=\.[^.]+)?$/, '');
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = cleanFileName; // 날짜가 제거된 이름 설정
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error('다운로드 중 오류 발생:', error);
+        alert('파일을 다운로드할 수 없습니다.');
     }
+}
 
     async function deleteFile(fileName) {
         if (!confirm("정말로 이 파일을 삭제하시겠습니까?")) return;
