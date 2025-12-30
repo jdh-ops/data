@@ -7,37 +7,22 @@
     <style>
         :root { --sidebar-width: 260px; --primary-color: #3498db; --bg-color: #f8f9fa; }
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-color); color: #333; }
-
-        /* 사이드바 */
         .sidebar { width: var(--sidebar-width); background: #2c3e50; color: white; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
         .sidebar-header { padding: 30px 20px; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #3e4f5f; text-align: center; color: #ecf0f1; }
         .sidebar-menu { flex: 1; padding: 20px 0; }
         .menu-item { padding: 15px 25px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; font-size: 15px; }
         .menu-item:hover { background: #34495e; }
         .menu-item.active { background: var(--primary-color); color: white; border-right: 5px solid #fff; }
-
-        /* 메인 콘텐츠 */
         .main-content { flex: 1; overflow-y: auto; padding: 40px; }
         .content-section { display: none; }
         .content-section.active { display: block; animation: fadeIn 0.4s ease-out; }
-
-        /* 업로드 카드 및 드래그앤드랍 */
-        .upload-card { 
-            background: white; padding: 50px; border-radius: 15px; 
-            border: 2px dashed #cbd5e0; text-align: center; 
-            transition: all 0.3s; cursor: pointer; margin-bottom: 30px;
-        }
+        .upload-card { background: white; padding: 50px; border-radius: 15px; border: 2px dashed #cbd5e0; text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 30px; }
         .upload-card.drag-over { border-color: var(--primary-color); background: #ebf5fb; transform: scale(1.01); }
         .file-list { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
         .file-row { display: flex; justify-content: space-between; padding: 18px 25px; border-bottom: 1px solid #f1f1f1; align-items: center; }
         .file-row:last-child { border-bottom: none; }
-        
         .btn-primary { padding: 12px 25px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-select { padding: 8px 15px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-        .btn-delete { padding: 8px 15px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-left: 10px; }
-        .btn-delete:hover { background: #c0392b; }
-        .file-actions { display: flex; align-items: center; gap: 10px; }
-
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -62,10 +47,7 @@
 
         <div id="upload" class="content-section">
             <h2>파일 업로드</h2>
-            <div id="dropZone" class="upload-card" 
-                 ondragover="handleDragOver(event)" 
-                 ondragleave="handleDragLeave(event)" 
-                 ondrop="handleDrop(event)">
+            <div id="dropZone" class="upload-card" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
                 <p id="dropText" style="font-size: 18px; color: #4a5568;">📤 파일을 여기로 끌어다 놓으세요</p>
                 <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleFileSelect(event)">
                 <button onclick="document.getElementById('fileInput').click()" class="btn-select">또는 파일 선택</button>
@@ -89,9 +71,8 @@
     </div>
 
 <script>
-    // 1. Supabase 초기화
     const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w'; // eyJ...로 시작하는 긴 키로 교체하세요!
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w';
     const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -101,46 +82,25 @@
 
     let selectedFile = null;
 
-    // [중요] 섹션 전환 함수 (showSection is not defined 에러 해결)
     window.showSection = function(sectionId) {
-        // 모든 섹션 숨기기
         document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-        // 모든 메뉴 아이템 활성화 해제
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        
-        // 대상 섹션 보이기
         document.getElementById(sectionId).classList.add('active');
-        
-        // 클릭된 메뉴 하이라이트 (이벤트 대상을 찾아 활성화)
         const menuItems = document.querySelectorAll('.menu-item');
         menuItems.forEach(item => {
             if(item.innerText.includes(sectionId === 'dashboard' ? '대시보드' : sectionId === 'upload' ? '업로드' : '설정')) {
                 item.classList.add('active');
             }
         });
-
         if(sectionId === 'upload') listFiles();
     }
 
-    // --- 드래그 앤 드랍 로직 ---
     function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
     function handleDragLeave(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('drag-over'); }
-    function handleDrop(e) {
-        e.preventDefault();
-        document.getElementById('dropZone').classList.remove('drag-over');
-        if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
-    }
-    function handleFileSelect(e) {
-        if (e.target.files.length > 0) processFile(e.target.files[0]);
-    }
-    function processFile(file) {
-        selectedFile = file;
-        document.getElementById('selectedFileName').innerText = "선택된 파일: " + file.name;
-        document.getElementById('uploadBtn').style.display = 'block';
-        document.getElementById('dropText').innerText = "파일이 준비되었습니다!";
-    }
+    function handleDrop(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('drag-over'); if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]); }
+    function handleFileSelect(e) { if (e.target.files.length > 0) processFile(e.target.files[0]); }
+    function processFile(file) { selectedFile = file; document.getElementById('selectedFileName').innerText = "선택된 파일: " + file.name; document.getElementById('uploadBtn').style.display = 'block'; document.getElementById('dropText').innerText = "파일이 준비되었습니다!"; }
 
-    // --- 파일 목록 및 업로드 로직 ---
     async function listFiles() {
         const listEl = document.getElementById('fileList');
         try {
@@ -151,73 +111,55 @@
                 return;
             }
 
-            // 모든 파일의 원본 파일명을 한 번에 조회
-            const safeFileNames = data
-                .filter(f => f.name !== '.emptyFolder')
-                .map(f => f.name);
-            
-            const { data: fileMappings } = await _supabase
-                .from('file_names')
-                .select('safe_file_name, original_file_name')
-                .eq('table_name', tableName)
-                .in('safe_file_name', safeFileNames);
-
-            // 매핑 데이터를 객체로 변환 (빠른 조회를 위해)
-            const nameMap = {};
-            if (fileMappings) {
-                fileMappings.forEach(m => {
-                    nameMap[m.safe_file_name] = m.original_file_name;
-                });
-            }
-
-            listEl.innerHTML = data.map(file => {
-                if (file.name === '.emptyFolder') return '';
-
-                // 테이블에서 원본 파일명 가져오기
-                let displayName = nameMap[file.name] || file.name;
-                
-                // hex 인코딩된 파일명인 경우 디코딩 시도
-                if (!nameMap[file.name] && /^[0-9a-f]+(\.[^.]+)?$/i.test(displayName)) {
-                    try {
-                        // hex 문자열에서 한글 디코딩 시도
-                        const hexStr = displayName.replace(/\.[^.]+$/, '');
-                        const decoded = hexStr.match(/.{1,2}/g)
-                            .map(hex => String.fromCharCode(parseInt(hex, 16)))
-                            .join('');
+            listEl.innerHTML = `
+                <div style="padding: 10px; background: #f8f9fa; font-weight: bold; display: flex; border-bottom: 2px solid #dee2e6;">
+                    <div style="flex: 2;">파일명</div>
+                    <div style="flex: 1; text-align: center;">업로드 날짜</div>
+                    <div style="flex: 1; text-align: center;">관리</div>
+                </div>
+            ` + data.filter(file => file.name !== '.emptyFolder').map(file => {
+                let displayName = file.name;
+                let displayDate = "-";
+                try {
+                    // 파일명에서 확장자 분리
+                    const lastDotIndex = file.name.lastIndexOf('.');
+                    const hex = lastDotIndex > 0 ? file.name.substring(0, lastDotIndex) : file.name;
+                    const ext = lastDotIndex > 0 ? file.name.substring(lastDotIndex) : '';
+                    
+                    // hex 문자열을 바이트 배열로 변환 후 디코딩
+                    const hexBytes = hex.match(/.{1,2}/g);
+                    if (hexBytes && hexBytes.length > 0) {
+                        const bytes = new Uint8Array(hexBytes.map(byte => parseInt(byte, 16)));
+                        const decoded = new TextDecoder().decode(bytes);
                         
-                        // 디코딩 결과가 유효한 문자열인지 확인
-                        if (decoded && /[\uac00-\ud7a3]/.test(decoded)) {
-                            const ext = displayName.match(/\.[^.]+$/)?.[0] || '';
+                        // 디코딩된 문자열에서 날짜 추출 (--YYYYMMDD 형식)
+                        if (decoded.includes('--')) {
+                            const nameParts = decoded.split('--');
+                            const rawDate = nameParts.pop(); // 마지막 부분이 날짜
+                            const fileName = nameParts.join('--'); // 나머지가 파일명
+                            displayName = fileName + ext;
+                            // 날짜 포맷: YYYY. MM. DD.
+                            if (rawDate.length === 8) {
+                                displayDate = `${rawDate.substring(0,4)}. ${rawDate.substring(4,6)}. ${rawDate.substring(6,8)}.`;
+                            }
+                        } else {
                             displayName = decoded + ext;
                         }
-                    } catch (e) {
-                        // 디코딩 실패 시 원본 사용
                     }
+                } catch (e) { 
+                    console.error('파일명 디코딩 에러:', e);
+                    displayName = file.name; 
                 }
-                
-                // 파일명에서 날짜 추출 (--YYYYMMDD 형식)
-                const dateMatch = displayName.match(/--(\d{8})(\.[^.]+)?$/);
-                let displayText = displayName;
-                let dateDisplay = '';
-                
-                if (dateMatch) {
-                    // 날짜 부분 추출 (YYYYMMDD)
-                    const dateStr = dateMatch[1];
-                    const year = dateStr.substring(0, 4);
-                    const month = dateStr.substring(4, 6);
-                    const day = dateStr.substring(6, 8);
-                    dateDisplay = `${year}-${month}-${day}`;
-                    
-                    // 표시용 텍스트: 파일명과 날짜를 분리하여 표시
-                    displayText = displayName.replace(/--\d{8}(?=\.[^.]+)?$/, '');
-                }
-                
+
+                const { data: urlData } = _supabase.storage.from('excel-files').getPublicUrl(`${tableName}/${file.name}`);
+
                 return `
-                    <div class="file-row">
-                        <span>📄 ${displayText}${dateDisplay ? ` <span style="color:#718096; font-size:0.9em;">(${dateDisplay})</span>` : ''}</span>
-                        <div class="file-actions">
-                            <a href="#" onclick="downloadFile('${file.name}', ${JSON.stringify(displayName)}); return false;" style="color:#3498db; text-decoration:none; font-weight:bold;">다운로드</a>
-                            <button class="btn-delete" onclick="deleteFile('${file.name}'); return false;">삭제</button>
+                    <div class="file-row" style="display: flex; align-items: center; padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+                        <div style="flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📄 ${displayName}</div>
+                        <div style="flex: 1; text-align: center; color: #666; font-size: 12px;">${displayDate}</div>
+                        <div style="flex: 1; text-align: center; display: flex; justify-content: center; gap: 8px;">
+                            <button onclick="downloadFile('${urlData.publicUrl}', '${displayName}')" style="color:#3498db; background:none; border:none; cursor:pointer; font-weight:bold;">다운로드</button>
+                            <button onclick="deleteFile('${file.name}')" style="color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">삭제</button>
                         </div>
                     </div>
                 `;
@@ -231,138 +173,56 @@
         if (!selectedFile) return;
         const status = document.getElementById('uploadStatus');
         status.innerText = "서버로 전송 중...";
-
-        const originalFileName = selectedFile.name;
-        const fileExt = originalFileName.split('.').pop();
-        const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-
-        // 현재 날짜를 YYYYMMDD 형식으로 생성 (예: 20251230)
+        const originalName = selectedFile.name;
+        const lastDotIndex = originalName.lastIndexOf('.');
+        const fileExt = lastDotIndex > 0 ? originalName.substring(lastDotIndex + 1) : '';
+        const nameNoExt = lastDotIndex > 0 ? originalName.substring(0, lastDotIndex) : originalName;
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const dateStr = `${year}${month}${day}`;
-        
-        // 원본 파일명에 날짜 추가 (예: 파일명--20251230.xlsx)
-        const fileNameWithDate = `${fileNameWithoutExt}--${dateStr}.${fileExt}`;
-
-        // [해결 핵심] Supabase Storage는 파일 경로에 한글, 공백, 특수문자가 있으면 Invalid key 오류 발생
-        // 파일명을 완전히 안전한 영문/숫자/언더스코어/하이픈으로만 구성
-        // 원본 파일명은 별도 테이블에 저장
-        
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 8); // 랜덤 문자열 추가
-        
-        // 안전한 파일명 생성: 영문, 숫자, 언더스코어, 하이픈만 사용
-        const safeFileName = `file_${timestamp}_${randomStr}.${fileExt}`;
+        const dateStr = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+        // 파일명에 날짜 추가 (예: 파일명--20251230)
+        const combinedName = `${nameNoExt}--${dateStr}`;
+        // UTF-8로 인코딩 후 hex로 변환
+        const hexName = Array.from(new TextEncoder().encode(combinedName)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const safeFileName = fileExt ? `${hexName}.${fileExt}` : hexName;
         const filePath = `${tableName}/${safeFileName}`;
 
         try {
-            const { data, error } = await _supabase.storage
-                .from('excel-files')
-                .upload(filePath, selectedFile, { 
-                    upsert: true,
-                    contentType: selectedFile.type
-                });
-
+            const { data, error } = await _supabase.storage.from('excel-files').upload(filePath, selectedFile, { upsert: true });
             if (error) throw error;
-
-            // 원본 파일명(날짜 포함)을 테이블에 저장
-            const { error: dbError } = await _supabase
-                .from('file_names')
-                .upsert({
-                    table_name: tableName,
-                    safe_file_name: safeFileName,
-                    original_file_name: fileNameWithDate,
-                    created_at: new Date().toISOString()
-                }, {
-                    onConflict: 'table_name,safe_file_name'
-                });
-
-            if (dbError) {
-                console.error("파일명 저장 에러:", dbError);
-                // 파일명 저장 실패해도 업로드는 성공했으므로 경고만 표시
-            }
-
             status.innerText = "✅ 업로드 성공!";
             selectedFile = null;
             document.getElementById('uploadBtn').style.display = 'none';
             document.getElementById('selectedFileName').innerText = "";
-            
-            // 업로드 성공 후 목록 갱신
-            setTimeout(() => listFiles(), 500); 
-
-        } catch (error) {
-            console.error("상세 에러:", error);
-            status.innerText = `❌ 실패: ${error.message}`;
-        }
+            setTimeout(() => listFiles(), 500);
+        } catch (error) { status.innerText = `❌ 실패: ${error.message}`; }
     }
 
-    // 다운로드 함수: 원본 파일명(날짜 제외)으로 다운로드
-    async function downloadFile(safeFileName, originalFileName) {
+    async function downloadFile(url, fileName) {
         try {
-            const { data, error } = await _supabase.storage
-                .from('excel-files')
-                .download(`${tableName}/${safeFileName}`);
-            
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) { alert('다운로드 실패'); }
+    }
+
+    async function deleteFile(fileName) {
+        if (!confirm("정말로 이 파일을 삭제하시겠습니까?")) return;
+        try {
+            const { error } = await _supabase.storage.from('excel-files').remove([`${tableName}/${fileName}`]);
             if (error) throw error;
-            
-            // 파일명에서 날짜 부분(--YYYYMMDD) 제거
-            const downloadFileName = originalFileName.replace(/--\d{8}(?=\.[^.]+)?$/, '');
-            
-            // Blob을 다운로드 링크로 변환
-            const url = window.URL.createObjectURL(data);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = downloadFileName; // 날짜가 제거된 원본 파일명으로 다운로드
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("다운로드 에러:", error);
-            alert(`다운로드 실패: ${error.message}`);
-        }
-    }
-
-    // 삭제 함수: 파일을 스토리지와 DB에서 삭제
-    async function deleteFile(safeFileName) {
-        if (!confirm('정말 이 파일을 삭제하시겠습니까?')) {
-            return;
-        }
-
-        try {
-            // 1. 스토리지에서 파일 삭제
-            const { error: storageError } = await _supabase.storage
-                .from('excel-files')
-                .remove([`${tableName}/${safeFileName}`]);
-
-            if (storageError) throw storageError;
-
-            // 2. DB에서 파일명 매핑 삭제
-            const { error: dbError } = await _supabase
-                .from('file_names')
-                .delete()
-                .eq('table_name', tableName)
-                .eq('safe_file_name', safeFileName);
-
-            if (dbError) {
-                console.error("DB 삭제 에러:", dbError);
-                // DB 삭제 실패해도 스토리지 삭제는 성공했으므로 경고만 표시
-            }
-
-            // 목록 갱신
+            alert("삭제되었습니다.");
             listFiles();
-        } catch (error) {
-            console.error("삭제 에러:", error);
-            alert(`삭제 실패: ${error.message}`);
-        }
+        } catch (error) { alert("삭제 실패: " + error.message); }
     }
 
-    // 초기 실행
-    window.onload = () => {
-        if(window.location.hash === '#upload') showSection('upload');
-    };
+    window.onload = () => { if(window.location.hash === '#upload') showSection('upload'); };
 </script>
 </body>
 </html>
