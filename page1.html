@@ -106,8 +106,19 @@
         try {
             const { data, error } = await _supabase.storage.from('excel-files').list(tableName + '/');
             if (error) throw error;
-            if (!data || data.length === 0) {
-                listEl.innerHTML = "<p style='padding:20px; color:#a0aec0;'>업로드된 파일이 없습니다.</p>";
+
+            // [중요] 시스템 파일(.emptyFolder 등)을 제외한 실제 파일만 필터링
+            const actualFiles = data.filter(file => 
+                file.name !== '.emptyFolder' && 
+                file.name !== '.emptyFolderPlaceholder'
+            );
+
+            // 실제 파일이 하나도 없을 경우의 처리
+            if (!actualFiles || actualFiles.length === 0) {
+                listEl.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: #a0aec0; background: white; border-radius: 12px;">
+                        <p style="font-size: 16px; margin: 0;">📁 업로드된 파일이 없습니다.</p>
+                    </div>`;
                 return;
             }
 
