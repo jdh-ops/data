@@ -128,7 +128,8 @@ async function uploadFile() {
             status.innerText = `❌ 실패: ${error.message}`; 
         }
     }
-async function downloadFile(url, fileName) {
+
+    async function downloadFile(url, fileName) {
         try {
             const response = await fetch(url);
             const blob = await response.blob();
@@ -152,7 +153,7 @@ async function downloadFile(url, fileName) {
         }
     }
 
-    async function deleteFile(fileName) {
+async function deleteFile(fileName) {
         if (!confirm("정말로 이 파일을 삭제하시겠습니까?")) return;
         try {
             const { error } = await _supabase.storage.from('excel-files').remove([`${tableName}/${fileName}`]);
