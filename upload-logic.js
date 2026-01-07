@@ -2,12 +2,23 @@
 let selectedFile = null;
 
 // 섹션 전환 함수 (필요 시 호출)
+// upload-logic.js 내의 함수
 window.showSection = function(sectionId) {
+    // 모든 섹션과 메뉴를 비활성화하는 공통 로직
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    
+    // 선택된 섹션 활성화
     document.getElementById(sectionId).classList.add('active');
     
-    if(sectionId === 'upload') listFiles();
+    // [핵심 부분] 섹션 ID에 따라 데이터 로드 함수 연결
+    if (sectionId === 'dashboard') {
+        // '정품 이미지 저장' 메뉴를 눌렀을 때 실행됨
+        fetchImages();
+    } else if (sectionId === 'upload') {
+        // '파일 업로드' 메뉴를 눌렀을 때 실행됨
+        listFiles();
+    }
 };
 
 async function listFiles() {
