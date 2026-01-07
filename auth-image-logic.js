@@ -104,13 +104,12 @@ window.closeAddPopup = () => {
     document.getElementById('saveImgBtn').innerText = "이미지 대기 중...";
 };
 
-// 5. 데이터 불러오기 및 리스트 렌더링 (추가 필요)
+// 5. 데이터 불러오기 및 리스트 렌더링 수정
 async function fetchImages() {
     const grid = document.getElementById('imageGrid');
     if (!grid) return;
 
     try {
-        // 현재 테이블명(tableName)과 일치하는 데이터만 가져옴
         const { data, error } = await _supabase
             .from('product_images')
             .select('*')
@@ -119,32 +118,29 @@ async function fetchImages() {
 
         if (error) throw error;
 
-        // 데이터가 없을 때 표시
         if (!data || data.length === 0) {
-            grid.innerHTML = `
-                <div style="padding: 40px; text-align: center; color: #a0aec0; background: white; border-radius: 12px;">
-                    <p>📸 등록된 정품 이미지가 없습니다.</p>
-                </div>`;
+            grid.innerHTML = `<p style="text-align:center; padding:40px; color:#a0aec0;">📸 등록된 이미지가 없습니다.</p>`;
             return;
         }
 
-        // 데이터가 있을 때 HTML 생성
+        // 상품명을 제거하고 이미지를 키운 UI
         grid.innerHTML = data.map(item => `
-            <div class="image-item" style="display:flex; align-items:center; background:white; padding:15px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; margin-right:15px; width:18px; height:18px;">
-                <img src="${item.thumbnail_url}" style="width:70px; height:70px; object-fit:cover; border-radius:8px; margin-right:20px; border:1px solid #edf2f7;">
-                <div style="flex:1;">
-                    <div style="font-weight:bold; font-size:14px; margin-bottom:8px; color:#2d3748;">${item.name}</div>
-                    <div style="display:flex; gap:8px;">
-                        <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="font-size:11px; padding:5px 10px; background:#ebf8ff; color:#2b6cb0; border:none; margin-top:0;">🖼️ 이미지 복사</button>
-                        <button onclick="copyTextToClipboard('${item.real_url}')" class="btn-select" style="font-size:11px; padding:5px 10px; background:#f7fafc; color:#4a5568; border:none; margin-top:0;">🔗 URL 복사</button>
-                    </div>
+            <div class="image-item" style="display:flex; align-items:center; background:white; padding:20px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-bottom:10px;">
+                <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; margin-right:20px; width:22px; height:22px; cursor:pointer;">
+                
+                <div style="width:150px; height:150px; border-radius:12px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; flex-shrink:0;">
+                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+                </div>
+                
+                <div style="margin-left:30px; display:flex; flex-direction:column; gap:12px;">
+                    <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🖼️ 이미지 복사</button>
+                    <button onclick="copyTextToClipboard('${item.real_url}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🔗 URL 복사</button>
+                    ${item.product_url ? `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🛒 상품 페이지</button>` : ''}
                 </div>
             </div>
         `).join('');
     } catch (err) {
-        console.error('데이터 로드 실패:', err);
-        grid.innerHTML = `<p style="color:red; padding:20px;">데이터를 불러오는 중 오류가 발생했습니다.</p>`;
+        grid.innerHTML = `<p style="color:red; padding:20px;">데이터 로드 실패</p>`;
     }
 }
 
@@ -154,13 +150,11 @@ async function copyImageToClipboard(url) {
         const response = await fetch(url);
         const blob = await response.blob();
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        alert('🖼️ 이미지가 클립보드에 복사되었습니다.');
     } catch (err) { alert('이미지 복사 실패'); }
 }
 
 function copyTextToClipboard(text) {
     navigator.clipboard.writeText(text);
-    alert('🔗 URL이 복사되었습니다.');
 }
 
 // 7. 수정/삭제 모드 관련 변수 및 함수 (추가 필요)
