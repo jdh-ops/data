@@ -31,14 +31,14 @@
     <div class="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
         <div class="sidebar-menu">
-            <div class="menu-item active" onclick="showSection('dashboard')">🖼️ 정품 이미지 저장 </div>
+            <div class="menu-item active" onclick="showSection('dashboard')">🖼️ 정품 이미지 저장</div>
             <div class="menu-item" onclick="showSection('upload')">📤 파일 업로드</div>
             <div class="menu-item" onclick="showSection('settings')">⚙️ 설정</div>
         </div>
     </div>
 
-    <div class="menu-item active" onclick="showSection('dashboard')">🖼️ 정품 이미지 저장</div>
-
+    <div class="main-content">
+        
         <div id="dashboard" class="content-section active">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2>📸 정품 이미지 관리</h2>
@@ -51,19 +51,6 @@
 
             <div id="imageGrid" style="display: flex; flex-direction: column; gap: 15px;">
                 </div>
-        </div>
-
-        <div id="imageModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-            <div style="background:white; padding:30px; border-radius:12px; width:400px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
-                <h3>새 이미지 등록</h3>
-                <input type="text" id="itemName" placeholder="상품명" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
-                <input type="text" id="thumbUrl" placeholder="섬네일 이미지 URL" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
-                <input type="text" id="realUrl" placeholder="실제 이미지 URL" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button onclick="saveImage()" class="btn-primary" style="flex:1;">저장</button>
-                    <button onclick="closeAddPopup()" class="btn-select" style="flex:1;">취소</button>
-                </div>
-            </div>
         </div>
 
         <div id="upload" class="content-section">
@@ -89,28 +76,35 @@
                 <p>시스템 알림 및 계정 설정을 관리합니다.</p>
             </div>
         </div>
+
+    </div> <div id="imageModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; padding:30px; border-radius:12px; width:400px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
+            <h3>새 이미지 등록</h3>
+            <input type="text" id="itemName" placeholder="상품명" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            <input type="text" id="thumbUrl" placeholder="섬네일 이미지 URL" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            <input type="text" id="realUrl" placeholder="실제 이미지 URL" style="width:100%; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button onclick="saveImage()" class="btn-primary" style="flex:1;">저장</button>
+                <button onclick="closeAddPopup()" class="btn-select" style="flex:1;">취소</button>
+            </div>
+        </div>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="keyword-logic.js"></script>
+    <script src="upload-logic.js"></script>
+    <script src="auth-image-logic.js"></script>
 
-<script src="config.js"></script>
-<script src="keyword-logic.js"></script>
-<script src="upload-logic.js"></script>
-<script src="auth-image-logic.js"></script>
-
-<script>
-    // 페이지 개별적인 초기화 로직이 필요하다면 여기에 작성
-    window.onload = () => {
-        initKeywordView(); // 제목 설정
-        
-        // 현재 어떤 섹션인지 확인하여 데이터 로드
-        if (window.location.hash === '#upload') {
-            showSection('upload');
-        } else {
-            // 기본 섹션(dashboard)이 정품 이미지 저장이므로 데이터를 불러옴
-            showSection('dashboard');
-        }
-    };
-</script>
+    <script>
+        window.onload = () => {
+            initKeywordView();
+            // 초기 섹션 로드
+            if (window.location.hash === '#upload') {
+                showSection('upload');
+            } else {
+                showSection('dashboard');
+            }
+        };
+    </script>
 </body>
 </html>
