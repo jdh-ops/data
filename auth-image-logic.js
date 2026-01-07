@@ -104,7 +104,7 @@ window.closeAddPopup = () => {
     document.getElementById('saveImgBtn').innerText = "이미지 대기 중...";
 };
 
-// 5. 데이터 불러오기 및 리스트 렌더링 수정
+// 5. 데이터 불러오기 및 리스트 렌더링 (상품 URL 복사로 수정)
 async function fetchImages() {
     const grid = document.getElementById('imageGrid');
     if (!grid) return;
@@ -123,7 +123,6 @@ async function fetchImages() {
             return;
         }
 
-        // 상품명을 제거하고 이미지를 키운 UI
         grid.innerHTML = data.map(item => `
             <div class="image-item" style="display:flex; align-items:center; background:white; padding:20px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-bottom:10px;">
                 <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; margin-right:20px; width:22px; height:22px; cursor:pointer;">
@@ -134,8 +133,10 @@ async function fetchImages() {
                 
                 <div style="margin-left:30px; display:flex; flex-direction:column; gap:12px;">
                     <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🖼️ 이미지 복사</button>
-                    <button onclick="copyTextToClipboard('${item.real_url}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🔗 URL 복사</button>
-                    ${item.product_url ? `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🛒 상품 페이지</button>` : ''}
+                    
+                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🔗 상품 URL 복사</button>
+                    
+                    ${item.product_url ? `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🛒 상품 페이지 이동</button>` : ''}
                 </div>
             </div>
         `).join('');
