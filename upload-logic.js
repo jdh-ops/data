@@ -163,3 +163,44 @@ async function deleteFile(fileName) {
         } catch (error) { alert("삭제 실패: " + error.message); }
     }
 // deleteFile, downloadFile 함수들도 여기에 포함
+// --- 드래그 앤 드롭 및 파일 선택 핸들러 추가 ---
+
+window.handleDragOver = function(e) {
+    e.preventDefault();
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) dropZone.classList.add('drag-over');
+};
+
+window.handleDragLeave = function(e) {
+    e.preventDefault();
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) dropZone.classList.remove('drag-over');
+};
+
+window.handleDrop = function(e) {
+    e.preventDefault();
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) dropZone.classList.remove('drag-over');
+    
+    if (e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+    }
+};
+
+window.handleFileSelect = function(e) {
+    if (e.target.files.length > 0) {
+        processFile(e.target.files[0]);
+    }
+};
+
+// 선택된 파일을 분석하고 업로드 버튼을 활성화하는 함수
+function processFile(file) {
+    selectedFile = file;
+    const fileNameDisplay = document.getElementById('selectedFileName');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const dropText = document.getElementById('dropText');
+
+    if (fileNameDisplay) fileNameDisplay.innerText = "선택된 파일: " + file.name;
+    if (uploadBtn) uploadBtn.style.display = 'block';
+    if (dropText) dropText.innerText = "파일이 준비되었습니다!";
+}
