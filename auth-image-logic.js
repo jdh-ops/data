@@ -399,19 +399,26 @@ function showImagePreview(event, url) {
         const img = document.getElementById('hoverPreviewImg');
         
         if (preview && img) {
-            img.src = url;
-            
-            // 투명도를 0으로 만들어 위치 계산 전까지 숨김
-            preview.style.opacity = '0'; 
+            // 1. 투명도를 0으로 숨기고 display를 block으로 설정 (높이 계산 준비)
+            preview.style.opacity = '0';
             preview.style.display = 'block';
             
-            // 위치 계산 함수 호출
-            updatePreviewPosition(event);
-            
-            // 위치 계산 완료 후 다시 보이게 함
-            preview.style.opacity = '1';
+            // 2. 새로운 이미지 소스 할당
+            img.src = url;
+
+            // 3. [핵심] 이미지가 완전히 로드되어 실제 높이가 생겼을 때 위치 계산 실행
+            img.onload = function() {
+                updatePreviewPosition(event);
+                preview.style.opacity = '1'; // 위치를 다 잡은 후 노출
+            };
+
+            // 만약 이미지가 이미 캐시되어 있다면 즉시 실행
+            if (img.complete) {
+                updatePreviewPosition(event);
+                preview.style.opacity = '1';
+            }
         }
-    }, 500); // 0.5초 지연
+    }, 500); 
 }
 
 function hideImagePreview() {
