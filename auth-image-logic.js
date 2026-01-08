@@ -189,7 +189,7 @@ function renderImageGrid(data) {
             <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc;"
                  onmouseenter="showImagePreview(event, '${item.real_url}')" 
                  onmouseleave="hideImagePreview()" 
-                 onmousemove="saveMousePos(event)"> <img src="${item.thumbnail_url}">
+                 onmousemove="saveMousePos(event)">
                 <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
             </div>
 
