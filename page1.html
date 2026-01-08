@@ -155,7 +155,9 @@
         <div class="modal-content" style="width: 400px;">
             <h3 id="editModalTitle" style="margin-top:0;">편집</h3>
             <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                <input type="text" id="editModalInput" placeholder="추가할 단어 입력" style="flex:1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <input type="text" id="editModalInput" placeholder="추가할 단어 입력" 
+                       onkeypress="if(event.keyCode==13) addTermToModal()"
+                       style="flex:1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
                 <button onclick="addTermToModal()" class="btn-primary" style="padding: 0 15px; height: 38px;">추가</button>
             </div>
             <div id="editModalList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 100px; padding: 10px; border: 1px solid #f1f1f1; border-radius: 8px; align-content: flex-start;">
