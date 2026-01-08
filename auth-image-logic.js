@@ -256,6 +256,7 @@ function toggleTerm(term) {
 
 function resetSearch() {
     selectedTerms = [];
+    excludeTerms = []; 
     isDelActive = false;
     filterMode = 'OR';
     document.getElementById('tagFilter').value = "";
