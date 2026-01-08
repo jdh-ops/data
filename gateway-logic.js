@@ -117,7 +117,8 @@ async function checkKeyword() {
             // 0.8초 후 페이지 이동 (기존 DB의 target_table 값 활용)
             setTimeout(() => {
                 const targetPath = data.target_table || data.keyword;
-                window.location.href = `page1.html?table=${encodeURIComponent(targetPath)}`;
+                // gateway-logic.js 내 이동 코드 수정
+                window.location.href = `page1.html?table=${encodeURIComponent(targetPath)}&key=${encodeURIComponent(keyword)}`;
             }, 800);
         }
     } catch (err) {

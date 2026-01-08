@@ -30,7 +30,8 @@
 
             /* 접혔을 때 텍스트 숨기기 */
             .sidebar.collapsed .sidebar-header,
-            .sidebar.collapsed .menu-item span {
+            .sidebar.collapsed .menu-item span,
+            .sidebar.collapsed .sidebar-footer span {  
                 display: none;
             }
 
@@ -91,6 +92,7 @@
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
+        
         <div class="sidebar-menu">
             <div class="menu-item active" onclick="showSection('dashboard')">
                 <i>🖼️</i> <span>정품 이미지 저장</span>
@@ -101,7 +103,12 @@
             <div class="menu-item" onclick="showSection('settings')">
                 <i>⚙️</i> <span>설정</span>
             </div>
+            
+            <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;">
+                <i>🚪</i> <span>관문으로 돌아가기</span>
+            </div>
         </div>
+    
         <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
     </div>
 
