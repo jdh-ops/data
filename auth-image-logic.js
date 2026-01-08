@@ -6,6 +6,7 @@
 // --- [상태 관리 변수] ---
 let selectedTerms = []; // 파란색(AND/OR) 검색어
 let excludeTerms = [];  // 빨간색(DEL) 검색어
+let isEditMode = false;
 let filterMode = 'OR';  
 let isDelActive = false; 
 let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
@@ -254,12 +255,13 @@ function toggleTerm(term) {
     renderSavedTerms();
 }
 
-function resetSearch() {
+function resetAllFilters() {
     selectedTerms = [];
     excludeTerms = []; 
     isDelActive = false;
     filterMode = 'OR';
-    document.getElementById('tagFilter').value = "";
+    const tagInput = document.getElementById('tagFilter');
+    if(tagInput) tagInput.value = "";
     fetchImages();
 }
 

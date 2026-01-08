@@ -99,8 +99,27 @@
         </div>
 
         <div id="upload" class="content-section">
-            <h2>파일 업로드</h2>
-            <div id="fileList"></div>
+            <h2 style="margin-bottom: 20px;">📤 파일 업로드 (Excel/CSV)</h2>
+            
+            <div id="dropZone" class="upload-card" 
+                 ondragover="handleDragOver(event)" 
+                 ondragleave="handleDragLeave(event)" 
+                 ondrop="handleDrop(event)"
+                 style="background: white; padding: 50px; border-radius: 15px; border: 2px dashed #cbd5e0; text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 30px;">
+                
+                <p id="dropText" style="font-size: 18px; color: #4a5568;">📤 파일을 여기로 끌어다 놓으세요</p>
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleFileSelect(event)">
+                <button onclick="document.getElementById('fileInput').click()" class="btn-select">또는 파일 선택</button>
+                
+                <p id="selectedFileName" style="margin-top: 15px; font-weight: bold; color: #3498db; min-height: 20px;"></p>
+                <button id="uploadBtn" onclick="uploadFile()" class="btn-primary" style="display: none; margin: 20px auto;">서버로 전송 시작</button>
+                <p id="uploadStatus" style="margin-top:10px; font-size:14px; color: #718096;"></p>
+            </div>
+        
+            <h3 style="margin-bottom: 15px;">📁 저장된 파일 내역</h3>
+            <div id="fileList" class="file-list" style="background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden;">
+                <p style="padding: 20px; color: #a0aec0; text-align: center;">파일을 불러오는 중...</p>
+            </div>
         </div>
 
         <div id="settings" class="content-section">
