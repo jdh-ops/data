@@ -42,7 +42,7 @@ async function processCreate() {
         // [2] 기존 keywords 테이블에 데이터 삽입
         // keyword: 접속시 치는 이름, target_table: 영문 닉네임
         const { error: insertError } = await _supabase
-            .from('keywords')
+            .from('gateways')
             .insert([
                 { 
                     keyword: keyword, 
