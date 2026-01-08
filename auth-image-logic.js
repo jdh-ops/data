@@ -393,14 +393,25 @@ function removeTermFromModal(index) {
 }
 
 function showImagePreview(event, url) {
+    clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => {
         const preview = document.getElementById('imageHoverPreview');
         const img = document.getElementById('hoverPreviewImg');
         
-        img.src = url;
-        preview.style.display = 'block';
-        updatePreviewPosition(event);
-    }, 500); //0.5초 지연
+        if (preview && img) {
+            img.src = url;
+            
+            // 투명도를 0으로 만들어 위치 계산 전까지 숨김
+            preview.style.opacity = '0'; 
+            preview.style.display = 'block';
+            
+            // 위치 계산 함수 호출
+            updatePreviewPosition(event);
+            
+            // 위치 계산 완료 후 다시 보이게 함
+            preview.style.opacity = '1';
+        }
+    }, 500); // 0.5초 지연
 }
 
 function hideImagePreview() {
@@ -413,19 +424,24 @@ function hideImagePreview() {
 function updatePreviewPosition(event) {
     const preview = document.getElementById('imageHoverPreview');
     if (preview && preview.style.display === 'block') {
-        // 1. 우측 배치를 위한 X좌표 (마우스에서 오른쪽으로 10px)
-        const posX = event.clientX + 10;
-        
-        // 2. 우측 중앙 정렬을 위한 Y좌표 계산
-        // 미리보기 창의 현재 높이 절반을 빼서 마우스 커서와 높이를 맞춤
+        const previewWidth = preview.offsetWidth;
         const previewHeight = preview.offsetHeight;
-        const posY = event.clientY - (previewHeight / 2);
-        
-        // 3. 화면 하단을 벗어나지 않도록 방지 (보정 로직)
-        const safePosY = Math.max(10, Math.min(posY, window.innerHeight - previewHeight - 10));
 
-        preview.style.left = posX + 'px';
-        preview.style.top = safePosY + 'px';
+        // 1. 위쪽 배치를 위한 Y좌표 (마우스에서 위로 10px + 이미지 높이만큼 위로)
+        // 만약 위쪽 공간이 부족하면 마우스 아래로 표시하도록 보정
+        let posY = event.clientY - previewHeight - 10;
+        if (posY < 10) { 
+            posY = event.clientY + 10; // 상단 공간 부족 시 아래로 표시
+        }
+        
+        // 2. 가로 중앙 정렬을 위한 X좌표 계산
+        let posX = event.clientX - (previewWidth / 2);
+        
+        // 3. 화면 좌우를 벗어나지 않도록 방지 (보정 로직)
+        const safePosX = Math.max(10, Math.min(posX, window.innerWidth - previewWidth - 10));
+
+        preview.style.left = safePosX + 'px';
+        preview.style.top = posY + 'px';
     }
 }
 
