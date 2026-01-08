@@ -119,67 +119,50 @@ async function fetchImages(sortOrder = 'desc') {
     const grid = document.getElementById('imageGrid');
     if (!grid) return;
 
-    // [추가] 태그 필터 입력값 가져오기
-    const tagFilter = document.getElementById('tagFilter') ? document.getElementById('tagFilter').value.trim() : "";
-
+    // [수정] 카드 너비 축소: minmax(280px -> 200px)
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
-    grid.style.gap = '20px';
+    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
+    grid.style.gap = '15px'; // 여백도 조금 줄임
 
     try {
-        // 1. 기본 쿼리 설정
-        let query = _supabase
-            .from('product_images')
-            .select('*')
-            .eq('project_key', tableName)
-            .order('name', { ascending: sortOrder === 'asc' });
+        const tagFilter = document.getElementById('tagFilter') ? document.getElementById('tagFilter').value.trim() : "";
+        let query = _supabase.from('product_images').select('*').eq('project_key', tableName);
 
-        // 2. [추가] 태그 필터가 있을 경우 쿼리에 조건 추가
-        // .contains()는 배열 컬럼(tags) 안에 특정 요소가 포함되어 있는지 확인합니다.
         if (tagFilter) {
             query = query.contains('tags', [tagFilter]);
         }
-
+        
+        query = query.order('name', { ascending: sortOrder === 'asc' });
         const { data, error } = await query;
 
         if (error) throw error;
 
-        if (!data || data.length === 0) {
-            grid.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding:40px; color:#a0aec0;">🔎 조건에 맞는 이미지가 없습니다.</p>`;
-            return;
-        }
-
-        // 3. 렌더링 (카드 하단에 태그 표시 포함)
-        grid.innerHTML = data.map(item => {
-            const datePart = item.name.split('_')[1];
-            const formattedDate = datePart ? `${datePart.substring(0,4)}-${datePart.substring(4,6)}-${datePart.substring(6,8)}` : '날짜 미상';
-
-            return `
-                <div class="image-item" style="background:white; padding:15px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; position:relative;">
-                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <div class="tag-display-area" style="display:flex; flex-wrap:wrap; gap:4px; max-width: 80%;">
-                            ${item.tags && item.tags.length > 0 
-                                ? item.tags.map(t => `<span style="background:#edf2f7; color:#4a5568; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:bold;">#${t}</span>`).join('') 
-                                : '<span style="color:#cbd5e0; font-size:10px;">태그 없음</span>'}
-                        </div>
-                        
-                        <button onclick="openEditTagPopup('${item.id}', '${(item.tags || []).join(', ')}')" 
-                                style="background:none; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:11px; padding:2px 5px; color:#718096;">
-                            ✏️
-                        </button>
+        grid.innerHTML = data.map(item => `
+            <div class="image-item" style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center;">
+                
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; min-height:32px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:3px; max-width: 75%; overflow:hidden;">
+                        ${item.tags && item.tags.length > 0 
+                            ? item.tags.map(t => `<span style="background:#edf2f7; color:#4a5568; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:bold;">#${t}</span>`).join('') 
+                            : '<span style="color:#cbd5e0; font-size:9px;">#태그없음</span>'}
                     </div>
                     
-                    <div style="width:100%; aspect-ratio: 1/1; border-radius:10px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
-                        <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
-                    </div>
-                    
-                    <div style="width:100%; margin-top:15px; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                        <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:6px; cursor:pointer;">🖼️ 이미지 복사</button>
-                        <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:6px; cursor:pointer;">🔗 URL 복사</button>
-                    </div>
+                    <button onclick="openEditTagPopup('${item.id}', '${(item.tags || []).join(', ')}')" 
+                            style="background:white; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:10px; padding:2px 4px; color:#a0aec0; white-space:nowrap;">
+                        ✏️ 수정
+                    </button>
                 </div>
-            `;
-        }).join('');
+                
+                <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
+                </div>
+                
+                <div style="width:100%; margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                    <button onclick="copyImageToClipboard('${item.real_url}')" style="padding:6px; font-size:11px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:5px; cursor:pointer;">🖼️ 이미지</button>
+                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" style="padding:6px; font-size:11px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:5px; cursor:pointer;">🔗 URL</button>
+                </div>
+            </div>
+        `).join('');
     } catch (err) {
         grid.innerHTML = `<p style="color:red; padding:20px;">데이터 로드 실패</p>`;
     }
