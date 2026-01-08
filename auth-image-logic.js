@@ -4,10 +4,10 @@
  */
 
 // --- [상태 관리 변수] ---
-let selectedTerms = []; 
-let filterMode = 'OR'; // 'AND' 또는 'OR'
+let selectedTerms = []; // 파란색(AND/OR) 검색어
+let excludeTerms = [];  // 빨간색(DEL) 검색어
+let filterMode = 'OR';  
 let isDelActive = false; 
-let isEditMode = false;
 let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
 
 // --- [1. 이미지 붙여넣기 및 업로드] ---
@@ -97,12 +97,11 @@ async function saveImage() {
 }
 
 // --- [3. 데이터 로드 및 필터링] ---
-async function fetchImages() {
+async function fetchImages(sortOrder = 'desc') {
     const grid = document.getElementById('imageGrid');
-    const sortOrder = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'desc';
-    const tagFilter = document.getElementById('tagFilter') ? document.getElementById('tagFilter').value.trim() : "";
-    
+    const tagFilter = document.getElementById('tagFilter').value.trim();
     if (!grid) return;
+
     grid.innerHTML = "<p style='text-align:center; padding:20px;'>데이터 로딩 중...</p>";
 
     try {
@@ -114,27 +113,43 @@ async function fetchImages() {
 
         if (error) throw error;
 
-        // 지능형 필터링 (공백 무시 및 AND/OR/DEL 조합)
         const filteredData = allData.filter(item => {
-            const itemTags = (item.tags || []).map(t => t.replace(/\s+/g, '')); 
-            let searchTargets = [...selectedTerms];
-            if (tagFilter) searchTargets.push(tagFilter);
+            const itemTags = (item.tags || []).map(t => t.replace(/\s+/g, ''));
+            
+            // [A] 포함 조건 (파란색 버튼 + 직접 입력)
+            let includeTargets = [...selectedTerms];
+            if (tagFilter) includeTargets.push(tagFilter);
 
-            if (searchTargets.length === 0) return true;
+            // [B] 제외 조건 (빨간색 버튼)
+            let excludeTargets = [...excludeTerms];
 
-            const matches = searchTargets.map(term => {
-                const cleanTerm = term.replace(/\s+/g, '');
-                return itemTags.some(tag => tag.includes(cleanTerm) || cleanTerm.includes(tag));
-            });
+            // 1차 필터링: 포함 조건 확인 (AND/OR)
+            let passInclude = true;
+            if (includeTargets.length > 0) {
+                const includeMatches = includeTargets.map(term => {
+                    const clean = term.replace(/\s+/g, '');
+                    return itemTags.some(tag => tag.includes(clean) || clean.includes(tag));
+                });
+                passInclude = (filterMode === 'AND') ? includeMatches.every(m => m) : includeMatches.some(m => m);
+            }
 
-            let isMatched = (filterMode === 'AND') ? matches.every(m => m === true) : matches.some(m => m === true);
-            return isDelActive ? !isMatched : isMatched;
+            // 2차 필터링: 제외 조건 확인 (제외 태그가 하나라도 포함되면 탈락)
+            let passExclude = true;
+            if (excludeTargets.length > 0) {
+                const hasExcludeTerm = excludeTargets.some(term => {
+                    const clean = term.replace(/\s+/g, '');
+                    return itemTags.some(tag => tag.includes(clean) || clean.includes(tag));
+                });
+                if (hasExcludeTerm) passExclude = false;
+            }
+
+            return passInclude && passExclude;
         });
 
-        renderImageGrid(filteredData);
-        renderSavedTerms(); 
-    } catch (err) {
-        console.error(err);
+        renderImageGrid(filteredData); // 그리드 그리기
+        renderSavedTerms(); // 필터 버튼 상태 업데이트
+    } catch (err) { 
+        console.error(err); 
         grid.innerHTML = "<p style='color:red; text-align:center;'>로드 실패</p>";
     }
 }
@@ -179,39 +194,63 @@ function renderImageGrid(data) {
 // --- [5. 필터 및 모드 제어] ---
 function setMode(mode) {
     filterMode = mode;
-    fetchImages();
+    renderSavedTerms();
 }
 
 function toggleDel() {
     isDelActive = !isDelActive;
-    fetchImages();
+    renderSavedTerms();
 }
 
 function renderSavedTerms() {
+    const list = document.getElementById('savedTermsList');
+    if (!list) return;
+
+    // 모드 버튼 강조 업데이트
     const btnAnd = document.getElementById('btn-AND');
     const btnOr = document.getElementById('btn-OR');
     const btnDel = document.getElementById('btn-DEL');
-    const list = document.getElementById('savedTermsList');
 
-    if(btnAnd) btnAnd.className = filterMode === 'AND' ? 'filter-mode-btn active-and' : 'filter-mode-btn';
-    if(btnOr) btnOr.className = filterMode === 'OR' ? 'filter-mode-btn active-or' : 'filter-mode-btn';
+    if(btnAnd) btnAnd.className = (filterMode === 'AND' ? 'filter-mode-btn active-and' : 'filter-mode-btn');
+    if(btnOr) btnOr.className = (filterMode === 'OR' ? 'filter-mode-btn active-or' : 'filter-mode-btn');
     if(btnDel) {
-        btnDel.style.background = isDelActive ? '#e53e3e' : '#edf2f7';
+        btnDel.style.backgroundColor = isDelActive ? '#e53e3e' : '#edf2f7';
         btnDel.style.color = isDelActive ? 'white' : '#4a5568';
     }
 
+    // 검색어 버튼 렌더링
     list.innerHTML = savedSearchTerms.map(term => {
-        const isSelected = selectedTerms.includes(term);
         let bg = '#edf2f7';
-        if (isSelected) {
-            bg = isDelActive ? '#fed7d7' : (filterMode === 'AND' ? '#c6f6d5' : '#bee3f8');
-        }
-        return `<button onclick="toggleTerm('${term}')" style="padding: 5px 12px; border-radius: 20px; border: 1px solid #cbd5e0; background: ${bg}; font-size: 12px; cursor: pointer;">${term}</button>`;
+        let color = '#4a5568';
+
+        if (selectedTerms.includes(term)) { bg = '#bee3f8'; color = '#2b6cb0'; } // 파란색
+        else if (excludeTerms.includes(term)) { bg = '#fed7d7'; color = '#e53e3e'; } // 빨간색
+
+        return `<button onclick="toggleTerm('${term}')" 
+                style="padding: 5px 12px; border-radius: 20px; border: 1px solid #cbd5e0; background: ${bg}; color: ${color}; font-size: 12px; cursor: pointer; transition: 0.2s;">
+                ${term}
+                </button>`;
     }).join('');
 }
 
 function toggleTerm(term) {
-    selectedTerms = selectedTerms.includes(term) ? selectedTerms.filter(t => t !== term) : [...selectedTerms, term];
+    if (isDelActive) {
+        // DEL 모드: 빨간색(제외)으로 등록/해제
+        if (excludeTerms.includes(term)) {
+            excludeTerms = excludeTerms.filter(t => t !== term);
+        } else {
+            excludeTerms.push(term);
+            selectedTerms = selectedTerms.filter(t => t !== term); // 파란색에 있으면 제거
+        }
+    } else {
+        // 일반 모드: 파란색(포함)으로 등록/해제
+        if (selectedTerms.includes(term)) {
+            selectedTerms = selectedTerms.filter(t => t !== term);
+        } else {
+            selectedTerms.push(term);
+            excludeTerms = excludeTerms.filter(t => t !== term); // 빨간색에 있으면 제거
+        }
+    }
     renderSavedTerms();
 }
 

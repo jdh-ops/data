@@ -73,37 +73,47 @@
 
     <div class="main-content">
         <div id="dashboard" class="content-section active">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; gap: 20px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: #666; font-weight: bold; display: block; margin-bottom: 5px;">🔍 태그 검색</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="tagFilter" placeholder="직접 태그 입력 후 엔터..." 
-                               onkeypress="if(event.keyCode==13) fetchImages()"
-                               style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none;">
-                        <button onclick="resetSearch()" class="btn-select" style="margin-top: 0;">🔄 초기화</button>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <select id="sortSelect" onchange="fetchImages()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px;">
+                <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
+                    <select id="sortSelect" onchange="fetchImages()" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
                         <option value="desc">최신순</option>
                         <option value="asc">과거순</option>
                     </select>
-                    <button onclick="openAddPopup()" class="btn-primary">➕ 이미지 추가</button>
-                    <button id="editModeBtn" onclick="toggleEditMode()" class="btn-select" style="margin-top: 0;">✏️ 수정/삭제 모드</button>
-                    <button id="deleteBtn" onclick="deleteSelectedImages()" class="btn-primary" style="display:none; background:#e74c3c;">🗑️ 선택 삭제</button>
+                    <input type="text" id="tagFilter" placeholder="태그로 검색 (엔터)" 
+                           onkeypress="if(event.keyCode==13) fetchImages()" 
+                           style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; width: 200px;">
+                    <button onclick="resetSearch()" style="padding: 8px 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-size: 13px;">초기화</button>
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="openAddPopup()" style="padding: 0 15px; height: 35px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px;">
+                        <span style="font-size: 16px;">+</span> 이미지 추가
+                    </button>
+                    <button id="editModeBtn" onclick="toggleEditMode()" style="padding: 0 15px; height: 35px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; color: #4a5568; display: flex; align-items: center; gap: 5px;">
+                        ✏️ 수정
+                    </button>
+                    <button id="deleteBtn" onclick="deleteSelectedImages()" style="display:none; padding: 0 15px; height: 35px; background:#e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                        🗑️ 삭제
+                    </button>
                 </div>
             </div>
-
-            <div id="filterArea" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8fafc; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
-                <div style="display: flex; gap: 6px; align-items: center;">
-                    <button id="btn-AND" onclick="setMode('AND')" class="filter-mode-btn">AND</button>
-                    <button id="btn-OR" onclick="setMode('OR')" class="filter-mode-btn active-or">OR</button>
-                    <button id="btn-DEL" onclick="toggleDel()" class="filter-mode-btn">DEL</button>
-                    <button onclick="fetchImages()" style="margin-left: 10px; padding: 8px 20px; background: #2d3748; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">검색 실행</button>
+            
+            <div id="filterContainer" style="display: flex; align-items: stretch; padding: 0; background: white; border-radius: 10px; margin-bottom: 25px; border: 1px solid #2c3e50; overflow: hidden; height: 80px;">
+                
+                <div style="width: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; border-right: 1px solid #bee3f8; padding: 5px; background: #f8fafc;">
+                    <div style="display: flex; gap: 4px;">
+                        <button id="btn-AND" onclick="setMode('AND')" class="filter-mode-btn" style="padding: 4px 8px; font-size: 11px;">AND</button>
+                        <button id="btn-OR" onclick="setMode('OR')" class="filter-mode-btn active-or" style="padding: 4px 8px; font-size: 11px;">OR</button>
+                    </div>
+                    <button id="btn-DEL" onclick="toggleDel()" class="filter-mode-btn" style="width: 50px; padding: 4px; font-size: 11px;">DEL</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
-                    <div id="savedTermsList" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;"></div>
-                    <button onclick="editSavedTerms()" style="padding: 5px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; color: #718096;">편집</button>
+            
+                <div id="savedTermsList" style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap; overflow-y: auto;">
+                    </div>
+            
+                <div style="width: 100px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; border-left: 1px solid #bee3f8; padding: 5px; background: #f8fafc;">
+                    <button onclick="editSavedTerms()" style="padding: 2px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; color: #718096;">편집</button>
+                    <button onclick="fetchImages()" style="padding: 8px 15px; background: #2c3e50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">검색</button>
                 </div>
             </div>
         
