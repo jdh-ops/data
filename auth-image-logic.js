@@ -10,6 +10,8 @@ let isEditMode = false;
 let filterMode = 'OR';  
 let isDelActive = false; 
 let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
+let tempEditList = []; // 팝업 내 임시 데이터 저장 배열
+let currentEditId = null; // 태그 수정 시 이미지 ID 저장용
 
 // --- [1. 이미지 붙여넣기 및 업로드] ---
 async function handleImagePaste(event, type) {
@@ -265,13 +267,13 @@ function resetAllFilters() {
     fetchImages();
 }
 
+// --- [2. 필터 검색어 편집 기능 연결] ---
 function editSavedTerms() {
-    const res = prompt("검색어 10개를 쉼표(,)로 구분해 입력", savedSearchTerms.join(','));
-    if (res) {
-        savedSearchTerms = res.split(',').map(s => s.trim()).slice(0, 10);
+    openEditModal("⚙️ 필터 검색어 편집", savedSearchTerms, (updatedTerms) => {
+        savedSearchTerms = updatedTerms.slice(0, 10); // 최대 10개 유지
         localStorage.setItem('savedSearchTerms', JSON.stringify(savedSearchTerms));
         renderSavedTerms();
-    }
+    });
 }
 
 // --- [6. 기타 유틸리티] ---
@@ -291,9 +293,23 @@ async function deleteSelectedImages() {
     if (!error) { alert('삭제되었습니다.'); fetchImages(); }
 }
 
-function openEditTagPopup(id, currentTags) {
-    const res = prompt("태그 수정 (쉼표 구분)", currentTags);
-    if (res !== null) updateImageTags(id, res);
+// --- [1. 상품 태그 수정 기능 연결] ---
+function openEditTagPopup(id, currentTagsString) {
+    currentEditId = id;
+    const initialTags = currentTagsString ? currentTagsString.split(',').map(t => t.trim()).filter(t => t) : [];
+    
+    openEditModal("🏷️ 상품 태그 수정", initialTags, async (updatedTags) => {
+        const { error } = await _supabase
+            .from('product_images')
+            .update({ tags: updatedTags })
+            .eq('id', currentEditId);
+
+        if (!error) {
+            fetchImages();
+        } else {
+            alert("태그 저장 실패: " + error.message);
+        }
+    });
 }
 
 async function updateImageTags(id, tagsString) {
@@ -314,6 +330,54 @@ async function copyImageToClipboard(url) {
 function copyTextToClipboard(text) {
     navigator.clipboard.writeText(text);
     alert('🔗 URL이 복사되었습니다.');
+}
+
+// --- [공통 모달 제어] ---
+function openEditModal(title, initialData, onSave) {
+    const modal = document.getElementById('editModal');
+    document.getElementById('editModalTitle').innerText = title;
+    document.getElementById('editModalInput').value = "";
+    tempEditList = [...initialData];
+    
+    renderModalList();
+    
+    document.getElementById('editModalSaveBtn').onclick = () => {
+        onSave(tempEditList);
+        closeEditModal();
+    };
+    modal.style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+// 팝업 내 목록 렌더링 (x 버튼 포함)
+function renderModalList() {
+    const container = document.getElementById('editModalList');
+    container.innerHTML = tempEditList.map((item, index) => `
+        <div style="display: flex; align-items: center; background: #edf2f7; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #4a5568;">
+            <span>${item}</span>
+            <span onclick="removeTermFromModal(${index})" style="margin-left: 6px; cursor: pointer; font-weight: bold; color: #e53e3e;">×</span>
+        </div>
+    `).join('');
+}
+
+// 단어 추가 로직
+function addTermToModal() {
+    const input = document.getElementById('editModalInput');
+    const val = input.value.trim();
+    if (val && !tempEditList.includes(val)) {
+        tempEditList.push(val);
+        input.value = "";
+        renderModalList();
+    }
+}
+
+// 단어 삭제 로직 (x 버튼 클릭 시)
+function removeTermFromModal(index) {
+    tempEditList.splice(index, 1);
+    renderModalList();
 }
 
 window.openAddPopup = () => { document.getElementById('imageModal').style.display = 'flex'; };
