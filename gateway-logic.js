@@ -67,3 +67,63 @@ async function processCreate() {
 function closeCreateModal() {
     document.getElementById('createModal').style.display = 'none';
 }
+
+/**
+ * 3. 키워드 체크 및 접속 로직
+ * 사용자가 입력한 키워드가 keywords 테이블에 있는지 확인하고 이동합니다.
+ */
+async function checkKeyword() {
+    // HTML 요소 가져오기
+    const keywordInput = document.getElementById('keywordInput');
+    const message = document.getElementById('message');
+    const createBtn = document.getElementById('create-btn');
+    const loginBtn = document.getElementById('loginBtn');
+    
+    // 입력값 확인
+    const keyword = keywordInput.value.trim();
+    if (!keyword) {
+        message.style.color = "#e74c3c";
+        message.innerText = "키워드를 입력해 주세요.";
+        return;
+    }
+
+    // 버튼 비활성화 및 상태 표시
+    loginBtn.disabled = true;
+    message.style.color = "#34495e";
+    message.innerText = "데이터 확인 중...";
+
+    try {
+        // Supabase 'keywords' 테이블에서 입력한 키워드 조회
+        const { data, error } = await _supabase
+            .from('keywords')
+            .select('*')
+            .eq('keyword', keyword)
+            .single();
+
+        if (error || !data) {
+            // [실패] 키워드가 DB에 없는 경우
+            message.style.color = "#e74c3c";
+            message.innerText = "등록되지 않은 키워드입니다.";
+            
+            // 키워드 생성 버튼 노출
+            if (createBtn) createBtn.style.display = "inline-block";
+            loginBtn.disabled = false;
+        } else {
+            // [성공] 키워드 존재 시
+            if (createBtn) createBtn.style.display = "none";
+            message.style.color = "#27ae60";
+            message.innerText = "접속 성공! 잠시 후 이동합니다...";
+
+            // 0.8초 후 페이지 이동 (기존 DB의 target_table 값 활용)
+            setTimeout(() => {
+                const targetPath = data.target_table || data.keyword;
+                window.location.href = `page1.html?table=${encodeURIComponent(targetPath)}`;
+            }, 800);
+        }
+    } catch (err) {
+        console.error("접속 오류:", err);
+        message.style.color = "#e74c3c";
+        message.innerText = "시스템 오류가 발생했습니다.";
+        loginBtn.disabled = false;
+    }
+}
