@@ -95,7 +95,7 @@ async function checkKeyword() {
     try {
         // Supabase 'keywords' 테이블에서 입력한 키워드 조회
         const { data, error } = await _supabase
-            .from('keywords')
+            .from('gateways')
             .select('*')
             .eq('keyword', keyword)
             .single();
