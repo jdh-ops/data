@@ -5,90 +5,46 @@
     <title>관리 시스템 - 데이터 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* [기존 스타일 유지] */
         :root { 
-                    --sidebar-width: 260px; 
-                    --sidebar-collapsed-width: 70px; /* 접혔을 때 너비 */
-                    --primary-color: #3498db; 
-                    --bg-color: #f8f9fa; 
-              }
-            .sidebar { 
-                width: var(--sidebar-width); 
-                background: #2c3e50; 
-                color: white; 
-                display: flex; 
-                flex-direction: column; 
-                box-shadow: 2px 0 5px rgba(0,0,0,0.1); 
-                transition: width 0.3s ease; /* 부드러운 전환 */
-                position: relative;
-                overflow: hidden;
-            }
-
-                /* 사이드바가 접힌 상태 */
-            .sidebar.collapsed { 
-                width: var(--sidebar-collapsed-width); 
-            }
-
-            /* 접혔을 때 텍스트 숨기기 */
-            .sidebar.collapsed .sidebar-header,
-            .sidebar.collapsed .menu-item span,
-            .sidebar.collapsed .sidebar-footer span {  
-                display: none;
-            }
-
-            /* 접혔을 때 아이콘만 중앙 정렬 */
-            .sidebar.collapsed .menu-item {
-                justify-content: center;
-                padding: 15px 0;
-            }
-
-            .main-content { 
-                flex: 1; 
-                overflow-y: auto; 
-                padding: 40px; 
-                transition: margin-left 0.3s ease;
-            }
-
-            /* 접기/펴기 버튼 스타일 */
-            .toggle-btn {
-                position: absolute;
-                bottom: 20px;
-                right: 20px;
-                background: #34495e;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 5px 10px;
-                cursor: pointer;
-                font-size: 18px;
-            }
-
-            .sidebar.collapsed .toggle-btn {
-                right: 50%;
-                transform: translateX(50%);
-            }
+            --sidebar-width: 260px; 
+            --sidebar-collapsed-width: 70px; 
+            --primary-color: #3498db; 
+            --bg-color: #f8f9fa; 
+        }
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-color); color: #333; }
-        .sidebar { width: var(--sidebar-width); background: #2c3e50; color: white; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        
+        /* 사이드바 애니메이션 및 스타일 */
+        .sidebar { 
+            width: var(--sidebar-width); background: #2c3e50; color: white; display: flex; flex-direction: column; 
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1); transition: width 0.3s ease; position: relative; overflow: hidden;
+        }
+        .sidebar.collapsed { width: var(--sidebar-collapsed-width); }
+        .sidebar.collapsed .sidebar-header,
+        .sidebar.collapsed .menu-item span { display: none; }
+        .sidebar.collapsed .menu-item { justify-content: center; padding: 15px 0; }
+
         .sidebar-header { padding: 30px 20px; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #3e4f5f; text-align: center; color: #ecf0f1; }
         .sidebar-menu { flex: 1; padding: 20px 0; }
-        .menu-item { padding: 15px 25px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; font-size: 15px; }
+        .menu-item { padding: 15px 25px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; font-size: 15px; gap: 10px; }
         .menu-item:hover { background: #34495e; }
         .menu-item.active { background: var(--primary-color); color: white; border-right: 5px solid #fff; }
-        .main-content { flex: 1; overflow-y: auto; padding: 40px; }
+
+        /* 메인 콘텐츠 */
+        .main-content { flex: 1; overflow-y: auto; padding: 40px; transition: 0.3s; }
         .content-section { display: none; }
         .content-section.active { display: block; animation: fadeIn 0.4s ease-out; }
-        .upload-card { background: white; padding: 50px; border-radius: 15px; border: 2px dashed #cbd5e0; text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 30px; }
-        .upload-card.drag-over { border-color: var(--primary-color); background: #ebf5fb; transform: scale(1.01); }
-        .file-list { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
-        .file-row { display: flex; justify-content: space-between; padding: 18px 25px; border-bottom: 1px solid #f1f1f1; align-items: center; }
-        .file-row:last-child { border-bottom: none; }
+
+        /* 필터 및 버튼 스타일 */
+        .filter-mode-btn { padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e0; background: #edf2f7; cursor: pointer; font-weight: bold; color: #4a5568; transition: 0.2s; }
+        .active-and { background: #38a169 !important; color: white !important; border-color: #38a169 !important; }
+        .active-or { background: #3182ce !important; color: white !important; border-color: #3182ce !important; }
+        
         .btn-primary { padding: 12px 25px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-select { padding: 8px 15px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .btn-select { padding: 8px 15px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; }
+        
+        .toggle-btn { position: absolute; bottom: 20px; right: 20px; background: #34495e; color: white; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 18px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .image-item:hover {transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1);}
-        #thumbPasteZone:focus, #realPasteZone:focus {border-color: var(--primary-color);background: #ebf5fb;}
-        .filter-mode-btn { padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e0; background: #edf2f7; cursor: pointer; font-weight: bold; color: #4a5568; }
-        .active-and { background: #38a169 !important; color: white !important; }
-        .active-or { background: #3182ce !important; color: white !important; }
     </style>
 </head>
 <body>
@@ -116,112 +72,46 @@
     </div>
 
     <div class="main-content">
-        
         <div id="dashboard" class="content-section active">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-                    <select id="sortSelect" onchange="fetchImages()">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; gap: 20px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; color: #666; font-weight: bold; display: block; margin-bottom: 5px;">🔍 태그 검색</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="tagFilter" placeholder="직접 태그 입력 후 엔터..." 
+                               onkeypress="if(event.keyCode==13) fetchImages()"
+                               style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none;">
+                        <button onclick="resetSearch()" class="btn-select" style="margin-top: 0;">🔄 초기화</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="sortSelect" onchange="fetchImages()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
                         <option value="desc">최신순</option>
                         <option value="asc">과거순</option>
                     </select>
-                    
-                    <input type="text" id="tagFilter" placeholder="태그로 검색 (엔터)" 
-                           onkeypress="if(event.keyCode==13) fetchImages()" 
-                           style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ddd; width: 200px;">
-                </div>
-                <div style="display: flex; gap: 10px;">
                     <button onclick="openAddPopup()" class="btn-primary">➕ 이미지 추가</button>
-                    <button id="editModeBtn" onclick="toggleEditMode()" class="btn-select">✏️ 수정/삭제 모드</button>
+                    <button id="editModeBtn" onclick="toggleEditMode()" class="btn-select" style="margin-top: 0;">✏️ 수정/삭제 모드</button>
                     <button id="deleteBtn" onclick="deleteSelectedImages()" class="btn-primary" style="display:none; background:#e74c3c;">🗑️ 선택 삭제</button>
                 </div>
             </div>
 
-            <!-- 태그 검색 영역 -->
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="tagFilter" placeholder="직접 태그 입력..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                <button onclick="resetSearch()" style="padding: 10px 15px; background: #f1f1f1; border: none; border-radius: 8px; cursor: pointer;">🔄 초기화</button>
-            </div>
-            
-            <div id="filterArea" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8fafc; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-                
-                <div style="display: flex; gap: 5px;">
+            <div id="filterArea" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8fafc; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; gap: 6px; align-items: center;">
                     <button id="btn-AND" onclick="setMode('AND')" class="filter-mode-btn">AND</button>
                     <button id="btn-OR" onclick="setMode('OR')" class="filter-mode-btn active-or">OR</button>
                     <button id="btn-DEL" onclick="toggleDel()" class="filter-mode-btn">DEL</button>
-                    <button onclick="fetchImages()" style="margin-left: 10px; padding: 8px 15px; background: #2d3748; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">검색</button>
+                    <button onclick="fetchImages()" style="margin-left: 10px; padding: 8px 20px; background: #2d3748; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">검색 실행</button>
                 </div>
-            
                 <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
                     <div id="savedTermsList" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;"></div>
-                    <button onclick="editSavedTerms()" style="padding: 5px 10px; font-size: 12px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer;">편집</button>
+                    <button onclick="editSavedTerms()" style="padding: 5px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; color: #718096;">편집</button>
                 </div>
             </div>
         
             <div id="imageGrid"></div>
         </div>
 
-        <div id="upload" class="content-section">
-            <h2>파일 업로드</h2>
-            <div id="dropZone" class="upload-card" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-                <p id="dropText" style="font-size: 18px; color: #4a5568;">📤 파일을 여기로 끌어다 놓으세요</p>
-                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleFileSelect(event)">
-                <button onclick="document.getElementById('fileInput').click()" class="btn-select">또는 파일 선택</button>
-                <p id="selectedFileName" style="margin-top: 15px; font-weight: bold; color: #3498db;"></p>
-                <button id="uploadBtn" onclick="uploadFile()" class="btn-primary" style="display: none; margin: 20px auto;">서버로 전송 시작</button>
-                <p id="uploadStatus" style="margin-top:10px; font-size:14px; color: #718096;"></p>
-            </div>
-
-            <h3>📁 저장된 파일 내역</h3>
-            <div id="fileList" class="file-list">
-                <p style="padding: 20px; color: #a0aec0;">파일을 불러오는 중...</p>
-            </div>
         </div>
 
-        <div id="settings" class="content-section">
-            <h2>설정</h2>
-            <div style="background: white; padding: 20px; border-radius: 10px;">
-                <p>시스템 알림 및 계정 설정을 관리합니다.</p>
-            </div>
-        </div>
-
-        <div id="imageModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-            <div style="background:white; padding:30px; border-radius:12px; width:450px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
-                <h3 style="margin-top:0;">✨ 새 이미지 등록</h3>
-                <p style="font-size:12px; color:#666; margin-bottom:15px;">각 구역을 클릭하고 <b>Ctrl+V</b>로 이미지를 붙여넣으세요.</p>
-                
-                <input type="hidden" id="itemName">
-                
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <div id="thumbPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'thumb')" style="flex:1; height:150px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; background:#f8fafc; outline:none;">
-                        <span id="thumbText" style="font-size:12px; color:#718096; text-align:center;">🖼️ 섬네일<br>(Ctrl+V)</span>
-                        <img id="thumbPreview" style="display:none; width:100%; height:100%; object-fit:cover;">
-                    </div>
-                    
-                    <div id="realPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'real')" style="flex:1; height:150px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; background:#f8fafc; outline:none;">
-                        <span id="realText" style="font-size:12px; color:#718096; text-align:center;">📸 실제 이미지<br>(Ctrl+V)</span>
-                        <img id="realPreview" style="display:none; width:100%; height:100%; object-fit:cover;">
-                    </div>
-                </div>
-                <div style="margin-bottom: 15px; text-align: left;">
-                    <label style="font-size: 12px; color: #666; font-weight: bold;">🏷️ 태그 (쉼표로 구분)</label>
-                    <input type="text" id="tagsInput" placeholder="예: 여름, 신상, 파란색" 
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px;">
-                </div>
-        
-                <input type="text" id="productUrl" placeholder="상품 판매 URL (선택사항)" style="width:100%; margin-bottom:20px; padding:12px; border:1px solid #ddd; border-radius:6px; box-sizing: border-box;">
-                
-                <input type="hidden" id="thumbUrl">
-                <input type="hidden" id="realUrl">
-        
-                <div style="display:flex; gap:10px;">
-                    <button id="saveImgBtn" onclick="saveImage()" class="btn-primary" style="flex:1;" disabled>이미지 대기 중...</button>
-                    <button onclick="closeAddPopup()" class="btn-select" style="flex:1; margin-top:0;">취소</button>
-                </div>
-            </div>
-        </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="config.js"></script>
     <script src="keyword-logic.js"></script>
     <script src="upload-logic.js"></script>
@@ -230,25 +120,33 @@
     <script>
         window.onload = () => {
             initKeywordView();
-            // 초기 섹션 로드
+            // 필터 UI 초기화 (버튼 렌더링)
+            if (typeof renderSavedTerms === 'function') renderSavedTerms();
+            
+            // 섹션 로드
             if (window.location.hash === '#upload') {
                 showSection('upload');
             } else {
                 showSection('dashboard');
+                fetchImages(); // 초기 데이터 로드 호출
             }
         };
+
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const toggleBtn = document.querySelector('.toggle-btn');
-            
             sidebar.classList.toggle('collapsed');
+            toggleBtn.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
             
-            // 버튼 화살표 방향 변경
-            if (sidebar.classList.contains('collapsed')) {
-                toggleBtn.innerText = '▶';
-            } else {
-                toggleBtn.innerText = '◀';
-            }
+            document.getElementById(sectionId).classList.add('active');
+            // 메뉴 하이라이트 (아이콘 텍스트 기준 매칭)
+            const menuIdx = { 'dashboard': 0, 'upload': 1, 'settings': 2 };
+            document.querySelectorAll('.menu-item')[menuIdx[sectionId]].classList.add('active');
         }
     </script>
 </body>
