@@ -109,6 +109,11 @@ async function fetchImages() {
     const grid = document.getElementById('imageGrid');
     if (!grid) return;
 
+    // 화면 너비에 따라 최소 250px 크기로 열을 자동 생성하며, 최대 3열까지 제한
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
+    grid.style.gap = '20px';
+
     try {
         const { data, error } = await _supabase
             .from('product_images')
@@ -123,20 +128,24 @@ async function fetchImages() {
             return;
         }
 
+        // [수정] 카드형 UI 디자인
         grid.innerHTML = data.map(item => `
-            <div class="image-item" style="display:flex; align-items:center; background:white; padding:20px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-bottom:10px;">
-                <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; margin-right:20px; width:22px; height:22px; cursor:pointer;">
-                
-                <div style="width:150px; height:150px; border-radius:12px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; flex-shrink:0;">
-                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+            <div class="image-item" style="background:white; padding:15px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; transition: transform 0.2s;">
+                <div style="width:100%; display:flex; justify-content:flex-end; height:22px; margin-bottom:10px;">
+                    <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; width:20px; height:20px; cursor:pointer;">
                 </div>
                 
-                <div style="margin-left:30px; display:flex; flex-direction:column; gap:12px;">
-                    <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🖼️ 이미지 복사</button>
-                    
-                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🔗 상품 URL 복사</button>
-                    
-                    ${item.product_url ? `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="padding:10px 20px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🛒 상품 페이지 이동</button>` : ''}
+                <div style="width:100%; aspect-ratio: 1/1; border-radius:10px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
+                </div>
+                
+                <div style="width:100%; margin-top:15px; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:6px; cursor:pointer;">🖼️ 이미지 복사</button>
+                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:6px; cursor:pointer;">🔗 URL 복사</button>
+                    ${item.product_url ? 
+                        `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="grid-column: span 2; padding:8px; font-size:12px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:6px; cursor:pointer;">🛒 상품 페이지 이동</button>` 
+                        : ''
+                    }
                 </div>
             </div>
         `).join('');
