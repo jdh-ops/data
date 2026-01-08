@@ -115,56 +115,49 @@ window.closeAddPopup = () => {
 };
 
 // 5. 데이터 불러오기 및 리스트 렌더링 (상품 URL 복사로 수정)
+let selectedTerms = []; // 현재 선택된 검색어들
+let filterMode = 'OR'; // 기본 모드: AND, OR, DEL
+let isDelActive = false; // DEL 조합 여부
+let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
+
 async function fetchImages(sortOrder = 'desc') {
     const grid = document.getElementById('imageGrid');
-    if (!grid) return;
-
-    // [수정] 카드 너비 축소: minmax(280px -> 200px)
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
-    grid.style.gap = '15px'; // 여백도 조금 줄임
+    const tagInput = document.getElementById('tagFilter');
+    const tagFilter = tagInput ? tagInput.value.trim() : "";
 
     try {
-        const tagFilter = document.getElementById('tagFilter') ? document.getElementById('tagFilter').value.trim() : "";
         let query = _supabase.from('product_images').select('*').eq('project_key', tableName);
-
-        if (tagFilter) {
-            query = query.contains('tags', [tagFilter]);
-        }
-        
-        query = query.order('name', { ascending: sortOrder === 'asc' });
-        const { data, error } = await query;
+        const { data: allData, error } = await query.order('name', { ascending: sortOrder === 'asc' });
 
         if (error) throw error;
 
-        grid.innerHTML = data.map(item => `
-            <div class="image-item" style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center;">
-                
-                <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; min-height:32px;">
-                    <div style="display:flex; flex-wrap:wrap; gap:3px; max-width: 75%; overflow:hidden;">
-                        ${item.tags && item.tags.length > 0 
-                            ? item.tags.map(t => `<span style="background:#edf2f7; color:#4a5568; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:bold;">#${t}</span>`).join('') 
-                            : '<span style="color:#cbd5e0; font-size:9px;">#태그없음</span>'}
-                    </div>
-                    
-                    <button onclick="openEditTagPopup('${item.id}', '${(item.tags || []).join(', ')}')" 
-                            style="background:white; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:10px; padding:2px 4px; color:#a0aec0; white-space:nowrap;">
-                        ✏️ 수정
-                    </button>
-                </div>
-                
-                <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
-                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
-                </div>
-                
-                <div style="width:100%; margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                    <button onclick="copyImageToClipboard('${item.real_url}')" style="padding:6px; font-size:11px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:5px; cursor:pointer;">🖼️ 이미지</button>
-                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" style="padding:6px; font-size:11px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:5px; cursor:pointer;">🔗 URL</button>
-                </div>
-            </div>
-        `).join('');
+        // [필터링 로직] 1-2, 1-3 대응 (공백 무시 및 부분 일치)
+        const filteredData = allData.filter(item => {
+            const itemTags = (item.tags || []).map(t => t.replace(/\s+/g, '')); // DB 태그 공백 제거
+            
+            // 검색창 입력값 처리
+            let targets = selectedTerms;
+            if (tagFilter) targets = [...targets, tagFilter];
+            if (targets.length === 0) return true;
+
+            const matches = targets.map(term => {
+                const cleanTerm = term.replace(/\s+/g, ''); // 검색어 공백 제거
+                return itemTags.some(tag => tag.includes(cleanTerm) || cleanTerm.includes(tag));
+            });
+
+            // 3-4, 3-5, 3-6 검색 모드 적용
+            let isMatch = false;
+            if (filterMode === 'AND') isMatch = matches.every(m => m === true);
+            else if (filterMode === 'OR') isMatch = matches.some(m => m === true);
+            
+            // 3-7 DEL 조합 처리
+            if (isDelActive) return !isMatch; 
+            return isMatch;
+        });
+
+        renderImages(filteredData);
     } catch (err) {
-        grid.innerHTML = `<p style="color:red; padding:20px;">데이터 로드 실패</p>`;
+        console.error(err);
     }
 }
 
@@ -236,3 +229,62 @@ async function updateImageTags(id, tagsString) {
         alert('수정 실패: ' + err.message);
     }
 }
+
+// 3-3, 3-8 모드 및 색상 관리
+function setMode(mode) {
+    filterMode = mode;
+    document.querySelectorAll('.filter-mode-btn').forEach(b => b.classList.remove('active-and', 'active-or'));
+    if(mode === 'AND') document.getElementById('btn-AND').classList.add('active-and');
+    else document.getElementById('btn-OR').classList.add('active-or');
+    renderSavedTerms();
+}
+
+function toggleDel() {
+    isDelActive = !isDelActive;
+    document.getElementById('btn-DEL').style.background = isDelActive ? '#e53e3e' : '#edf2f7';
+    document.getElementById('btn-DEL').style.color = isDelActive ? 'white' : '#4a5568';
+    renderSavedTerms();
+}
+
+// 3-2 검색어 편집
+function editSavedTerms() {
+    const res = prompt("검색어 10개를 쉼표(,)로 구분해 입력하세요", savedSearchTerms.join(','));
+    if (res) {
+        savedSearchTerms = res.split(',').map(s => s.trim()).slice(0, 10);
+        localStorage.setItem('savedSearchTerms', JSON.stringify(savedSearchTerms));
+        renderSavedTerms();
+    }
+}
+
+// 3-8 검색어 선택 및 강조
+function toggleTerm(term) {
+    if (selectedTerms.includes(term)) {
+        selectedTerms = selectedTerms.filter(t => t !== term);
+    } else {
+        selectedTerms.push(term);
+    }
+    renderSavedTerms();
+}
+
+function renderSavedTerms() {
+    const list = document.getElementById('savedTermsList');
+    list.innerHTML = savedSearchTerms.map(term => {
+        const isSelected = selectedTerms.includes(term);
+        let activeColor = '#edf2f7'; // 기본
+        if (isSelected) {
+            if (isDelActive) activeColor = '#fed7d7'; // DEL 강조 (연빨강)
+            else if (filterMode === 'AND') activeColor = '#c6f6d5'; // AND 강조 (연초록)
+            else activeColor = '#bee3f8'; // OR 강조 (연파랑)
+        }
+        return `<button onclick="toggleTerm('${term}')" style="padding: 5px 12px; border-radius: 20px; border: 1px solid #cbd5e0; background: ${activeColor}; font-size: 12px; cursor: pointer;">${term}</button>`;
+    }).join('');
+}
+
+function resetSearch() {
+    selectedTerms = [];
+    document.getElementById('tagFilter').value = "";
+    fetchImages();
+}
+
+// 초기 실행
+window.onload = () => { setMode('OR'); renderSavedTerms(); };

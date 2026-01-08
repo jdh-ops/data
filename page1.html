@@ -86,6 +86,9 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .image-item:hover {transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1);}
         #thumbPasteZone:focus, #realPasteZone:focus {border-color: var(--primary-color);background: #ebf5fb;}
+        .filter-mode-btn { padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e0; background: #edf2f7; cursor: pointer; font-weight: bold; color: #4a5568; }
+        .active-and { background: #38a169 !important; color: white !important; }
+        .active-or { background: #3182ce !important; color: white !important; }
     </style>
 </head>
 <body>
@@ -130,6 +133,27 @@
                     <button onclick="openAddPopup()" class="btn-primary">➕ 이미지 추가</button>
                     <button id="editModeBtn" onclick="toggleEditMode()" class="btn-select">✏️ 수정/삭제 모드</button>
                     <button id="deleteBtn" onclick="deleteSelectedImages()" class="btn-primary" style="display:none; background:#e74c3c;">🗑️ 선택 삭제</button>
+                </div>
+            </div>
+
+            <!-- 태그 검색 영역 -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="tagFilter" placeholder="직접 태그 입력..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <button onclick="resetSearch()" style="padding: 10px 15px; background: #f1f1f1; border: none; border-radius: 8px; cursor: pointer;">🔄 초기화</button>
+            </div>
+            
+            <div id="filterArea" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8fafc; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-AND" onclick="setMode('AND')" class="filter-mode-btn">AND</button>
+                    <button id="btn-OR" onclick="setMode('OR')" class="filter-mode-btn active-or">OR</button>
+                    <button id="btn-DEL" onclick="toggleDel()" class="filter-mode-btn">DEL</button>
+                    <button onclick="fetchImages()" style="margin-left: 10px; padding: 8px 15px; background: #2d3748; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">검색</button>
+                </div>
+            
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
+                    <div id="savedTermsList" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;"></div>
+                    <button onclick="editSavedTerms()" style="padding: 5px 10px; font-size: 12px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer;">편집</button>
                 </div>
             </div>
         
