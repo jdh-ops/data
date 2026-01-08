@@ -13,6 +13,7 @@ let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '[
 let tempEditList = []; // 팝업 내 임시 데이터 저장 배열
 let currentEditId = null; // 태그 수정 시 이미지 ID 저장용
 let hoverTimer = null; // 1초 지연을 위한 타이머
+let currentMousePos = { x: 0, y: 0 }; // 최신 마우스 위치 저장용
 
 // --- [1. 이미지 붙여넣기 및 업로드] ---
 async function handleImagePaste(event, type) {
@@ -188,7 +189,7 @@ function renderImageGrid(data) {
             <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc;"
                  onmouseenter="showImagePreview(event, '${item.real_url}')" 
                  onmouseleave="hideImagePreview()" 
-                 onmousemove="updatePreviewPosition(event)">
+                 onmousemove="saveMousePos(event)"> <img src="${item.thumbnail_url}">
                 <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
             </div>
 
@@ -394,27 +395,26 @@ function removeTermFromModal(index) {
 
 function showImagePreview(event, url) {
     clearTimeout(hoverTimer);
+    // 진입 시점의 좌표도 일단 저장
+    saveMousePos(event);
+
     hoverTimer = setTimeout(() => {
         const preview = document.getElementById('imageHoverPreview');
         const img = document.getElementById('hoverPreviewImg');
         
         if (preview && img) {
-            // 1. 투명도를 0으로 숨기고 display를 block으로 설정 (높이 계산 준비)
             preview.style.opacity = '0';
             preview.style.display = 'block';
-            
-            // 2. 새로운 이미지 소스 할당
             img.src = url;
 
-            // 3. [핵심] 이미지가 완전히 로드되어 실제 높이가 생겼을 때 위치 계산 실행
             img.onload = function() {
-                updatePreviewPosition(event);
-                preview.style.opacity = '1'; // 위치를 다 잡은 후 노출
+                // [수정] event 대신 저장된 최신 좌표(currentMousePos)를 사용
+                updatePreviewPosition();
+                preview.style.opacity = '1';
             };
 
-            // 만약 이미지가 이미 캐시되어 있다면 즉시 실행
             if (img.complete) {
-                updatePreviewPosition(event);
+                updatePreviewPosition();
                 preview.style.opacity = '1';
             }
         }
@@ -428,29 +428,35 @@ function hideImagePreview() {
     document.getElementById('hoverPreviewImg').src = "";
 }
 
-function updatePreviewPosition(event) {
+function updatePreviewPosition() {
     const preview = document.getElementById('imageHoverPreview');
     if (preview && preview.style.display === 'block') {
         const previewWidth = preview.offsetWidth;
         const previewHeight = preview.offsetHeight;
 
-        // 1. 위쪽 배치를 위한 Y좌표 (마우스에서 위로 10px + 이미지 높이만큼 위로)
-        // 만약 위쪽 공간이 부족하면 마우스 아래로 표시하도록 보정
-        let posY = event.clientY - previewHeight - 10;
+        // 저장된 최신 좌표 사용
+        let posY = currentMousePos.y - previewHeight - 10;
         if (posY < 10) { 
-            posY = event.clientY + 10; // 상단 공간 부족 시 아래로 표시
+            posY = currentMousePos.y + 10; 
         }
         
-        // 2. 가로 중앙 정렬을 위한 X좌표 계산
-        let posX = event.clientX - (previewWidth / 2);
-        
-        // 3. 화면 좌우를 벗어나지 않도록 방지 (보정 로직)
+        let posX = currentMousePos.x - (previewWidth / 2);
         const safePosX = Math.max(10, Math.min(posX, window.innerWidth - previewWidth - 10));
 
         preview.style.left = safePosX + 'px';
         preview.style.top = posY + 'px';
     }
 }
+
+// 마우스 움직임을 실시간으로 기록하는 함수
+function saveMousePos(event) {
+    currentMousePos.x = event.clientX;
+    currentMousePos.y = event.clientY;
+    // 이미 미리보기가 떠 있는 상태라면 위치를 즉시 업데이트
+    updatePreviewPosition();
+}
+
+
 
 window.openAddPopup = () => { document.getElementById('imageModal').style.display = 'flex'; };
 window.closeAddPopup = () => {
