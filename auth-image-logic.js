@@ -412,10 +412,20 @@ function hideImagePreview() {
 
 function updatePreviewPosition(event) {
     const preview = document.getElementById('imageHoverPreview');
-    if (preview.style.display === 'block') {
-        // 마우스 커서에서 오른쪽으로 15px, 아래로 15px 떨어진 곳에 표시
-        preview.style.left = (event.clientX + 15) + 'px';
-        preview.style.top = (event.clientY + 15) + 'px';
+    if (preview && preview.style.display === 'block') {
+        // 1. 우측 배치를 위한 X좌표 (마우스에서 오른쪽으로 10px)
+        const posX = event.clientX + 10;
+        
+        // 2. 우측 중앙 정렬을 위한 Y좌표 계산
+        // 미리보기 창의 현재 높이 절반을 빼서 마우스 커서와 높이를 맞춤
+        const previewHeight = preview.offsetHeight;
+        const posY = event.clientY - (previewHeight / 2);
+        
+        // 3. 화면 하단을 벗어나지 않도록 방지 (보정 로직)
+        const safePosY = Math.max(10, Math.min(posY, window.innerHeight - previewHeight - 10));
+
+        preview.style.left = posX + 'px';
+        preview.style.top = safePosY + 'px';
     }
 }
 
