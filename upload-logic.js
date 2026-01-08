@@ -30,7 +30,8 @@ async function listFiles() {
             // [중요] 시스템 파일(.emptyFolder 등)을 제외한 실제 파일만 필터링
             const actualFiles = data.filter(file => 
                 file.name !== '.emptyFolder' && 
-                file.name !== '.emptyFolderPlaceholder'
+                file.name !== '.emptyFolderPlaceholder' &&
+                file.name !== 'product_assets' // product_assets 폴더 자체 제외
             );
 
             // 실제 파일이 하나도 없을 경우의 처리
@@ -48,7 +49,7 @@ async function listFiles() {
                     <div style="flex: 1; text-align: center;">업로드 날짜</div>
                     <div style="flex: 1; text-align: center;">관리</div>
                 </div>
-            ` + data.filter(file => file.name !== '.emptyFolder').map(file => {
+            ` + actualFiles.map(file => {
                 let displayName = file.name;
                 let displayDate = "-";
                 try {
