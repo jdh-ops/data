@@ -12,6 +12,7 @@ let isDelActive = false;
 let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
 let tempEditList = []; // 팝업 내 임시 데이터 저장 배열
 let currentEditId = null; // 태그 수정 시 이미지 ID 저장용
+let hoverTimer = null; // 1초 지연을 위한 타이머
 
 // --- [1. 이미지 붙여넣기 및 업로드] ---
 async function handleImagePaste(event, type) {
@@ -183,11 +184,19 @@ function renderImageGrid(data) {
                             style="background:white; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:10px; padding:2px 4px; color:#a0aec0;">✏️ 수정</button>
                 </div>
             </div>
-            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" >
                 <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
             </div>
             <div style="width:100%; margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">🖼️ 복사</button>
+                <button 
+                onclick="copyImageToClipboard('${item.real_url}')" 
+                onmouseenter="showImagePreview(event, '${item.real_url}')" 
+                onmouseleave="hideImagePreview()" 
+                onmousemove="updatePreviewPosition(event)"
+                class="btn-select" 
+                style="padding:6px; font-size:11px; margin-top:0;">
+                🖼️ 복사
+                </button>
                 <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">🔗 URL</button>
             </div>
         </div>
@@ -378,6 +387,36 @@ function addTermToModal() {
 function removeTermFromModal(index) {
     tempEditList.splice(index, 1);
     renderModalList();
+}
+
+function showImagePreview(event, url) {
+    // 1초 뒤에 실행되도록 설정
+    hoverTimer = setTimeout(() => {
+        const preview = document.getElementById('imageHoverPreview');
+        const img = document.getElementById('hoverPreviewImg');
+        
+        img.src = url;
+        preview.style.display = 'block';
+        
+        // 마우스 위치에 따라 미리보기 창 위치 조절
+        updatePreviewPosition(event);
+    }, 1000); // 1000ms = 1초
+}
+
+function hideImagePreview() {
+    clearTimeout(hoverTimer); // 1초가 되기 전에 마우스가 벗어나면 취소
+    const preview = document.getElementById('imageHoverPreview');
+    preview.style.display = 'none';
+    document.getElementById('hoverPreviewImg').src = "";
+}
+
+function updatePreviewPosition(event) {
+    const preview = document.getElementById('imageHoverPreview');
+    if (preview.style.display === 'block') {
+        // 마우스 커서에서 오른쪽으로 15px, 아래로 15px 떨어진 곳에 표시
+        preview.style.left = (event.clientX + 15) + 'px';
+        preview.style.top = (event.clientY + 15) + 'px';
+    }
 }
 
 window.openAddPopup = () => { document.getElementById('imageModal').style.display = 'flex'; };
