@@ -184,20 +184,23 @@ function renderImageGrid(data) {
                             style="background:white; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:10px; padding:2px 4px; color:#a0aec0;">✏️ 수정</button>
                 </div>
             </div>
-            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; " >
+
+            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc;"
+                 onmouseenter="showImagePreview(event, '${item.real_url}')" 
+                 onmouseleave="hideImagePreview()" 
+                 onmousemove="updatePreviewPosition(event)">
                 <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
             </div>
+
             <div style="width:100%; margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                <button 
-                onclick="copyImageToClipboard('${item.real_url}')" 
-                onmouseenter="showImagePreview(event, '${item.real_url}')" 
-                onmouseleave="hideImagePreview()" 
-                onmousemove="updatePreviewPosition(event)"
-                class="btn-select" 
-                style="padding:6px; font-size:11px; margin-top:0;">
-                🖼️ 복사
+                <button onclick="copyImageToClipboard('${item.real_url}')" 
+                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">
+                    🖼️ 복사
                 </button>
-                <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">🔗 URL</button>
+                <button onclick="copyTextToClipboard('${item.product_url || ''}')" 
+                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">
+                    🔗 URL
+                </button>
             </div>
         </div>
     `).join('');
@@ -390,17 +393,14 @@ function removeTermFromModal(index) {
 }
 
 function showImagePreview(event, url) {
-    // 1초 뒤에 실행되도록 설정
     hoverTimer = setTimeout(() => {
         const preview = document.getElementById('imageHoverPreview');
         const img = document.getElementById('hoverPreviewImg');
         
         img.src = url;
         preview.style.display = 'block';
-        
-        // 마우스 위치에 따라 미리보기 창 위치 조절
         updatePreviewPosition(event);
-    }, 1000); // 1000ms = 1초
+    }, 500); //0.5초 지연
 }
 
 function hideImagePreview() {
