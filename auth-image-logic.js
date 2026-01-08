@@ -105,7 +105,7 @@ window.closeAddPopup = () => {
 };
 
 // 5. 데이터 불러오기 및 리스트 렌더링 (상품 URL 복사로 수정)
-async function fetchImages() {
+async function fetchImages(sortOrder = 'desc') {
     const grid = document.getElementById('imageGrid');
     if (!grid) return;
 
@@ -119,7 +119,7 @@ async function fetchImages() {
             .from('product_images')
             .select('*')
             .eq('project_key', tableName)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: sortOrder === 'asc' });
 
         if (error) throw error;
 
@@ -129,26 +129,29 @@ async function fetchImages() {
         }
 
         // [수정] 카드형 UI 디자인
-        grid.innerHTML = data.map(item => `
-            <div class="image-item" style="background:white; padding:15px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; transition: transform 0.2s;">
-                <div style="width:100%; display:flex; justify-content:flex-end; height:22px; margin-bottom:10px;">
-                    <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; width:20px; height:20px; cursor:pointer;">
+        grid.innerHTML = data.map(item =>{
+            // "ITEM_20260107_174727" 형식에서 날짜만 추출 (2026-01-07)
+            const datePart = item.name.split('_')[1];
+            const formattedDate = datePart ? `${datePart.substring(0,4)}-${datePart.substring(4,6)}-${datePart.substring(6,8)}` : '날짜 정보 없음';
+
+            return `
+            <div class="image-item" style="background:white; padding:15px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center;">
+                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:12px; color:#718096; font-weight:bold;">📅 ${formattedDate}</span>
+                        <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; width:18px; height:18px; cursor:pointer;">
+                    </div>
+                    
+                    <div style="width:100%; aspect-ratio: 1/1; border-radius:10px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
+                        <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
+                    </div>
+                    
+                    <div style="width:100%; margin-top:15px; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:6px; cursor:pointer;">🖼️ 이미지 복사</button>
+                        <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:6px; cursor:pointer;">🔗 URL 복사</button>
+                    </div>
                 </div>
-                
-                <div style="width:100%; aspect-ratio: 1/1; border-radius:10px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; cursor:pointer;" onclick="window.open('${item.real_url}', '_blank')">
-                    <img src="${item.thumbnail_url}" style="width:100%; height:100%; object-fit:contain;">
-                </div>
-                
-                <div style="width:100%; margin-top:15px; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                    <button onclick="copyImageToClipboard('${item.real_url}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#2b6cb0; background:#ebf8ff; border:none; border-radius:6px; cursor:pointer;">🖼️ 이미지 복사</button>
-                    <button onclick="copyTextToClipboard('${item.product_url || ''}')" class="btn-select" style="padding:8px; font-size:12px; font-weight:bold; color:#4a5568; background:#f7fafc; border:none; border-radius:6px; cursor:pointer;">🔗 URL 복사</button>
-                    ${item.product_url ? 
-                        `<button onclick="window.open('${item.product_url}', '_blank')" class="btn-select" style="grid-column: span 2; padding:8px; font-size:12px; font-weight:bold; color:#2f855a; background:#f0fff4; border:none; border-radius:6px; cursor:pointer;">🛒 상품 페이지 이동</button>` 
-                        : ''
-                    }
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
         grid.innerHTML = `<p style="color:red; padding:20px;">데이터 로드 실패</p>`;
     }

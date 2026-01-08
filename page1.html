@@ -109,7 +109,13 @@
         
         <div id="dashboard" class="content-section active">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>📸 정품 이미지 관리</h2>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h2>📸 정품 이미지 관리</h2>
+                    <select id="sortSelect" onchange="fetchImages(this.value)" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ddd; outline: none; cursor: pointer;">
+                        <option value="desc">최신순</option>
+                        <option value="asc">과거순</option>
+                    </select>
+                </div>
                 <div style="display: flex; gap: 10px;">
                     <button onclick="openAddPopup()" class="btn-primary">➕ 이미지 추가</button>
                     <button id="editModeBtn" onclick="toggleEditMode()" class="btn-select">✏️ 수정/삭제 모드</button>
@@ -117,8 +123,7 @@
                 </div>
             </div>
         
-            <div id="imageGrid" style="display: flex; flex-direction: column; gap: 15px;">
-                </div>
+            <div id="imageGrid"></div>
         </div>
 
         <div id="upload" class="content-section">
