@@ -331,16 +331,36 @@ async function updateImageTags(id, tagsString) {
     if (!error) { fetchImages(); }
 }
 
-async function copyImageToClipboard(url) {
+async function copyImageToClipboard(url, btn) {
     try {
         const res = await fetch(url);
         const blob = await res.blob();
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-    } catch (err) { alert('복사 실패'); }
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "✅ 완료";
+        btn.style.color = "#38a169"; // 녹색으로 강조
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.color = ""; // 원래 색상으로 복구
+        }, 500); // 0.5초 뒤 원상복구
+    } catch (err) { 
+        console.error('복사 실패:', err);
+    }
 }
 
-function copyTextToClipboard(text) {
+function copyTextToClipboard(text, btn) {
     navigator.clipboard.writeText(text);
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "✅ 완료";
+    btn.style.color = "#38a169";
+    
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.color = "";
+    }, 500);
 }
 
 // --- [공통 모달 제어] ---
