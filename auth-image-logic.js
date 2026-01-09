@@ -336,13 +336,11 @@ async function copyImageToClipboard(url) {
         const res = await fetch(url);
         const blob = await res.blob();
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        alert('🖼️ 이미지가 클립보드에 복사되었습니다.');
     } catch (err) { alert('복사 실패'); }
 }
 
 function copyTextToClipboard(text) {
     navigator.clipboard.writeText(text);
-    alert('🔗 URL이 복사되었습니다.');
 }
 
 // --- [공통 모달 제어] ---
