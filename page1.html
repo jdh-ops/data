@@ -74,18 +74,18 @@
                     <input type="text" id="tagFilter" placeholder="태그로 검색 (엔터)" onkeypress="if(event.keyCode==13) fetchImages()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; width: 200px;">
                     <button onclick="resetAllFilters()" style="padding: 8px 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-size: 13px;">초기화</button>
                 </div>
-                <div style="display: flex; gap: 8px;">
+            
+                <div style="display: flex; gap: 8px; align-items: center;">
                     <button onclick="openAddPopup()" style="padding: 0 15px; height: 35px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">+ 이미지 추가</button>
                     <button id="editModeBtn" onclick="toggleEditMode()" style="padding: 0 15px; height: 35px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px;">✏️ 수정</button>
-                    <button id="bulkEditBtn" onclick="openBulkTagModal()" style="display:none; padding: 0 15px; height: 35px; background: #4a5568; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🏷️ 태그 편집</button>
-                    <button id="deleteBtn" onclick="deleteSelectedImages()" style="display:none; padding: 0 15px; height: 35px; background:#e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🗑️ 삭제</button>
-                </div>
-                <div id="editModeControls" style="display:none; margin-bottom: 15px; gap: 8px; align-items: center;">
-                    <button onclick="toggleSelectAll()" id="selectAllBtn" style="background:#f8fafc; border:1px solid #cbd5e0; padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer;">전체 선택</button>
-                    <span id="selectCountDisplay" style="font-size: 13px; font-weight: bold; color: #4a5568; margin-right: 10px;">0개 선택됨</span>
-                
-                    <button onclick="openBulkTagModal()" style="background:#4a5568; color:white; padding:8px 15px; border-radius:6px; font-size:13px; border:none; cursor:pointer;">🏷️ 일괄 편집</button>
-                    <button id="deleteBtn" onclick="deleteSelectedImages()" style="background:#e53e3e; color:white; padding:8px 15px; border-radius:6px; font-size:13px; border:none; cursor:pointer;">🗑️ 삭제</button>
+            
+                    <div id="editModeControls" style="display: none; gap: 8px; align-items: center; border-left: 2px solid #edf2f7; padding-left: 10px; margin-left: 5px;">
+                        <button id="selectAllBtn" onclick="toggleSelectAll()" style="height: 35px; padding: 0 12px; background:#f8fafc; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; cursor:pointer;">전체 선택</button>
+                        <span id="selectCountDisplay" style="font-size: 13px; font-weight: bold; color: #4a5568; white-space: nowrap;">0개 선택됨</span>
+                        
+                        <button id="bulkEditBtn" onclick="openBulkTagModal()" style="padding: 0 15px; height: 35px; background: #4a5568; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🏷️ 일괄 편집</button>
+                        <button id="deleteBtn" onclick="deleteSelectedImages()" style="padding: 0 15px; height: 35px; background:#e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🗑️ 삭제</button>
+                    </div>
                 </div>
             </div>
             
