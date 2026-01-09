@@ -301,13 +301,22 @@ function editSavedTerms() {
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editModeBtn');
-    const delBtn = document.getElementById('deleteBtn');
-    const bulkBtn = document.getElementById('bulkEditBtn'); // 추가된 버튼 ID
+    // 개별 버튼이 아니라, 버튼들을 감싸고 있는 '부모 박스'를 가져옵니다.
+    const controls = document.getElementById('editModeControls');
 
-    if(btn) btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정';
+    if (btn) {
+        btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정';
+    }
     
-    if(delBtn) delBtn.style.display = isEditMode ? 'block' : 'none';
-    if(bulkBtn) bulkBtn.style.display = isEditMode ? 'block' : 'none'; 
+    // 수정 모드일 때 부모 박스 전체를 보여주거나 숨깁니다.
+    if (controls) {
+        controls.style.display = isEditMode ? 'flex' : 'none';
+    }
+    
+    // 모드 전환 시 선택 카운트 초기화 및 이미지 다시 불러오기
+    if (isEditMode) {
+        updateSelectCount();
+    }
     
     fetchImages();
 }
