@@ -14,6 +14,7 @@ let tempEditList = []; // 팝업 내 임시 데이터 저장 배열
 let currentEditId = null; // 태그 수정 시 이미지 ID 저장용
 let hoverTimer = null; // 1초 지연을 위한 타이머
 let currentMousePos = { x: 0, y: 0 }; // 최신 마우스 위치 저장용
+let bulkEditMode = 'ADD'; // 'ADD' 또는 'REMOVE'
 
 // --- [1. 이미지 붙여넣기 및 업로드] ---
 async function handleImagePaste(event, type) {
@@ -294,8 +295,13 @@ function toggleEditMode() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editModeBtn');
     const delBtn = document.getElementById('deleteBtn');
-    if(btn) btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정/삭제';
+    const bulkBtn = document.getElementById('bulkEditBtn'); // 추가된 버튼 ID
+
+    if(btn) btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정';
+    
     if(delBtn) delBtn.style.display = isEditMode ? 'block' : 'none';
+    if(bulkBtn) bulkBtn.style.display = isEditMode ? 'block' : 'none'; 
+    
     fetchImages();
 }
 
@@ -472,6 +478,77 @@ function saveMousePos(event) {
     currentMousePos.y = event.clientY;
     // 이미 미리보기가 떠 있는 상태라면 위치를 즉시 업데이트
     updatePreviewPosition();
+}
+
+async function openBulkTagModal() {
+    const selectedCheckboxes = document.querySelectorAll('.img-checkbox:checked');
+    const ids = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+    if (ids.length === 0) return alert("항목을 먼저 선택해주세요.");
+
+    bulkEditMode = 'ADD'; // 초기값은 추가 모드
+    
+    // 모달을 열 때 탭 UI를 제목 아래에 삽입
+    openEditModal(`📦 ${ids.length}개 항목 일괄 편집`, [], async (inputTags) => {
+        if (inputTags.length === 0) return;
+        await executeBulkTagAction(ids, inputTags);
+    });
+
+    // 제목 바로 아래에 탭 UI 삽입
+    const titleEle = document.getElementById('editModalTitle');
+    const tabHtml = `
+        <div style="display:flex; margin-top:15px; background:#f7fafc; border-radius:8px; padding:4px;">
+            <div id="tab-ADD" onclick="switchBulkTab('ADD')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; background:#4299e1; color:white;">➕ 태그 추가</div>
+            <div id="tab-REMOVE" onclick="switchBulkTab('REMOVE')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; color:#4a5568;">❌ 태그 삭제</div>
+        </div>
+    `;
+    titleEle.insertAdjacentHTML('afterend', tabHtml);
+}
+
+// 탭 전환 함수
+function switchBulkTab(mode) {
+    bulkEditMode = mode;
+    const addTab = document.getElementById('tab-ADD');
+    const removeTab = document.getElementById('tab-REMOVE');
+    const saveBtn = document.getElementById('editModalSaveBtn');
+
+    if (mode === 'ADD') {
+        addTab.style.background = '#4299e1'; addTab.style.color = 'white';
+        removeTab.style.background = 'none'; removeTab.style.color = '#4a5568';
+        saveBtn.innerText = "선택 항목에 추가하기";
+    } else {
+        removeTab.style.background = '#ed8936'; removeTab.style.color = 'white';
+        addTab.style.background = 'none'; addTab.style.color = '#4a5568';
+        saveBtn.innerText = "선택 항목에서 삭제하기";
+    }
+}
+
+// 실제 DB 적용 로직
+async function executeBulkTagAction(ids, inputTags) {
+    try {
+        const { data: items, error: fetchError } = await _supabase
+            .from('product_images')
+            .select('id, tags')
+            .in('id', ids);
+
+        if (fetchError) throw fetchError;
+
+        const updates = items.map(item => {
+            let newTags = item.tags ? [...item.tags] : [];
+            if (bulkEditMode === 'ADD') {
+                inputTags.forEach(tag => { if (!newTags.includes(tag)) newTags.push(tag); });
+            } else {
+                newTags = newTags.filter(tag => !inputTags.includes(tag));
+            }
+            return _supabase.from('product_images').update({ tags: newTags }).eq('id', item.id);
+        });
+
+        await Promise.all(updates);
+        alert(`✨ ${ids.length}개 항목 처리가 완료되었습니다.`);
+        fetchImages();
+    } catch (err) {
+        alert("일괄 처리 실패: " + err.message);
+    }
 }
 
 
