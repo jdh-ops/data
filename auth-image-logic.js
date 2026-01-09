@@ -103,9 +103,12 @@ async function saveImage() {
 }
 
 // --- [3. 데이터 로드 및 필터링] ---
-async function fetchImages(sortOrder = 'desc') {
+async function fetchImages() {
     const grid = document.getElementById('imageGrid');
     const tagFilter = document.getElementById('tagFilter').value.trim();
+    // [수정] select 엘리먼트에서 현재 정렬 값을 실시간으로 가져옴
+    const sortOrder = document.getElementById('sortSelect').value; 
+    
     if (!grid) return;
 
     grid.innerHTML = "<p style='text-align:center; padding:20px;'>데이터 로딩 중...</p>";
@@ -115,21 +118,19 @@ async function fetchImages(sortOrder = 'desc') {
             .from('product_images')
             .select('*')
             .eq('project_key', tableName)
-            .order('name', { ascending: sortOrder === 'asc' });
+            // [수정] 파일명(name)을 기준으로 정렬 (날짜 정보가 포함되어 있음)
+            .order('name', { ascending: sortOrder === 'asc' }); 
 
         if (error) throw error;
 
+        // ... (필터링 로직은 기존과 동일) ...
         const filteredData = allData.filter(item => {
+            // 기존 필터링 코드 유지
             const itemTags = (item.tags || []).map(t => t.replace(/\s+/g, ''));
-            
-            // [A] 포함 조건 (파란색 버튼 + 직접 입력)
             let includeTargets = [...selectedTerms];
             if (tagFilter) includeTargets.push(tagFilter);
-
-            // [B] 제외 조건 (빨간색 버튼)
             let excludeTargets = [...excludeTerms];
 
-            // 1차 필터링: 포함 조건 확인 (AND/OR)
             let passInclude = true;
             if (includeTargets.length > 0) {
                 const includeMatches = includeTargets.map(term => {
@@ -139,7 +140,6 @@ async function fetchImages(sortOrder = 'desc') {
                 passInclude = (filterMode === 'AND') ? includeMatches.every(m => m) : includeMatches.some(m => m);
             }
 
-            // 2차 필터링: 제외 조건 확인 (제외 태그가 하나라도 포함되면 탈락)
             let passExclude = true;
             if (excludeTargets.length > 0) {
                 const hasExcludeTerm = excludeTargets.some(term => {
@@ -148,12 +148,11 @@ async function fetchImages(sortOrder = 'desc') {
                 });
                 if (hasExcludeTerm) passExclude = false;
             }
-
             return passInclude && passExclude;
         });
 
-        renderImageGrid(filteredData); // 그리드 그리기
-        renderSavedTerms(); // 필터 버튼 상태 업데이트
+        renderImageGrid(filteredData); 
+        renderSavedTerms(); 
     } catch (err) { 
         console.error(err); 
         grid.innerHTML = "<p style='color:red; text-align:center;'>로드 실패</p>";
@@ -301,24 +300,13 @@ function editSavedTerms() {
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editModeBtn');
-    // 개별 버튼이 아니라, 버튼들을 감싸고 있는 '부모 박스'를 가져옵니다.
     const controls = document.getElementById('editModeControls');
 
-    if (btn) {
-        btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정';
-    }
+    if (btn) btn.innerText = isEditMode ? '✅ 완료' : '✏️ 수정';
+    if (controls) controls.style.display = isEditMode ? 'flex' : 'none';
     
-    // 수정 모드일 때 부모 박스 전체를 보여주거나 숨깁니다.
-    if (controls) {
-        controls.style.display = isEditMode ? 'flex' : 'none';
-    }
-    
-    // 모드 전환 시 선택 카운트 초기화 및 이미지 다시 불러오기
-    if (isEditMode) {
-        updateSelectCount();
-    }
-    
-    fetchImages();
+    // 모드 전환 시 현재 선택된 정렬 기준을 유지하며 다시 불러옴
+    fetchImages(); 
 }
 
 async function deleteSelectedImages() {
