@@ -160,9 +160,11 @@ async function fetchImages(sortOrder = 'desc') {
     }
 }
 
-// --- [4. 그리드 렌더링 (카드 크기 70% 축소)] ---
+// --- [4. 그리드 렌더링 (카드 클릭 범위 확장 및 카운터 연동)] ---
 function renderImageGrid(data) {
     const grid = document.getElementById('imageGrid');
+    if (!grid) return;
+
     grid.style.display = 'grid';
     grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
     grid.style.gap = '15px';
@@ -173,7 +175,10 @@ function renderImageGrid(data) {
     }
 
     grid.innerHTML = data.map(item => `
-        <div class="image-item" style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center;">
+        <div class="image-item" 
+             onclick="handleCardClick(event, '${item.id}')" 
+             style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; cursor:${isEditMode ? 'pointer' : 'default'}; position:relative;">
+            
             <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; min-height:32px;">
                 <div style="display:flex; flex-wrap:wrap; gap:3px; max-width: 75%;">
                     ${item.tags && item.tags.length > 0 
@@ -181,13 +186,16 @@ function renderImageGrid(data) {
                         : '<span style="color:#cbd5e0; font-size:9px;">#태그없음</span>'}
                 </div>
                 <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
-                    <input type="checkbox" class="img-checkbox" value="${item.id}" style="display:${isEditMode ? 'block' : 'none'}; width:16px; height:16px;">
-                    <button onclick="openEditTagPopup('${item.id}', '${(item.tags || []).join(', ')}')" 
+                    <input type="checkbox" class="img-checkbox" value="${item.id}" 
+                           onclick="event.stopPropagation(); updateSelectCount();" 
+                           style="display:${isEditMode ? 'block' : 'none'}; width:18px; height:18px; cursor:pointer;">
+                    
+                    <button onclick="event.stopPropagation(); openEditTagPopup('${item.id}', '${(item.tags || []).join(', ')}')" 
                             style="background:white; border:1px solid #e2e8f0; border-radius:4px; cursor:pointer; font-size:10px; padding:2px 4px; color:#a0aec0;">✏️ 수정</button>
                 </div>
             </div>
 
-            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc;"
+            <div style="width:100%; aspect-ratio: 1/1; border-radius:8px; overflow:hidden; border:1px solid #edf2f7; background:#f8fafc; display:flex; align-items:center; justify-content:center;"
                  onmouseenter="showImagePreview(event, '${item.real_url}')" 
                  onmouseleave="hideImagePreview()" 
                  onmousemove="saveMousePos(event)">
@@ -195,18 +203,17 @@ function renderImageGrid(data) {
             </div>
 
             <div style="width:100%; margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                <button onclick="copyImageToClipboard('${item.real_url}')" 
-                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">
-                    🖼️ 복사
-                </button>
-                <button onclick="copyTextToClipboard('${item.product_url || ''}')" 
-                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">
-                    🔗 URL
-                </button>
+                <button onclick="event.stopPropagation(); copyImageToClipboard('${item.real_url}', this)" 
+                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">🖼️ 복사</button>
+                <button onclick="event.stopPropagation(); copyTextToClipboard('${item.product_url || ''}', this)" 
+                        class="btn-select" style="padding:6px; font-size:11px; margin-top:0;">🔗 URL</button>
             </div>
         </div>
     `).join('');
-}
+
+    updateSelectCount(); // 렌더링 시점에 카운터 초기화
+}  
+
 
 // --- [5. 필터 및 모드 제어] ---
 function setMode(mode) {
@@ -486,23 +493,28 @@ async function openBulkTagModal() {
 
     if (ids.length === 0) return alert("항목을 먼저 선택해주세요.");
 
-    bulkEditMode = 'ADD'; // 초기값은 추가 모드
+    bulkEditMode = 'ADD'; 
     
-    // 모달을 열 때 탭 UI를 제목 아래에 삽입
     openEditModal(`📦 ${ids.length}개 항목 일괄 편집`, [], async (inputTags) => {
         if (inputTags.length === 0) return;
         await executeBulkTagAction(ids, inputTags);
     });
 
-    // 제목 바로 아래에 탭 UI 삽입
-    const titleEle = document.getElementById('editModalTitle');
-    const tabHtml = `
-        <div style="display:flex; margin-top:15px; background:#f7fafc; border-radius:8px; padding:4px;">
-            <div id="tab-ADD" onclick="switchBulkTab('ADD')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; background:#4299e1; color:white;">➕ 태그 추가</div>
-            <div id="tab-REMOVE" onclick="switchBulkTab('REMOVE')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; color:#4a5568;">❌ 태그 삭제</div>
-        </div>
-    `;
-    titleEle.insertAdjacentHTML('afterend', tabHtml);
+    // [수정 포인트] 이미 탭이 존재하는지 확인 (id="bulkTabContainer" 추가)
+    const existingTab = document.getElementById('bulkTabContainer');
+    if (!existingTab) {
+        const titleEle = document.getElementById('editModalTitle');
+        const tabHtml = `
+            <div id="bulkTabContainer" style="display:flex; margin-top:15px; background:#f7fafc; border-radius:8px; padding:4px; margin-bottom:15px;">
+                <div id="tab-ADD" onclick="switchBulkTab('ADD')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; background:#4299e1; color:white;">➕ 태그 추가</div>
+                <div id="tab-REMOVE" onclick="switchBulkTab('REMOVE')" style="flex:1; text-align:center; padding:8px; cursor:pointer; border-radius:6px; font-weight:bold; color:#4a5568;">❌ 태그 삭제</div>
+            </div>
+        `;
+        titleEle.insertAdjacentHTML('afterend', tabHtml);
+    } else {
+        // 이미 탭이 있다면 초기 상태(추가 모드)로 강제 리셋
+        switchBulkTab('ADD');
+    }
 }
 
 // 탭 전환 함수
@@ -551,6 +563,49 @@ async function executeBulkTagAction(ids, inputTags) {
     }
 }
 
+// [기능 3] 카드 전체 클릭 처리
+function handleCardClick(event, id) {
+    if (!isEditMode) return;
+    
+    // 버튼이나 이미 클릭된 체크박스를 누른 경우 중복 처리 방지
+    if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
+
+    const checkbox = event.currentTarget.querySelector('.img-checkbox');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        updateSelectCount();
+    }
+}
+
+// [기능 2] 선택된 개수 업데이트
+function updateSelectCount() {
+    const total = document.querySelectorAll('.img-checkbox').length;
+    const selected = document.querySelectorAll('.img-checkbox:checked').length;
+    const display = document.getElementById('selectCountDisplay');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+
+    if (display) display.innerText = `${selected}개 선택됨`;
+    
+    // [기능 1] 모든 카드가 선택되었는지에 따라 버튼 텍스트 변경
+    if (selectAllBtn) {
+        selectAllBtn.innerText = (selected > 0 && selected === total) ? "선택 해제" : "전체 선택";
+    }
+}
+
+// [기능 1] 전체 선택/해제 토글
+function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.img-checkbox');
+    const selected = document.querySelectorAll('.img-checkbox:checked').length;
+    
+    // 하나라도 안 뽑힌 게 있으면 전체 선택, 다 뽑혀 있으면 전체 해제
+    const shouldSelect = selected < checkboxes.length;
+    
+    checkboxes.forEach(cb => {
+        cb.checked = shouldSelect;
+    });
+    
+    updateSelectCount();
+}
 
 
 window.openAddPopup = () => { document.getElementById('imageModal').style.display = 'flex'; };
