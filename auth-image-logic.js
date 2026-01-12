@@ -288,13 +288,17 @@ function resetAllFilters() {
 
 // --- [2. 필터 검색어 편집 기능 연결] ---
 function editSavedTerms() {
-    const currentStr = savedSearchTerms.join(', ');
-    const newStr = prompt("필터 버튼으로 사용할 단어들을 쉼표(,)로 구분해서 입력하세요:", currentStr);
-    
-    if (newStr !== null) {
-        const newTerms = newStr.split(',').map(s => s.trim()).filter(s => s !== "");
-        saveSavedTermsToServer(newTerms); 
-    }
+    // 1. 현재 서버에서 불러와 저장되어 있는 필터 버튼 목록(savedSearchTerms)을 가져옴
+    // 2. [...savedSearchTerms] 로 복사본을 만들어 모달에 전달
+    openEditModal("🏷️ 필터 버튼 일괄 편집", [...savedSearchTerms], async (newTerms) => {
+        // 사용자가 모달에서 '저장' 버튼을 눌렀을 때 실행되는 콜백
+        try {
+            // 서버 저장 함수 호출 (이미 만들어두신 함수 활용)
+            await saveSavedTermsToServer(newTerms);
+        } catch (err) {
+            alert("필터 저장 중 오류가 발생했습니다: " + err.message);
+        }
+    });
 }
 
 // --- [6. 기타 유틸리티] ---
