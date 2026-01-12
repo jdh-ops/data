@@ -632,18 +632,44 @@ async function loadSavedTerms() {
 async function saveSavedTermsToServer(newTerms) {
     try {
         const key = 'SYSTEM_SETTINGS_' + tableName;
-        const { error } = await _supabase
+        
+        // 1. 먼저 해당 키를 가진 설정 레코드가 있는지 확인
+        const { data: existing, error: fetchError } = await _supabase
             .from('product_images')
-            .upsert({ 
-                project_key: key, 
-                name: 'FILTER_BUTTONS',
-                tags: newTerms 
-            }, { onConflict: 'project_key' });
+            .select('id')
+            .eq('project_key', key)
+            .maybeSingle();
+
+        if (fetchError) throw fetchError;
+
+        let error;
+        if (existing) {
+            // 2. 이미 존재한다면 해당 ID를 찾아 '업데이트'
+            const result = await _supabase
+                .from('product_images')
+                .update({ tags: newTerms })
+                .eq('id', existing.id);
+            error = result.error;
+        } else {
+            // 3. 존재하지 않는다면 '새로 삽입'
+            const result = await _supabase
+                .from('product_images')
+                .insert({ 
+                    project_key: key, 
+                    name: 'FILTER_BUTTONS',
+                    tags: newTerms 
+                });
+            error = result.error;
+        }
 
         if (error) throw error;
-        savedSearchTerms = newTerms; // [수정] 전체 목록 업데이트
+
+        // 상태 업데이트 및 화면 갱신
+        savedSearchTerms = newTerms;
         renderSavedTerms();
+        
     } catch (err) {
+        console.error("필터 저장 실패:", err);
         alert("필터 저장 실패: " + err.message);
     }
 }
