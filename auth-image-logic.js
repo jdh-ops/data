@@ -4,12 +4,12 @@
  */
 
 // --- [상태 관리 변수] ---
+let savedSearchTerms = [];
 let selectedTerms = []; // 파란색(AND/OR) 검색어
 let excludeTerms = [];  // 빨간색(DEL) 검색어
 let isEditMode = false;
 let filterMode = 'OR';  
 let isDelActive = false; 
-let savedSearchTerms = JSON.parse(localStorage.getItem('savedSearchTerms') || '["바디", "오일", "수분", "진정"]');
 let tempEditList = []; // 팝업 내 임시 데이터 저장 배열
 let currentEditId = null; // 태그 수정 시 이미지 ID 저장용
 let hoverTimer = null; // 1초 지연을 위한 타이머
@@ -152,7 +152,6 @@ async function fetchImages() {
         });
 
         renderImageGrid(filteredData); 
-        renderSavedTerms(); 
     } catch (err) { 
         console.error(err); 
         grid.innerHTML = "<p style='color:red; text-align:center;'>로드 실패</p>";
@@ -289,11 +288,13 @@ function resetAllFilters() {
 
 // --- [2. 필터 검색어 편집 기능 연결] ---
 function editSavedTerms() {
-    openEditModal("⚙️ 필터 검색어 편집", savedSearchTerms, (updatedTerms) => {
-        savedSearchTerms = updatedTerms.slice(0, 10); // 최대 10개 유지
-        localStorage.setItem('savedSearchTerms', JSON.stringify(savedSearchTerms));
-        renderSavedTerms();
-    });
+    const currentStr = savedSearchTerms.join(', ');
+    const newStr = prompt("필터 버튼으로 사용할 단어들을 쉼표(,)로 구분해서 입력하세요:", currentStr);
+    
+    if (newStr !== null) {
+        const newTerms = newStr.split(',').map(s => s.trim()).filter(s => s !== "");
+        saveSavedTermsToServer(newTerms); 
+    }
 }
 
 // --- [6. 기타 유틸리티] ---
@@ -604,6 +605,44 @@ function toggleSelectAll() {
     updateSelectCount();
 }
 
+async function loadSavedTerms() {
+    try {
+        const { data, error } = await _supabase
+            .from('product_images')
+            .select('tags')
+            .eq('project_key', 'SYSTEM_SETTINGS_' + tableName)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        savedSearchTerms = (data && data.tags) ? data.tags : ["바디", "오일", "수분", "진정"];
+        
+        renderSavedTerms(); // 버튼 그리기
+    } catch (err) {
+        console.error("필터 로드 실패:", err);
+        savedSearchTerms = ["바디", "오일", "수분", "진정"];
+        renderSavedTerms();
+    }
+}
+
+async function saveSavedTermsToServer(newTerms) {
+    try {
+        const key = 'SYSTEM_SETTINGS_' + tableName;
+        const { error } = await _supabase
+            .from('product_images')
+            .upsert({ 
+                project_key: key, 
+                name: 'FILTER_BUTTONS',
+                tags: newTerms 
+            }, { onConflict: 'project_key' });
+
+        if (error) throw error;
+        savedSearchTerms = newTerms; // [수정] 전체 목록 업데이트
+        renderSavedTerms();
+    } catch (err) {
+        alert("필터 저장 실패: " + err.message);
+    }
+}
 
 window.openAddPopup = () => { document.getElementById('imageModal').style.display = 'flex'; };
 window.closeAddPopup = () => {
@@ -617,7 +656,7 @@ window.closeAddPopup = () => {
 };
 
 // --- [초기 실행] ---
-window.addEventListener('DOMContentLoaded', () => {
-    renderSavedTerms();
-    fetchImages();
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadSavedTerms(); // 서버에서 버튼 목록을 먼저 가져옴
+    fetchImages();          // 그 후 이미지를 로드
 });
