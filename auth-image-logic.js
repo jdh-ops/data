@@ -283,6 +283,7 @@ function resetAllFilters() {
     filterMode = 'OR';
     const tagInput = document.getElementById('tagFilter');
     if(tagInput) tagInput.value = "";
+    renderSavedTerms();
     fetchImages();
 }
 
