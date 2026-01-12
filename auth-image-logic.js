@@ -633,7 +633,6 @@ async function saveSavedTermsToServer(newTerms) {
     try {
         const key = 'SYSTEM_SETTINGS_' + tableName;
         
-        // 1. 먼저 해당 키를 가진 설정 레코드가 있는지 확인
         const { data: existing, error: fetchError } = await _supabase
             .from('product_images')
             .select('id')
@@ -644,27 +643,27 @@ async function saveSavedTermsToServer(newTerms) {
 
         let error;
         if (existing) {
-            // 2. 이미 존재한다면 해당 ID를 찾아 '업데이트'
             const result = await _supabase
                 .from('product_images')
                 .update({ tags: newTerms })
                 .eq('id', existing.id);
             error = result.error;
         } else {
-            // 3. 존재하지 않는다면 '새로 삽입'
+            // [수정] 필수 컬럼(NOT NULL) 제약을 피하기 위해 더미 값을 넣습니다.
             const result = await _supabase
                 .from('product_images')
                 .insert({ 
                     project_key: key, 
                     name: 'FILTER_BUTTONS',
-                    tags: newTerms 
+                    tags: newTerms,
+                    thumbnail_url: 'SETTINGS', // 빈 값이 아니도록 더미 텍스트 입력
+                    real_url: 'SETTINGS'      // 빈 값이 아니도록 더미 텍스트 입력
                 });
             error = result.error;
         }
 
         if (error) throw error;
 
-        // 상태 업데이트 및 화면 갱신
         savedSearchTerms = newTerms;
         renderSavedTerms();
         
