@@ -5,8 +5,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Supabase 클라이언트 초기화
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// URL에서 프로젝트 키(예: ?table=test_data)를 가져오고 없으면 'default' 사용
+// config.js
 const urlParams = new URLSearchParams(window.location.search);
 const tableName = urlParams.get('table') || 'default';
 
-console.log(`🚀 현재 접속 프로젝트: ${tableName}`);
+// [추가] URL의 key 파라미터 값을 한글로 변환하여 가져오기
+const projectKeyName = decodeURIComponent(urlParams.get('key') || tableName);
+
+console.log(`🚀 현재 프로젝트명: ${projectKeyName}`);

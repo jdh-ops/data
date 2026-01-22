@@ -96,7 +96,7 @@
         window.onload = async () => {
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
-                titleElement.innerText = tableName;
+                titleElement.innerText = projectKeyName; 
             }
 
             if (typeof renderDataTable === 'function') await renderDataTable();

@@ -128,11 +128,9 @@
         }
 
         window.onload = async () => {
-            // [수정] 관문에서 입력한 키워드(tableName)를 사이드바 제목에 표시
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
-                titleElement.innerText = tableName; // 입력한 값 그대로 표시
-                // 만약 대문자로 예쁘게 보여주고 싶다면: titleElement.innerText = tableName.toUpperCase();
+                titleElement.innerText = projectKeyName; 
             }
 
             if (typeof loadSavedTerms === 'function') await loadSavedTerms();
