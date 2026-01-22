@@ -127,6 +127,10 @@
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
+            if (typeof onSectionChange === 'function') {
+                onSectionChange(sectionId);
+            }
+            
             const menuIdx = { 'dashboard': 0, 'upload': 2, 'settings': 3 };
             const items = document.querySelectorAll('.menu-item');
             if(items[menuIdx[sectionId]]) items[menuIdx[sectionId]].classList.add('active');
