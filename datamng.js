@@ -113,29 +113,33 @@ window.renderDataTable = async function() {
     const container = document.getElementById('dataManagerContainer');
     if (!container) return;
 
+    // 표 디자인: table-bordered(선 추가), text-center(가운데 정렬) 적용
     let html = `
-        <table class="table table-hover align-middle shadow-sm" style="min-width: 1000px; background:white;">
+        <table class="table table-bordered table-hover align-middle text-center mb-0" style="min-width: 1200px;">
             <thead class="table-light">
                 <tr>
-                    ${visibleCols.map(col => `<th class="py-3 px-3">${col.customName || col.defaultName}</th>`).join('')}
-                    <th class="text-center">작업</th>
+                    ${visibleCols.map(col => `<th class="py-3 px-2" style="background:#f8fafc;">${col.customName || col.defaultName}</th>`).join('')}
+                    <th class="py-3 px-2" style="width: 150px; background:#f8fafc;">관리</th>
                 </tr>
             </thead>
             <tbody>
     `;
 
     if (!rows || rows.length === 0) {
-        html += `<tr><td colspan="${visibleCols.length + 1}" class="text-center py-5 text-muted">데이터가 없습니다. 엑셀 업로드로 데이터를 추가해보세요.</td></tr>`;
+        html += `<tr><td colspan="${visibleCols.length + 1}" class="py-5 text-muted">데이터가 없습니다.</td></tr>`;
     } else {
         rows.forEach(row => {
             html += `<tr>
                 ${visibleCols.map(col => `
-                    <td class="px-3" style="cursor:pointer;" onclick="makeEditable(this, '${row.id}', 'col${col.id}_val')">
+                    <td class="px-2" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${row[`col${col.id}_val`] || '-'}
                     </td>
                 `).join('')}
-                <td class="text-center">
-                    <button class="btn btn-sm text-danger" onclick="deleteDataRow('${row.id}')">삭제</button>
+                <td>
+                    <div class="d-flex justify-content-center gap-1">
+                        <button class="btn btn-sm btn-outline-primary" onclick="openDataEditModal('${row.id}')">수정</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDataRow('${row.id}')">삭제</button>
+                    </div>
                 </td>
             </tr>`;
         });
@@ -144,6 +148,42 @@ window.renderDataTable = async function() {
     html += `</tbody></table>`;
     container.innerHTML = html;
 };
+
+window.openDataEditModal = async function(rowId) {
+    const { data, error } = await _supabase.from('data_rows').select('*').eq('id', rowId).single();
+    if (!data) return;
+
+    const fieldsContainer = document.getElementById('dataEditFields');
+    const visibleCols = currentLayout.filter(col => col.isVisible);
+    
+    fieldsContainer.innerHTML = visibleCols.map(col => `
+        <div>
+            <label class="form-label small fw-bold text-muted">${col.customName || col.defaultName}</label>
+            <input type="text" class="form-control edit-input" data-col="col${col.id}_val" value="${data[`col${col.id}_val`] || ''}">
+        </div>
+    `).join('');
+
+    const modal = document.getElementById('dataEditModal');
+    modal.style.display = 'flex';
+
+    document.getElementById('saveDataBtn').onclick = async () => {
+        const inputs = fieldsContainer.querySelectorAll('.edit-input');
+        const updateData = {};
+        inputs.forEach(input => {
+            updateData[input.getAttribute('data-id') || input.dataset.col] = input.value;
+        });
+
+        const { error: updateError } = await _supabase.from('data_rows').update(updateData).eq('id', rowId);
+        if (!updateError) {
+            alert("수정되었습니다.");
+            closeDataEditModal();
+            renderDataTable();
+        }
+    };
+};
+
+window.closeDataEditModal = () => { document.getElementById('dataEditModal').style.display = 'none'; };
+
 
 // 7. 인라인 편집 및 삭제 기능
 window.makeEditable = async function(td, rowId, colField) {
