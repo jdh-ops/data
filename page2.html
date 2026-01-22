@@ -74,7 +74,8 @@
     <script>
         // 페이지 이동 함수 (table 파라미터 유지)
         function goPage(page) {
-            location.href = page + "?table=" + tableName;
+            const currentParams = window.location.search;
+            window.location.href = page + currentParams;
         }
 
         function toggleSidebar() {

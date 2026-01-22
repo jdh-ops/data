@@ -11,10 +11,10 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
         <div class="sidebar-menu">
-            <div class="menu-item active" onclick="goPage('page1.html')"><i>🖼️</i> <span>정품 이미지 저장</span></div>
+            <div class="menu-item active" onclick="showSection('dashboard')"><i>🖼️</i> <span>정품 이미지 저장</span></div>
             <div class="menu-item" onclick="goPage('page2.html')"><i>📊</i> <span>데이터 관리</span></div>
-            <div class="menu-item" onclick="showSection('upload')"><i>📤</i> <span>파일 업로드</span></div>
-            <div class="menu-item" onclick="showSection('settings')"><i>⚙️</i> <span>설정</span></div>
+            <div class="menu-item" onclick="handleMenuClick('upload')"><i>📤</i> <span>파일 업로드</span></div>
+            <div class="menu-item" onclick="handleMenuClick('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
         </div>
         <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
@@ -73,75 +73,51 @@
         </div>
     </div>
 
-    <div id="imageModal" class="modal">
-        <div class="modal-content">
-            <h3 style="margin-top:0;">✨ 새 이미지 등록</h3>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <div id="thumbPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'thumb')" style="flex:1; height:120px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f8fafc;">
-                    <span id="thumbText" style="font-size:12px; color:#718096; text-align:center;">🖼️ 섬네일</span>
-                    <img id="thumbPreview" style="display:none; width:100%; height:100%; object-fit:contain;">
-                </div>
-                <div id="realPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'real')" style="flex:1; height:120px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f8fafc;">
-                    <span id="realText" style="font-size:12px; color:#718096; text-align:center;">📸 원본</span>
-                    <img id="realPreview" style="display:none; width:100%; height:100%; object-fit:contain;">
-                </div>
-            </div>
-            <input type="text" id="tagsInput" placeholder="태그 (쉼표 구분)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom:10px;">
-            <input type="text" id="productUrl" placeholder="상품 URL" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:20px;">
-            <input type="hidden" id="thumbUrl"><input type="hidden" id="realUrl">
-            <div style="display:flex; gap:10px;">
-                <button id="saveImgBtn" onclick="saveImage()" class="btn-primary" style="flex:1;" disabled>저장하기</button>
-                <button onclick="closeAddPopup()" class="btn-select" style="flex:1;">취소</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="editModal" class="modal">
-        <div class="modal-content" style="width: 400px;">
-            <h3 id="editModalTitle" style="margin-top:0;">편집</h3>
-            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                <input type="text" id="editModalInput" placeholder="단어 입력" onkeypress="if(event.keyCode==13) addTermToModal()" style="flex:1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <button onclick="addTermToModal()" class="btn-primary" style="padding: 0 15px; height: 38px;">추가</button>
-            </div>
-            <div id="editModalList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 100px; padding: 10px; border: 1px solid #f1f1f1; border-radius: 8px;"></div>
-            <div style="display: flex; gap: 10px;">
-                <button id="editModalSaveBtn" class="btn-primary" style="flex: 1;">저장하기</button>
-                <button onclick="closeEditModal()" class="btn-select" style="flex: 1;">취소</button>
-            </div>
-        </div>
-    </div>
-
+    <div id="imageModal" class="modal"> ... </div>
+    <div id="editModal" class="modal"> ... </div>
     <div id="imageHoverPreview" style="display:none; position:fixed; z-index:9999; pointer-events:none; background:white; padding:5px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:1px solid #eee;">
         <img id="hoverPreviewImg" src="" style="max-width:350px; max-height:350px; border-radius:8px; display:block; object-fit:contain;">
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script src="config.js"></script>
-    
     <script src="auth-image-logic.js"></script>
 
     <script>
-        // 파라미터 유지 페이지 이동
+        // 1. 페이지 이동 함수
         function goPage(page) {
-            window.location.href = `${page}?table=${tableName}`;
+            const params = window.location.search;
+            window.location.href = page + params;
         }
 
+        // 2. 초기화 로직 (수정됨)
         window.onload = async () => {
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
-                titleElement.innerText = projectKeyName; 
+                titleElement.innerText = typeof projectKeyName !== 'undefined' ? projectKeyName : tableName;
             }
-
+            
+            // auth-image-logic.js 내의 함수 존재 확인 후 실행
             if (typeof loadSavedTerms === 'function') await loadSavedTerms();
-            showSection('dashboard');
             if (typeof fetchImages === 'function') fetchImages();
+            
+            // 해시 체크 (외부에서 업로드 섹션 등으로 직접 올 때)
+            const hash = window.location.hash.replace('#', '');
+            if (hash) showSection(hash);
         };
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
             document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
+
+        function handleMenuClick(sectionId) {
+            const params = window.location.search;
+            if (!window.location.pathname.includes('page1.html')) {
+                window.location.href = `page1.html${params}#${sectionId}`;
+                return;
+            }
+            showSection(sectionId);
         }
 
         function showSection(sectionId) {
@@ -151,10 +127,9 @@
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
+            const menuIdx = { 'dashboard': 0, 'upload': 2, 'settings': 3 };
             const items = document.querySelectorAll('.menu-item');
-            if(sectionId === 'dashboard') items[0].classList.add('active');
-            if(sectionId === 'upload') items[2].classList.add('active');
-            if(sectionId === 'settings') items[3].classList.add('active');
+            if(items[menuIdx[sectionId]]) items[menuIdx[sectionId]].classList.add('active');
         }
     </script>
 </body>

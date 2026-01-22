@@ -9,7 +9,10 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const urlParams = new URLSearchParams(window.location.search);
 const tableName = urlParams.get('table') || 'default';
 
-// [추가] URL의 key 파라미터 값을 한글로 변환하여 가져오기
-const projectKeyName = decodeURIComponent(urlParams.get('key') || tableName);
+// key 파라미터가 있으면 한글로 변환, 없으면 tableName(영문)을 기본값으로 사용
+const projectKeyName = urlParams.get('key') 
+    ? decodeURIComponent(urlParams.get('key')) 
+    : tableName;
 
-console.log(`🚀 현재 프로젝트명: ${projectKeyName}`);
+console.log("프로젝트 키:", tableName);
+console.log("표시 이름:", projectKeyName);
