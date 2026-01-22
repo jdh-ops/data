@@ -94,6 +94,13 @@
             document.getElementById('commonModal').style.display = 'none';
         }
 
+        function goToGateway() {
+            if (confirm("로그아웃하시겠습니까?")) {
+                // 주소창 이력을 대체하여 뒤로가기를 방지하며 이동
+                window.location.replace("index.html");
+            }
+        }
+
         window.onload = async () => {
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
