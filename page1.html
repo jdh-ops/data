@@ -10,11 +10,6 @@
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
-        
-        <div class="p-3">
-            <button class="btn-primary w-100" onclick="openAddPopup()">+ 이미지 추가</button>
-        </div>
-
         <div class="sidebar-menu">
             <div class="menu-item active" onclick="goPage('page1.html')"><i>🖼️</i> <span>정품 이미지 저장</span></div>
             <div class="menu-item" onclick="goPage('page2.html')"><i>📊</i> <span>데이터 관리</span></div>
@@ -38,12 +33,12 @@
                 </div>
             
                 <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="openAddPopup()" style="padding: 0 15px; height: 35px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">+ 이미지 추가</button>
                     <button id="editModeBtn" onclick="toggleEditMode()" style="padding: 0 15px; height: 35px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px;">✏️ 수정</button>
             
                     <div id="editModeControls" style="display: none; gap: 8px; align-items: center; border-left: 2px solid #edf2f7; padding-left: 10px; margin-left: 5px;">
                         <button id="selectAllBtn" onclick="toggleSelectAll()" style="height: 35px; padding: 0 12px; background:#f8fafc; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; cursor:pointer;">전체 선택</button>
                         <span id="selectCountDisplay" style="font-size: 13px; font-weight: bold; color: #4a5568; white-space: nowrap;">0개 선택됨</span>
-                        
                         <button id="bulkEditBtn" onclick="openBulkTagModal()" style="padding: 0 15px; height: 35px; background: #4a5568; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🏷️ 태그 편집</button>
                         <button id="deleteBtn" onclick="deleteSelectedImages()" style="padding: 0 15px; height: 35px; background:#e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🗑️ 삭제</button>
                     </div>
@@ -67,49 +62,46 @@
             <div id="imageGrid"></div>
         </div>
 
-        <div id="upload" class="content-section">
-            <h2 style="margin-bottom: 20px;">📤 파일 업로드 (Excel/CSV)</h2>
-            </div>
-
-        <div id="settings" class="content-section">
-            <h2>설정</h2>
-        </div>
-    </div>
-
-    <div id="imageModal" class="modal">
-        </div>
-
-    <div id="editModal" class="modal">
         </div>
 
     <script src="config.js"></script>
     <script src="auth-image-logic.js"></script>
+
     <script>
-        // 파라미터 유지를 위한 페이지 이동 함수
+        // [핵심] tableName 파라미터를 유지하며 페이지를 이동시키는 함수
         function goPage(page) {
-            location.href = page + "?table=" + tableName;
+            // tableName은 config.js에서 이미 정의되어 있습니다.
+            window.location.href = `${page}?table=${tableName}`;
         }
 
         window.onload = () => {
+            // 프로젝트 타이틀 표시
+            if(document.getElementById('projectTitle')) {
+                document.getElementById('projectTitle').innerText = tableName.toUpperCase();
+            }
             if (typeof renderSavedTerms === 'function') renderSavedTerms();
-            // URL 해시값에 따라 섹션 표시
-            const hash = window.location.hash.replace('#', '');
-            showSection(hash || 'dashboard');
+            showSection('dashboard');
             if (typeof fetchImages === 'function') fetchImages();
         };
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
+            const btn = document.querySelector('.toggle-btn');
+            btn.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
         }
 
         function showSection(sectionId) {
             document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+            
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
-            // 메뉴 활성화 시각화 로직 추가 가능
+            // 이미지 관리 메뉴가 활성화된 경우에만 'active' 표시 (예시)
+            if(sectionId === 'dashboard') {
+                document.querySelectorAll('.menu-item')[0].classList.add('active');
+            }
         }
     </script>
 </body>
