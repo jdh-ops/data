@@ -53,50 +53,76 @@
     <script src="upload-logic.js"></script>
 
     <script>
+        // [1] 페이지 이동 함수
         function goPage(page) {
             const params = window.location.search;
             window.location.href = page + params;
         }
-
+    
+        // [2] 메뉴 클릭 핸들러 (섹션 전환 전용)
         function handleMenuClick(sectionId) {
-            if (!window.location.pathname.includes('page1.html')) {
+            // 이미 page1이라면 섹션만 전환
+            if (window.location.pathname.includes('page1.html')) {
+                showSection(sectionId);
+            } else {
+                // 다른 페이지라면 파라미터와 해시를 들고 이동
                 const params = window.location.search;
                 window.location.href = `page1.html${params}#${sectionId}`;
-                return;
             }
-            showSection(sectionId);
         }
-
+    
+        // [3] 통합 섹션 전환 및 데이터 로드 제어
         function showSection(sectionId) {
+            // 1. 모든 섹션 비활성화 및 메뉴 active 제거
             document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
             
+            // 2. 선택한 섹션 활성화
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
-            const menuIdx = { 'dashboard': 0, 'upload': 2, 'settings': 3 };
+            // 3. 사이드바 메뉴 활성화 (인덱스 보정: 저장=0, 업로드=2, 설정=3)
             const items = document.querySelectorAll('.menu-item');
+            const menuIdx = { 'dashboard': 0, 'upload': 2, 'settings': 3 };
             if(items[menuIdx[sectionId]]) items[menuIdx[sectionId]].classList.add('active');
-
-            // 섹션 전환 시 데이터 즉시 리로드
-            if (sectionId === 'dashboard' && typeof fetchImages === 'function') fetchImages();
-            if (sectionId === 'upload' && typeof listFiles === 'function') listFiles();
+    
+            // 4. [핵심] 섹션별 데이터 로드 (함수 존재 여부 체크 필수)
+            if (sectionId === 'dashboard') {
+                if (typeof fetchImages === 'function') {
+                    console.log("이미지 로드 시작");
+                    fetchImages(); 
+                }
+            } else if (sectionId === 'upload') {
+                if (typeof listFiles === 'function') {
+                    console.log("파일 목록 로드 시작");
+                    listFiles();
+                }
+            }
         }
-
-        window.onload = async () => {
+    
+        // [4] 페이지 로드 시 초기화 순서 강제
+        window.addEventListener('load', async () => {
+            // 1. 제목 설정
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
                 titleElement.innerText = typeof projectKeyName !== 'undefined' ? projectKeyName : tableName;
             }
-            if (typeof loadSavedTerms === 'function') await loadSavedTerms(); 
+    
+            // 2. 필터 버튼 로드 (auth-image-logic.js)
+            if (typeof loadSavedTerms === 'function') {
+                await loadSavedTerms(); 
+            }
             
+            // 3. URL 해시(#) 확인 후 섹션 결정
             const hash = window.location.hash.replace('#', '');
-            showSection(hash || 'dashboard');
-        };
-
+            const targetSection = hash || 'dashboard';
+            
+            // 4. 섹션 전환 및 데이터 호출
+            showSection(targetSection);
+        });
+    
         function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
+            document.getElementById('sidebar').classList.toggle('collapsed');
         }
     </script>
 </body>
