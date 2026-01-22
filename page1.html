@@ -62,24 +62,74 @@
             <div id="imageGrid"></div>
         </div>
 
+        <div id="upload" class="content-section">
+            <h2>📤 파일 업로드 (Excel/CSV)</h2>
+            <p>준비 중...</p>
         </div>
+
+        <div id="settings" class="content-section">
+            <h2>⚙️ 설정</h2>
+            <p>준비 중...</p>
+        </div>
+    </div>
+
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">✨ 새 이미지 등록</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div id="thumbPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'thumb')" style="flex:1; height:120px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f8fafc;">
+                    <span id="thumbText" style="font-size:12px; color:#718096; text-align:center;">🖼️ 섬네일</span>
+                    <img id="thumbPreview" style="display:none; width:100%; height:100%; object-fit:contain;">
+                </div>
+                <div id="realPasteZone" tabindex="0" onpaste="handleImagePaste(event, 'real')" style="flex:1; height:120px; border:2px dashed #cbd5e0; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f8fafc;">
+                    <span id="realText" style="font-size:12px; color:#718096; text-align:center;">📸 원본</span>
+                    <img id="realPreview" style="display:none; width:100%; height:100%; object-fit:contain;">
+                </div>
+            </div>
+            <input type="text" id="tagsInput" placeholder="태그 (쉼표 구분)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom:10px;">
+            <input type="text" id="productUrl" placeholder="상품 URL" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:20px;">
+            <input type="hidden" id="thumbUrl"><input type="hidden" id="realUrl">
+            <div style="display:flex; gap:10px;">
+                <button id="saveImgBtn" onclick="saveImage()" class="btn-primary" style="flex:1;" disabled>저장하기</button>
+                <button onclick="closeAddPopup()" class="btn-select" style="flex:1;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="width: 400px;">
+            <h3 id="editModalTitle" style="margin-top:0;">편집</h3>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="text" id="editModalInput" placeholder="단어 입력" onkeypress="if(event.keyCode==13) addTermToModal()" style="flex:1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <button onclick="addTermToModal()" class="btn-primary" style="padding: 0 15px; height: 38px;">추가</button>
+            </div>
+            <div id="editModalList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 100px; padding: 10px; border: 1px solid #f1f1f1; border-radius: 8px;"></div>
+            <div style="display: flex; gap: 10px;">
+                <button id="editModalSaveBtn" class="btn-primary" style="flex: 1;">저장하기</button>
+                <button onclick="closeEditModal()" class="btn-select" style="flex: 1;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="imageHoverPreview" style="display:none; position:fixed; z-index:9999; pointer-events:none; background:white; padding:5px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:1px solid #eee;">
+        <img id="hoverPreviewImg" src="" style="max-width:350px; max-height:350px; border-radius:8px; display:block; object-fit:contain;">
+    </div>
 
     <script src="config.js"></script>
     <script src="keyword-logic.js"></script>
     <script src="auth-image-logic.js"></script>
 
     <script>
-        // [핵심] tableName 파라미터를 유지하며 페이지를 이동시키는 함수
+        // 파라미터 유지 페이지 이동
         function goPage(page) {
-            // tableName은 config.js에서 이미 정의되어 있습니다.
             window.location.href = `${page}?table=${tableName}`;
         }
 
         window.onload = () => {
-            // 프로젝트 타이틀 표시
             if(document.getElementById('projectTitle')) {
                 document.getElementById('projectTitle').innerText = tableName.toUpperCase();
             }
+            if (typeof initKeywordView === 'function') initKeywordView();
             if (typeof renderSavedTerms === 'function') renderSavedTerms();
             showSection('dashboard');
             if (typeof fetchImages === 'function') fetchImages();
@@ -88,8 +138,7 @@
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
-            const btn = document.querySelector('.toggle-btn');
-            btn.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+            document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
         }
 
         function showSection(sectionId) {
@@ -99,16 +148,11 @@
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
-            // 이미지 관리 메뉴가 활성화된 경우에만 'active' 표시 (예시)
-            if(sectionId === 'dashboard') {
-                document.querySelectorAll('.menu-item')[0].classList.add('active');
-            }
+            const items = document.querySelectorAll('.menu-item');
+            if(sectionId === 'dashboard') items[0].classList.add('active');
+            if(sectionId === 'upload') items[2].classList.add('active');
+            if(sectionId === 'settings') items[3].classList.add('active');
         }
     </script>
-
-    <div id="imageHoverPreview" style="display:none; position:fixed; z-index:9999; pointer-events:none; background:white; padding:5px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:1px solid #eee; min-width:100px; min-height:100px;">
-        <img id="hoverPreviewImg" src="" style="max-width:350px; max-height:350px; border-radius:8px; display:block; object-fit:contain; transition: opacity 0.2s;">
-    </div>
-
 </body>
 </html>
