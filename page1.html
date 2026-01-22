@@ -128,18 +128,16 @@
         }
 
         window.onload = async () => {
-            // 1. 프로젝트 타이틀 표시
-            if(document.getElementById('projectTitle')) {
-                document.getElementById('projectTitle').innerText = tableName.toUpperCase();
+            // [수정] 관문에서 입력한 키워드(tableName)를 사이드바 제목에 표시
+            const titleElement = document.getElementById('projectTitle');
+            if (titleElement) {
+                titleElement.innerText = tableName; // 입력한 값 그대로 표시
+                // 만약 대문자로 예쁘게 보여주고 싶다면: titleElement.innerText = tableName.toUpperCase();
             }
-            // 2. 필터 버튼 목록 불러오기 (함수명 수정: initKeywordView -> loadSavedTerms)
-            if (typeof loadSavedTerms === 'function') {
-                await loadSavedTerms(); 
-            }
-            // 3. 이미지 데이터 불러오기
-            if (typeof fetchImages === 'function') {
-                fetchImages();
-            }
+
+            if (typeof loadSavedTerms === 'function') await loadSavedTerms();
+            showSection('dashboard');
+            if (typeof fetchImages === 'function') fetchImages();
         };
 
         function toggleSidebar() {

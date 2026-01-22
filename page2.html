@@ -93,8 +93,13 @@
             document.getElementById('commonModal').style.display = 'none';
         }
 
-        window.onload = () => {
-            if (typeof renderDataTable === 'function') renderDataTable();
+        window.onload = async () => {
+            const titleElement = document.getElementById('projectTitle');
+            if (titleElement) {
+                titleElement.innerText = tableName;
+            }
+
+            if (typeof renderDataTable === 'function') await renderDataTable();
         };
     </script>
 </body>
