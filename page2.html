@@ -13,10 +13,10 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
         <div class="sidebar-menu">
-            <div class="menu-item" onclick="goPage('page1.html')"><i>🖼️</i> <span>정품 이미지 저장</span></div>
+            <div class="menu-item" onclick="handleMenuClick('dashboard')"><i>🖼️</i> <span>정품 이미지 저장</span></div>
             <div class="menu-item active" onclick="goPage('page2.html')"><i>📊</i> <span>데이터 관리</span></div>
-            <div class="menu-item" onclick="goPage('page1.html#upload')"><i>📤</i> <span>파일 업로드</span></div>
-            <div class="menu-item" onclick="goPage('page1.html#settings')"><i>⚙️</i> <span>설정</span></div>
+            <div class="menu-item" onclick="handleMenuClick('upload')"><i>📤</i> <span>파일 업로드</span></div>
+            <div class="menu-item" onclick="handleMenuClick('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
         </div>
         <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
@@ -98,6 +98,16 @@
             if (confirm("로그아웃하시겠습니까?")) {
                 // 주소창 이력을 대체하여 뒤로가기를 방지하며 이동
                 window.location.replace("index.html");
+            }
+        }
+
+        // page2.html용 메뉴 클릭 핸들러
+        function handleMenuClick(sectionId) {
+            const params = window.location.search; // ?table=coiz&key=... 유지
+            
+            // 파일 업로드나 설정은 page1.html에 있으므로 이동 처리
+            if (sectionId === 'upload' || sectionId === 'settings' || sectionId === 'dashboard') {
+                window.location.href = `page1.html${params}#${sectionId}`;
             }
         }
 
