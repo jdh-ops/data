@@ -1,4 +1,4 @@
-// 1. 상수 정의 (기본 레이아웃 6개 + 나머지 14개)
+// 1. 상수 정의 (기본 레이아웃 20개 세팅)
 const DEFAULT_LAYOUT = [
     { id: 1, defaultName: "날짜", customName: "날짜", isVisible: true, fixed: true },
     { id: 2, defaultName: "URL", customName: "URL", isVisible: true, fixed: true },
@@ -28,17 +28,12 @@ async function loadTableConfig() {
     }
 }
 
-// 3. 모달 제어 함수
-function updateCustomName(index, value) {
-    currentLayout[index].customName = value;
-}
-
-function updateVisibility(index, isChecked) {
-    currentLayout[index].isVisible = isChecked;
-}
+// 3. 모달 제어 함수 (전역 연결)
+window.updateCustomName = function(index, value) { currentLayout[index].customName = value; };
+window.updateVisibility = function(index, isChecked) { currentLayout[index].isVisible = isChecked; };
 
 // 4. 설정 저장
-async function saveColumnLayout() {
+window.saveColumnLayout = async function() {
     const items = document.querySelectorAll('#columnSortableList .list-group-item');
     const newLayout = [];
     
@@ -59,15 +54,14 @@ async function saveColumnLayout() {
         alert("✅ 열 설정이 저장되었습니다.");
         currentLayout = newLayout;
         renderDataTable();
-        closeModal();
+        if (typeof closeModal === 'function') closeModal();
     } else {
         alert("저장 실패: " + error.message);
     }
-}
+};
 
 // 5. 열 설정 모달 열기
-function openColumnManagementModal() {
-    // currentLayout이 비어있을 수 있으므로 다시 한번 체크
+window.openColumnManagementModal = function() {
     const layout = currentLayout.length > 0 ? currentLayout : DEFAULT_LAYOUT;
 
     const modalHtml = `
@@ -97,16 +91,16 @@ function openColumnManagementModal() {
         </div>
     `;
     
-    showModal(modalHtml);
+    if (typeof showModal === 'function') showModal(modalHtml);
 
     new Sortable(document.getElementById('columnSortableList'), {
         handle: '.drag-handle',
         animation: 150
     });
-}
+};
 
 // 6. 데이터 테이블 렌더링
-async function renderDataTable() {
+window.renderDataTable = async function() {
     await loadTableConfig(); 
     
     const { data: rows, error } = await _supabase
@@ -117,6 +111,7 @@ async function renderDataTable() {
 
     const visibleCols = currentLayout.filter(col => col.isVisible);
     const container = document.getElementById('dataManagerContainer');
+    if (!container) return;
 
     let html = `
         <table class="table table-hover align-middle shadow-sm" style="min-width: 1000px; background:white;">
@@ -140,7 +135,7 @@ async function renderDataTable() {
                     </td>
                 `).join('')}
                 <td class="text-center">
-                    <button class="btn btn-sm text-danger" onclick="deleteRow('${row.id}')">삭제</button>
+                    <button class="btn btn-sm text-danger" onclick="deleteDataRow('${row.id}')">삭제</button>
                 </td>
             </tr>`;
         });
@@ -148,7 +143,69 @@ async function renderDataTable() {
 
     html += `</tbody></table>`;
     container.innerHTML = html;
-}
+};
 
-// 7. 인라인 편집 기능 (추가됨)
-async
+// 7. 인라인 편집 및 삭제 기능
+window.makeEditable = async function(td, rowId, colField) {
+    if (td.querySelector('input')) return;
+    const originalText = td.innerText === '-' ? '' : td.innerText;
+    td.innerHTML = `<input type="text" class="form-control form-control-sm" value="${originalText}">`;
+    const input = td.querySelector('input');
+    input.focus();
+
+    input.onblur = async () => {
+        const newText = input.value;
+        td.innerText = newText || '-';
+        if (originalText !== newText) {
+            const updateData = {};
+            updateData[colField] = newText;
+            const { error } = await _supabase.from('data_rows').update(updateData).eq('id', rowId);
+            if (error) alert("수정 실패: " + error.message);
+        }
+    };
+    input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); };
+};
+
+window.deleteDataRow = async function(rowId) {
+    if (!confirm("정말 이 데이터를 삭제하시겠습니까?")) return;
+    const { error } = await _supabase.from('data_rows').delete().eq('id', rowId);
+    if (!error) renderDataTable();
+};
+
+// 8. 엑셀 업로드 처리
+window.handleExcelUpload = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (jsonData.length === 0) return alert("엑셀에 데이터가 없습니다.");
+
+        const visibleCols = currentLayout.filter(c => c.isVisible || c.customName);
+        const rowsToInsert = jsonData.map(row => {
+            let dbRow = { project_key: tableName };
+            visibleCols.forEach(col => {
+                const excelHeader = col.customName || col.defaultName;
+                if (row[excelHeader] !== undefined) {
+                    dbRow[`col${col.id}_val`] = String(row[excelHeader]);
+                }
+            });
+            return dbRow;
+        });
+
+        const { error } = await _supabase.from('data_rows').insert(rowsToInsert);
+        if (!error) {
+            alert(`✨ ${rowsToInsert.length}건 업로드 완료!`);
+            renderDataTable();
+        } else {
+            alert("업로드 실패: " + error.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; 
+};
