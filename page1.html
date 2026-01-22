@@ -115,8 +115,10 @@
         <img id="hoverPreviewImg" src="" style="max-width:350px; max-height:350px; border-radius:8px; display:block; object-fit:contain;">
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script src="config.js"></script>
-    <script src="keyword-logic.js"></script>
+    
     <script src="auth-image-logic.js"></script>
 
     <script>
@@ -125,14 +127,19 @@
             window.location.href = `${page}?table=${tableName}`;
         }
 
-        window.onload = () => {
+        window.onload = async () => {
+            // 1. 프로젝트 타이틀 표시
             if(document.getElementById('projectTitle')) {
                 document.getElementById('projectTitle').innerText = tableName.toUpperCase();
             }
-            if (typeof initKeywordView === 'function') initKeywordView();
-            if (typeof renderSavedTerms === 'function') renderSavedTerms();
-            showSection('dashboard');
-            if (typeof fetchImages === 'function') fetchImages();
+            // 2. 필터 버튼 목록 불러오기 (함수명 수정: initKeywordView -> loadSavedTerms)
+            if (typeof loadSavedTerms === 'function') {
+                await loadSavedTerms(); 
+            }
+            // 3. 이미지 데이터 불러오기
+            if (typeof fetchImages === 'function') {
+                fetchImages();
+            }
         };
 
         function toggleSidebar() {
