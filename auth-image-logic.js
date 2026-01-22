@@ -403,9 +403,9 @@ function closeEditModal() {
 function renderModalList() {
     const container = document.getElementById('editModalList');
     container.innerHTML = tempEditList.map((item, index) => `
-        <div style="display: flex; align-items: center; background: #edf2f7; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #4a5568;">
+        <div style="display: flex; align-items: center; align-self: flex-start; background: #edf2f7; padding: 4px 12px; border-radius: 20px; font-size: 13px; color: #4a5568; height: fit-content;">
             <span>${item}</span>
-            <span onclick="removeTermFromModal(${index})" style="margin-left: 6px; cursor: pointer; font-weight: bold; color: #e53e3e;">×</span>
+            <span onclick="removeTermFromModal(${index})" style="margin-left: 8px; cursor: pointer; font-weight: bold; color: #e53e3e; line-height: 1;">×</span>
         </div>
     `).join('');
 }
