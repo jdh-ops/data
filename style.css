@@ -75,3 +75,49 @@ body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; heigh
 }
 .btn-edit { color: var(--primary-color); border-color: var(--primary-color); }
 .btn-delete { color: #e74c3c; border-color: #e74c3c; }
+
+/* 상단 필드 레이아웃 */
+.top-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px; /* 필드 간 간격 */
+    margin-bottom: 25px;
+}
+
+.search-group {
+    display: flex;
+    gap: 8px;
+    flex: 1; /* 검색창이 남는 공간을 차지 */
+    min-width: 300px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+}
+
+/* 수정 모드 활성화 시 스타일 */
+.edit-mode-active {
+    background-color: #fff5f5 !important; /* 수정 모드일 때 배경색 변경 */
+    border: 2px solid var(--primary-color) !important;
+}
+
+/* 표 기본 스타일 보강 */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    table-layout: fixed; /* 열 너비 고정 */
+}
+.data-table th, .data-table td {
+    border: 1px solid #e2e8f0;
+    padding: 12px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

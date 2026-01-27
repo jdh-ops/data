@@ -1,3 +1,6 @@
+let isEditMode = false;
+
+
 // 1. 상수 정의 (기본 레이아웃 20개 세팅)
 const DEFAULT_LAYOUT = [
     { id: 1, defaultName: "날짜", customName: "날짜", isVisible: true, fixed: true },
@@ -102,46 +105,32 @@ window.openColumnManagementModal = function() {
 // 6. 데이터 테이블 렌더링
 window.renderDataTable = async function() {
     await loadTableConfig(); 
-    
-    const { data: rows, error } = await _supabase
-        .from('data_rows')
-        .select('*')
-        .eq('project_key', tableName)
-        .order('created_at', { ascending: false });
+    const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tableName).order('created_at', { ascending: false });
 
     const visibleCols = currentLayout.filter(col => col.isVisible);
     const container = document.getElementById('dataManagerContainer');
-    if (!container) return;
 
-    // 표 디자인: table-bordered(선 추가), text-center(가운데 정렬) 적용
-    let html = `
-        <table class="data-table"> <thead>
-                <tr>
-                    ${visibleCols.map(col => `<th>${col.customName || col.defaultName}</th>`).join('')}
-                    <th>관리</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+    let html = `<table class="data-table"><thead><tr>`;
+    // 헤더에서 '관리' 삭제
+    visibleCols.forEach(col => {
+        html += `<th>${col.customName || col.defaultName}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
 
     if (!rows || rows.length === 0) {
-        html += `<tr><td colspan="${visibleCols.length + 1}" class="py-5 text-muted">데이터가 없습니다.</td></tr>`;
+        html += `<tr><td colspan="${visibleCols.length}" class="py-5 text-muted">데이터가 없습니다.</td></tr>`;
     } else {
         rows.forEach(row => {
             html += `<tr>`;
             visibleCols.forEach(col => {
-                const value = row[`col${col.id}_val`] || '-';
-                html += `<td>${value}</td>`;
+                html += `
+                    <td onclick="handleCellClick(this, '${row.id}', 'col${col.id}_val')">
+                        ${row[`col${col.id}_val`] || '-'}
+                    </td>`;
             });
-            html += `
-                <td>
-                    <button class="action-btn btn-edit" onclick="openDataEditModal('${row.id}')">수정</button>
-                    <button class="action-btn btn-delete" onclick="deleteDataRow('${row.id}')">삭제</button>
-                </td>
-            </tr>`;
+            html += `</tr>`;
         });
     }
-
     html += `</tbody></table>`;
     container.innerHTML = html;
 };
@@ -244,4 +233,44 @@ window.handleExcelUpload = async function(event) {
     };
     reader.readAsArrayBuffer(file);
     event.target.value = ''; 
+};
+
+window.toggleEditMode = function() {
+    isEditMode = !isEditMode;
+    const btn = document.getElementById('editModeToggle');
+    const container = document.getElementById('dataManagerContainer');
+
+    if (isEditMode) {
+        btn.innerText = "✅ 수정 완료";
+        btn.style.background = "var(--primary-color)";
+        btn.style.color = "white";
+        container.classList.add('edit-mode-active');
+        alert("수정 모드가 활성화되었습니다. 셀을 클릭하여 수정하세요.");
+    } else {
+        btn.innerText = "✏️ 수정하기";
+        btn.style.background = "#edf2f7";
+        btn.style.color = "#333";
+        container.classList.remove('edit-mode-active');
+        renderDataTable(); // 수정 완료 후 다시 렌더링
+    }
+};
+
+window.handleCellClick = function(td, rowId, colField) {
+    if (!isEditMode) return; // 수정 모드가 아니면 무시
+    if (td.querySelector('input')) return;
+
+    const originalText = td.innerText === '-' ? '' : td.innerText;
+    td.innerHTML = `<input type="text" style="width:100%; border:none; text-align:center;" value="${originalText}">`;
+    const input = td.querySelector('input');
+    input.focus();
+
+    input.onblur = async () => {
+        const newText = input.value;
+        td.innerText = newText || '-';
+        if (originalText !== newText) {
+            const updateData = {};
+            updateData[colField] = newText;
+            await _supabase.from('data_rows').update(updateData).eq('id', rowId);
+        }
+    };
 };
