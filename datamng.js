@@ -261,3 +261,136 @@ window.addNewRow = async function() {
         console.log("새 행 추가 완료:", data);
     }
 };
+
+// datamng.js 에 추가
+
+let excelFileToUpload = null;
+
+// 1. 모달 제어 함수
+window.openExcelUploadModal = function() {
+    document.getElementById('excelUploadModal').style.display = 'flex';
+    resetExcelModal();
+};
+
+window.closeExcelModal = function() {
+    document.getElementById('excelUploadModal').style.display = 'none';
+};
+
+function resetExcelModal() {
+    excelFileToUpload = null;
+    document.getElementById('excelFileName').innerText = "";
+    document.getElementById('excelDropText').innerHTML = "파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.<br><span style='font-size: 11px;'>(.xlsx, .xls 파일 지원)</span>";
+    document.getElementById('startExcelUploadBtn').disabled = true;
+}
+
+// 2. 템플릿 다운로드 (현재 설정된 열 기반)
+window.downloadExcelTemplate = function() {
+    const visibleCols = currentLayout.filter(c => c.isVisible);
+    const headers = visibleCols.map(c => c.customName || c.defaultName);
+    
+    // 빈 데이터 시트 생성
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    
+    // 파일 다운로드
+    XLSX.writeFile(workbook, `${projectKeyName}_템플릿.xlsx`);
+};
+
+// 3. 드래그 앤 드롭 및 파일 선택 핸들러
+window.handleExcelDragOver = function(e) {
+    e.preventDefault();
+    document.getElementById('excelDropZone').style.background = "#edf2f7";
+    document.getElementById('excelDropZone').style.borderColor = "var(--primary-color)";
+};
+
+window.handleExcelDragLeave = function(e) {
+    e.preventDefault();
+    document.getElementById('excelDropZone').style.background = "#f8fafc";
+    document.getElementById('excelDropZone').style.borderColor = "#cbd5e0";
+};
+
+window.handleExcelDrop = function(e) {
+    e.preventDefault();
+    window.handleExcelDragLeave(e);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) prepareExcelFile(files[0]);
+};
+
+window.handleExcelSelect = function(e) {
+    if (e.target.files.length > 0) prepareExcelFile(e.target.files[0]);
+};
+
+function prepareExcelFile(file) {
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+        alert("엑셀 파일만 업로드 가능합니다.");
+        return;
+    }
+    excelFileToUpload = file;
+    document.getElementById('excelFileName').innerText = `선택된 파일: ${file.name}`;
+    document.getElementById('startExcelUploadBtn').disabled = false;
+}
+
+// 라디오 버튼 변경 감지 (경고 문구 표시용)
+document.addEventListener('change', (e) => {
+    if (e.target.name === 'uploadMode') {
+        const warning = document.getElementById('overwriteWarning');
+        if (warning) warning.style.display = e.target.value === 'overwrite' ? 'block' : 'none';
+    }
+});
+
+// 4. 업로드 시작 버튼 클릭 시 처리
+window.processExcelUpload = async function() {
+    if (!excelFileToUpload) return;
+    
+    // 선택된 모드 확인 (추가 혹은 대체)
+    const uploadMode = document.querySelector('input[name="uploadMode"]:checked').value;
+    
+    if (uploadMode === 'overwrite') {
+        if (!confirm("⚠️ 정말로 기존 데이터를 모두 삭제하고 엑셀 파일로 교체하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
+            return;
+        }
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        
+        if (jsonData.length === 0) return alert("엑셀에 데이터가 없습니다.");
+
+        const visibleCols = currentLayout.filter(c => c.isVisible);
+        const rowsToInsert = jsonData.map(row => {
+            let dbRow = { project_key: tableName };
+            visibleCols.forEach(col => {
+                const header = col.customName || col.defaultName;
+                if (row[header] !== undefined) dbRow[`col${col.id}_val`] = String(row[header]);
+            });
+            return dbRow;
+        });
+
+        try {
+            // [핵심] 대체(overwrite) 모드일 경우 기존 데이터 삭제 처리
+            if (uploadMode === 'overwrite') {
+                const { error: delError } = await _supabase
+                    .from('data_rows')
+                    .delete()
+                    .eq('project_key', tableName);
+                
+                if (delError) throw delError;
+            }
+
+            // 데이터 삽입
+            const { error: insError } = await _supabase.from('data_rows').insert(rowsToInsert);
+            if (insError) throw insError;
+
+            alert(`✨ ${rowsToInsert.length}건 ${uploadMode === 'append' ? '추가' : '대체'} 완료!`);
+            closeExcelModal();
+            renderDataTable();
+        } catch (err) {
+            alert("처리 중 오류 발생: " + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(excelFileToUpload);
+};

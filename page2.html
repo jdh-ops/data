@@ -84,6 +84,25 @@
         <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;"></div>
     </div>
 
+    <div class="modal-body" style="padding: 20px 0;">
+        <div style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px;">
+            <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식 선택</p>
+            <div style="display: flex; gap: 20px; font-size: 13px;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;">
+                    <input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체 (삭제 후 삽입)
+                </label>
+            </div>
+            <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">
+                ⚠️ 주의: '대체' 선택 시 현재 이 프로젝트의 모든 데이터 행이 삭제됩니다.
+            </p>
+        </div>
+        
+        <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
+    </div>
+
     <script src="config.js"></script>
     <script src="datamng.js"></script>
 

@@ -121,3 +121,12 @@ body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; heigh
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+@keyframes highlightRow {
+    from { background-color: #fff5f5; }
+    to { background-color: white; }
+}
+
+.data-table tbody tr:first-child {
+    animation: highlightRow 2s ease-out; /* 최상단에 추가된 새 행을 일시적으로 강조 */
+}
