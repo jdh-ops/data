@@ -69,38 +69,61 @@
         </div>
     </div>
     
-    <div id="dataEditModal" class="modal">
+    <div class="button-group" style="display: flex; gap: 8px;">
+        <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()">✏️ 수정하기</button>
+        <button class="btn-primary" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
+    </div>
+    
+    <div id="excelUploadModal" class="modal">
         <div class="modal-content" style="width: 500px;">
-            <h4 id="dataEditModalTitle" class="mb-4">📝 데이터 수정</h4>
-            <div id="dataEditFields" class="d-flex flex-column gap-3"></div>
-            <div class="d-flex gap-2 mt-4">
-                <button id="saveDataBtn" class="btn btn-primary flex-fill">변경사항 저장</button>
-                <button onclick="closeDataEditModal()" class="btn btn-light flex-fill">취소</button>
+            <div class="modal-header d-flex justify-content-between" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
+                <h5 class="modal-title">📤 엑셀 데이터 업로드</h5>
+                <button type="button" onclick="closeExcelModal()" style="border:none; background:none; cursor:pointer; font-size:20px;">✕</button>
+            </div>
+            
+            <div class="modal-body" style="padding: 20px 0;">
+                <div style="margin-bottom: 20px; text-align: right;">
+                    <button class="btn-select" onclick="downloadExcelTemplate()" style="font-size: 12px; background: #f8fafc;">
+                        📄 템플릿 양식 다운로드
+                    </button>
+                </div>
+                
+                <div id="excelDropZone" 
+                     style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px 20px; text-align: center; background: #f8fafc; cursor: pointer;"
+                     onclick="document.getElementById('excelFileInput').click()"
+                     ondragover="handleExcelDragOver(event)"
+                     ondragleave="handleExcelDragLeave(event)"
+                     ondrop="handleExcelDrop(event)">
+                    <div style="font-size: 30px; margin-bottom: 10px;">📊</div>
+                    <p id="excelDropText" style="color: #718096; margin-bottom: 0;">
+                        파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.
+                    </p>
+                    <input type="file" id="excelFileInput" hidden accept=".xlsx, .xls" onchange="handleExcelSelect(event)">
+                </div>
+    
+                <div style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px;">
+                    <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식 선택</p>
+                    <div style="display: flex; gap: 20px; font-size: 13px;">
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가
+                        </label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;">
+                            <input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체
+                        </label>
+                    </div>
+                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">
+                        ⚠️ 주의: '대체' 선택 시 현재 프로젝트의 모든 데이터가 삭제됩니다.
+                    </p>
+                </div>
+                
+                <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
+            </div>
+    
+            <div class="modal-footer" style="border-top: 1px solid #eee; padding-top: 15px; display: flex; gap: 10px;">
+                <button id="startExcelUploadBtn" class="btn-primary" style="flex: 1;" onclick="processExcelUpload()" disabled>업로드 시작</button>
+                <button class="btn-select" style="flex: 1;" onclick="closeExcelModal()">취소</button>
             </div>
         </div>
-    </div>
-
-    <div id="commonModal" class="modal">
-        <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;"></div>
-    </div>
-
-    <div class="modal-body" style="padding: 20px 0;">
-        <div style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px;">
-            <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식 선택</p>
-            <div style="display: flex; gap: 20px; font-size: 13px;">
-                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                    <input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가
-                </label>
-                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;">
-                    <input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체 (삭제 후 삽입)
-                </label>
-            </div>
-            <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">
-                ⚠️ 주의: '대체' 선택 시 현재 이 프로젝트의 모든 데이터 행이 삭제됩니다.
-            </p>
-        </div>
-        
-        <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
     </div>
 
     <script src="config.js"></script>
