@@ -115,11 +115,10 @@ window.renderDataTable = async function() {
 
     // 표 디자인: table-bordered(선 추가), text-center(가운데 정렬) 적용
     let html = `
-        <table class="table table-bordered table-hover align-middle text-center mb-0" style="min-width: 1200px;">
-            <thead class="table-light">
+        <table class="data-table"> <thead>
                 <tr>
-                    ${visibleCols.map(col => `<th class="py-3 px-2" style="background:#f8fafc;">${col.customName || col.defaultName}</th>`).join('')}
-                    <th class="py-3 px-2" style="width: 150px; background:#f8fafc;">관리</th>
+                    ${visibleCols.map(col => `<th>${col.customName || col.defaultName}</th>`).join('')}
+                    <th>관리</th>
                 </tr>
             </thead>
             <tbody>
@@ -129,17 +128,15 @@ window.renderDataTable = async function() {
         html += `<tr><td colspan="${visibleCols.length + 1}" class="py-5 text-muted">데이터가 없습니다.</td></tr>`;
     } else {
         rows.forEach(row => {
-            html += `<tr>
-                ${visibleCols.map(col => `
-                    <td class="px-2" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        ${row[`col${col.id}_val`] || '-'}
-                    </td>
-                `).join('')}
+            html += `<tr>`;
+            visibleCols.forEach(col => {
+                const value = row[`col${col.id}_val`] || '-';
+                html += `<td>${value}</td>`;
+            });
+            html += `
                 <td>
-                    <div class="d-flex justify-content-center gap-1">
-                        <button class="btn btn-sm btn-outline-primary" onclick="openDataEditModal('${row.id}')">수정</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDataRow('${row.id}')">삭제</button>
-                    </div>
+                    <button class="action-btn btn-edit" onclick="openDataEditModal('${row.id}')">수정</button>
+                    <button class="action-btn btn-delete" onclick="deleteDataRow('${row.id}')">삭제</button>
                 </td>
             </tr>`;
         });
