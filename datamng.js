@@ -184,7 +184,6 @@ window.openDataEditModal = async function(rowId) {
 
 window.closeDataEditModal = () => { document.getElementById('dataEditModal').style.display = 'none'; };
 
-
 // 7. 인라인 편집 및 삭제 기능
 window.makeEditable = async function(td, rowId, colField) {
     if (td.querySelector('input')) return;
