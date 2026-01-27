@@ -66,9 +66,14 @@
     
     <div id="excelUploadModal" class="modal">
         <div class="modal-content" style="width: 500px;">
-            <div class="modal-header d-flex justify-content-between" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
-                <h5 class="modal-title">📤 엑셀 데이터 업로드</h5>
-                <button type="button" onclick="closeExcelModal()" style="border:none; background:none; cursor:pointer; font-size:20px;">✕</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 20px;">
+                <h5 class="modal-title" style="margin: 0; font-weight: bold; font-size: 1.1rem;">📤 엑셀 데이터 업로드</h5>
+                <button type="button" onclick="closeExcelModal()" 
+                        style="border: none; background: none; cursor: pointer; font-size: 24px; color: #a0aec0; line-height: 1; padding: 0; margin: 0;"
+                        onmouseover="this.style.color='#4a5568'" 
+                        onmouseout="this.style.color='#a0aec0'">
+                    ✕
+                </button>
             </div>
             
             <div class="modal-body" style="padding: 20px 0;">
