@@ -234,3 +234,30 @@ window.handleExcelUpload = async function(event) {
     reader.readAsArrayBuffer(file);
     event.target.value = ''; 
 };
+
+// [1] 빈 행 추가 기능
+window.addNewRow = async function() {
+    // 1. 새 행에 들어갈 기본 데이터 객체 생성
+    // 모든 컬럼(col1~col20)을 빈 값으로 초기화하여 삽입합니다.
+    const newRow = {
+        project_key: tableName,
+        created_at: new Date().toISOString()
+    };
+
+    // 2. Supabase DB에 행 삽입
+    const { data, error } = await _supabase
+        .from('data_rows')
+        .insert([newRow])
+        .select(); // 삽입된 데이터를 다시 가져옴
+
+    if (error) {
+        console.error("행 추가 실패:", error);
+        alert("행을 추가하지 못했습니다: " + error.message);
+    } else {
+        // 3. 성공 시 표를 다시 그려서 새 행이 보이게 함
+        await renderDataTable();
+        
+        // 4. (선택사항) 방금 추가된 행의 첫 번째 셀로 포커스 이동 시각화
+        console.log("새 행 추가 완료:", data);
+    }
+};
