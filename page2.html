@@ -8,14 +8,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 수정 모드 시 시각적 피드백 */
         .edit-mode-active {
             outline: 3px solid var(--primary-color) !important;
             background-color: #fffcf0 !important;
         }
         .edit-mode-active td { cursor: cell; }
-        
-        /* 테이블 컨테이너 높이 및 스크롤 관리 */
         .table-responsive {
             max-height: calc(100vh - 250px);
             overflow-y: auto;
@@ -41,14 +38,12 @@
     
         <div class="top-controls" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center;">
             <div class="search-group" style="display: flex; gap: 8px; flex: 1; min-width: 300px;">
-                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" onkeyup="filterTable()">
                 <button class="btn-select" onclick="resetTableFilter()">초기화</button>
             </div>
             <div class="button-group" style="display: flex; gap: 8px;">
                 <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()">✏️ 수정하기</button>
-                <label class="btn-primary" style="display: inline-block; line-height: 35px; padding: 0 20px; height: 40px; border-radius: 6px; cursor: pointer;">
-                    Excel 업로드 <input type="file" hidden onchange="handleExcelUpload(event)">
-                </label>
+                <button class="btn-primary" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
             </div>
         </div>
     
@@ -69,11 +64,6 @@
         </div>
     </div>
     
-    <div class="button-group" style="display: flex; gap: 8px;">
-        <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()">✏️ 수정하기</button>
-        <button class="btn-primary" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
-    </div>
-    
     <div id="excelUploadModal" class="modal">
         <div class="modal-content" style="width: 500px;">
             <div class="modal-header d-flex justify-content-between" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
@@ -83,39 +73,23 @@
             
             <div class="modal-body" style="padding: 20px 0;">
                 <div style="margin-bottom: 20px; text-align: right;">
-                    <button class="btn-select" onclick="downloadExcelTemplate()" style="font-size: 12px; background: #f8fafc;">
-                        📄 템플릿 양식 다운로드
-                    </button>
+                    <button class="btn-select" onclick="downloadExcelTemplate()" style="font-size: 12px; background: #f8fafc;">📄 템플릿 양식 다운로드</button>
                 </div>
                 
-                <div id="excelDropZone" 
-                     style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px 20px; text-align: center; background: #f8fafc; cursor: pointer;"
-                     onclick="document.getElementById('excelFileInput').click()"
-                     ondragover="handleExcelDragOver(event)"
-                     ondragleave="handleExcelDragLeave(event)"
-                     ondrop="handleExcelDrop(event)">
+                <div id="excelDropZone" style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px 20px; text-align: center; background: #f8fafc; cursor: pointer;" onclick="document.getElementById('excelFileInput').click()" ondragover="handleExcelDragOver(event)" ondragleave="handleExcelDragLeave(event)" ondrop="handleExcelDrop(event)">
                     <div style="font-size: 30px; margin-bottom: 10px;">📊</div>
-                    <p id="excelDropText" style="color: #718096; margin-bottom: 0;">
-                        파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.
-                    </p>
+                    <p id="excelDropText" style="color: #718096; margin-bottom: 0;">파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.</p>
                     <input type="file" id="excelFileInput" hidden accept=".xlsx, .xls" onchange="handleExcelSelect(event)">
                 </div>
     
                 <div style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px;">
                     <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식 선택</p>
                     <div style="display: flex; gap: 20px; font-size: 13px;">
-                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                            <input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가
-                        </label>
-                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;">
-                            <input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체
-                        </label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가</label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;"><input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체</label>
                     </div>
-                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">
-                        ⚠️ 주의: '대체' 선택 시 현재 프로젝트의 모든 데이터가 삭제됩니다.
-                    </p>
+                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">⚠️ 주의: '대체' 선택 시 현재 프로젝트의 모든 데이터가 삭제됩니다.</p>
                 </div>
-                
                 <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
             </div>
     
@@ -126,24 +100,24 @@
         </div>
     </div>
 
+    <div id="commonModal" class="modal">
+        <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;"></div>
+    </div>
+
     <script src="config.js"></script>
     <script src="datamng.js"></script>
 
     <script>
-        // 페이지 이동 (URL 파라미터 유지)
         function goPage(page) {
-            const currentParams = window.location.search;
-            window.location.href = page + currentParams;
+            window.location.href = page + window.location.search;
         }
 
-        // 사이드바 토글
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
             document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
         }
 
-        // 모달 제어 공통 함수
         function showModal(contentHtml) {
             const modal = document.getElementById('commonModal');
             modal.querySelector('.modal-content').innerHTML = contentHtml;
@@ -154,20 +128,24 @@
             document.getElementById('commonModal').style.display = 'none';
         }
 
-        // 로그아웃
+        function openExcelUploadModal() {
+            document.getElementById('excelUploadModal').style.display = 'flex';
+        }
+
+        function closeExcelModal() {
+            document.getElementById('excelUploadModal').style.display = 'none';
+        }
+
         function goToGateway() {
             if (confirm("로그아웃하시겠습니까?")) {
                 window.location.replace("index.html");
             }
         }
 
-        // page1으로 이동 시 해시(#)를 통해 섹션 지정
         function handleMenuClick(sectionId) {
-            const params = window.location.search;
-            window.location.href = `page1.html${params}#${sectionId}`;
+            window.location.href = `page1.html${window.location.search}#${sectionId}`;
         }
 
-        // 초기화
         window.onload = async () => {
             const titleElement = document.getElementById('projectTitle');
             if (titleElement && typeof projectKeyName !== 'undefined') {
