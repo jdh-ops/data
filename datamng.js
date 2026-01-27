@@ -61,63 +61,67 @@ window.resetTableFilter = function() {
 // 4. 표 렌더링 (관리 열 삭제됨)
 window.renderDataTable = async function() {
     await loadTableConfig(); 
-    const { data: rows, error } = await _supabase
-        .from('data_rows')
-        .select('*')
-        .eq('project_key', tableName)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error("데이터 로드 에러:", error);
-        return;
-    }
+    const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tableName).order('created_at', { ascending: false });
 
     const visibleCols = currentLayout.filter(col => col.isVisible);
     const container = document.getElementById('dataManagerContainer');
-    if (!container) return;
 
     let html = `<table class="data-table"><thead><tr>`;
+    // 수정 모드일 때만 맨 앞에 체크박스 열 추가
+    if (isEditMode) html += `<th style="width:40px;"></th>`;
+    
     visibleCols.forEach(col => {
-        html += `<th>${col.customName || col.defaultName}</th>`;
+        const widthStyle = col.width ? `width:${col.width}px;` : '';
+        html += `<th style="${widthStyle}">${col.customName || col.defaultName}</th>`;
     });
     html += `</tr></thead><tbody>`;
 
-    if (!rows || rows.length === 0) {
-        html += `<tr><td colspan="${visibleCols.length}" class="py-5 text-muted text-center">데이터가 없습니다.</td></tr>`;
-    } else {
-        rows.forEach(row => {
-            html += `<tr>`;
-            visibleCols.forEach(col => {
-                html += `
-                    <td onclick="handleCellClick(this, '${row.id}', 'col${col.id}_val')">
-                        ${row[`col${col.id}_val`] || '-'}
-                    </td>`;
-            });
-            html += `</tr>`;
+    rows.forEach(row => {
+        html += `<tr>`;
+        if (isEditMode) {
+            html += `<td><input type="checkbox" class="row-check" data-id="${row.id}"></td>`;
+        }
+        visibleCols.forEach(col => {
+            html += `<td onclick="handleCellClick(this, '${row.id}', 'col${col.id}_val')">${row[`col${col.id}_val`] || '-'}</td>`;
         });
-    }
+        html += `</tr>`;
+    });
     html += `</tbody></table>`;
     container.innerHTML = html;
+};
+
+window.selectAllRows = function(status) {
+    document.querySelectorAll('.row-check').forEach(chk => chk.checked = status);
+};
+
+// [1] 선택 삭제 기능
+window.deleteSelectedRows = async function() {
+    const selectedIds = Array.from(document.querySelectorAll('.row-check:checked')).map(chk => chk.dataset.id);
+    if (selectedIds.length === 0) return alert("삭제할 행을 선택해주세요.");
+    if (!confirm(`${selectedIds.length}개의 데이터를 삭제하시겠습니까?`)) return;
+
+    const { error } = await _supabase.from('data_rows').delete().in('id', selectedIds);
+    if (!error) renderDataTable();
 };
 
 // 5. 수정 모드 토글 (버튼 텍스트 및 스타일 제어)
 window.toggleEditMode = function() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editModeToggle');
-    const container = document.getElementById('dataManagerContainer');
-
+    const editBar = document.getElementById('editModeBar');
+    
     if (isEditMode) {
         btn.innerText = "✅ 수정 완료";
         btn.style.background = "var(--primary-color)";
         btn.style.color = "white";
-        if (container) container.classList.add('edit-mode-active');
+        editBar.style.display = "flex";
     } else {
         btn.innerText = "✏️ 수정하기";
         btn.style.background = "#edf2f7";
         btn.style.color = "#333";
-        if (container) container.classList.remove('edit-mode-active');
-        renderDataTable(); // 모드 종료 시 데이터 새로고침
+        editBar.style.display = "none";
     }
+    renderDataTable(); // 체크박스 표시를 위해 재렌더링
 };
 
 // 6. 셀 클릭 핸들러 (수정 모드일 때만 활성화)
@@ -171,29 +175,35 @@ window.saveColumnLayout = async function() {
 window.openColumnManagementModal = function() {
     const layout = currentLayout.length > 0 ? currentLayout : DEFAULT_LAYOUT;
     const modalHtml = `
-        <div class="modal-header d-flex justify-content-between" style="padding-bottom:15px; border-bottom:1px solid #eee;">
-            <h5 class="modal-title">📊 데이터 열 관리</h5>
+        <div class="modal-header d-flex justify-content-between" style="padding: 15px; border-bottom: 1px solid #eee;">
+            <h5 class="modal-title">📊 열 관리 및 너비 설정</h5>
             <button type="button" onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:20px;">✕</button>
         </div>
-        <div class="modal-body" style="padding-top:15px;">
-            <p class="text-muted small">* 드래그하여 순서를 변경하거나 이름을 수정하세요.</p>
+        <div class="modal-body" style="padding: 15px; max-height: 400px; overflow-y: auto;">
             <div id="columnSortableList" class="list-group">
                 ${layout.map((col, index) => `
-                    <div class="list-group-item d-flex align-items-center gap-2 p-2 border mb-1 rounded" data-id="${col.id}" style="background:white; display:flex; align-items:center; gap:10px; margin-bottom:5px; border:1px solid #ddd; padding:8px; border-radius:6px;">
-                        <span class="drag-handle" style="cursor:grab; padding: 0 5px; color:#aaa;">☰</span>
+                    <div class="list-group-item" data-id="${col.id}" style="display:flex; align-items:center; gap:10px; margin-bottom:8px; border:1px solid #ddd; padding:10px; border-radius:6px; background:#fff;">
+                        <span class="drag-handle" style="cursor:grab; color:#aaa;">☰</span>
                         <input type="checkbox" ${col.isVisible ? 'checked' : ''} onchange="updateVisibility(${index}, this.checked)">
-                        <input type="text" class="form-control form-control-sm" style="flex:1; padding:5px; border:1px solid #eee;" value="${col.customName || col.defaultName}" oninput="updateCustomName(${index}, this.value)">
+                        <input type="text" class="form-control" style="flex:2;" value="${col.customName || col.defaultName}" oninput="updateCustomName(${index}, this.value)">
+                        <div style="flex:1; display:flex; align-items:center; gap:5px;">
+                            <input type="number" class="form-control" style="width:60px;" value="${col.width || 150}" oninput="updateColumnWidth(${index}, this.value)">
+                            <span style="font-size:11px; color:#999;">px</span>
+                        </div>
                     </div>
                 `).join('')}
             </div>
         </div>
-        <div class="modal-footer mt-3">
-            <button class="btn-primary w-100" onclick="saveColumnLayout()" style="width:100%; padding:10px;">설정 저장</button>
+        <div class="modal-footer" style="padding: 15px; border-top: 1px solid #eee; background: #f8fafc;">
+            <button class="btn-primary" style="width:100%; padding:12px;" onclick="saveColumnLayout()">설정 저장</button>
         </div>
     `;
     if (typeof showModal === 'function') showModal(modalHtml);
     new Sortable(document.getElementById('columnSortableList'), { handle: '.drag-handle', animation: 150 });
 };
+
+// 너비 데이터 업데이트 함수
+window.updateColumnWidth = (index, value) => { currentLayout[index].width = parseInt(value); };
 
 // 8. 엑셀 업로드
 window.handleExcelUpload = async function(event) {

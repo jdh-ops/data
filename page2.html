@@ -41,25 +41,31 @@
     
         <div class="top-controls" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center;">
             <div class="search-group" style="display: flex; gap: 8px; flex: 1; min-width: 300px;">
-                <input type="text" id="tableSearchInput" class="search-input" 
-                       placeholder="검색어를 입력하세요 (상품명, 태그 등)..." 
-                       onkeyup="filterTable()"
-                       style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
                 <button class="btn-select" onclick="resetTableFilter()">초기화</button>
             </div>
-            
             <div class="button-group" style="display: flex; gap: 8px;">
                 <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()">✏️ 수정하기</button>
-                <button class="btn-select" onclick="openColumnManagementModal()">⚙️ 열 설정</button>
                 <label class="btn-primary" style="display: inline-block; line-height: 35px; padding: 0 20px; height: 40px; border-radius: 6px; cursor: pointer;">
-                    Excel 업로드 <input type="file" hidden onchange="handleExcelUpload(event)" accept=".xlsx, .xls">
+                    Excel 업로드 <input type="file" hidden onchange="handleExcelUpload(event)">
                 </label>
             </div>
         </div>
     
+        <div id="editModeBar" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #fffcf0; border: 1px solid #fbd38d; border-radius: 8px;">
+            <div class="left-btns">
+                <button class="btn-select" onclick="selectAllRows(true)">전체 선택</button>
+                <button class="btn-select" onclick="selectAllRows(false)">전체 취소</button>
+            </div>
+            <div class="right-btns" style="display: flex; gap: 8px;">
+                <button class="btn-select" onclick="openColumnManagementModal()">⚙️ 열 설정</button>
+                <button class="btn-select" onclick="addNewRow()">➕ 행 추가</button>
+                <button class="btn-select" style="color: red; border-color: #feb2b2;" onclick="deleteSelectedRows()">🗑️ 삭제</button>
+            </div>
+        </div>
+    
         <div class="card shadow-sm" style="background: white; border-radius: 12px; overflow: hidden; border: 1px solid #eee;">
-            <div id="dataManagerContainer" class="table-responsive">
-                </div>
+            <div id="dataManagerContainer" class="table-responsive"></div>
         </div>
     </div>
     
