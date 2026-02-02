@@ -164,3 +164,79 @@ window.saveColumnLayout = async function() {
         if (typeof closeModal === 'function') closeModal();
     }
 };
+
+// datamng.js 내 리포트 생성 핵심 함수
+window.processAndRender = function(config, type, targetId) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    // 데이터 필터링
+    let filteredData = rawData;
+    if (config.filter) {
+        filteredData = rawData.filter(r => 
+            Object.values(r).some(v => String(v).includes(config.filter))
+        );
+    }
+
+    // [추가] 데이터가 없을 경우 처리
+    if (filteredData.length === 0) {
+        target.innerHTML = `<div style="padding:50px; text-align:center; color:#94a3b8;">분석할 데이터가 없습니다.</div>`;
+        return;
+    }
+
+    // 2. 피벗 그룹화 (행 x 열 기준 집계)
+    const pivot = {};
+    const colCategories = new Set(); // 열(Columns)에 들어갈 카테고리들
+
+    filteredData.forEach(item => {
+        // 행(Row) 키 설정
+        let rowKey = item[config.x] || '미지정';
+        if (config.x === 'monthly') {
+            const m = String(item.col1_val || '').match(/(\d{4})[.-](\d{2})/);
+            rowKey = m ? `${m[1]}.${m[2]}` : '날짜미상';
+        }
+
+        // 열(Column) 키 설정 (피벗의 핵심)
+        let colKey = (config.yBase && config.yBase !== 'total') ? (item[config.yBase] || '기타') : '합계';
+        colCategories.add(colKey);
+
+        if (!pivot[rowKey]) pivot[rowKey] = {};
+        pivot[rowKey][colKey] = (pivot[rowKey][colKey] || 0) + 1;
+    });
+
+    const rows = Object.keys(pivot).sort();
+    const cols = Array.from(colCategories).sort();
+
+    // 3. 시각화 출력 (Table vs Chart)
+    if (type === 'table') {
+        let html = `<table class="data-table"><thead><tr><th>구분 (${config.x})</th>`;
+        cols.forEach(c => html += `<th>${c}</th>`);
+        html += `</tr></thead><tbody>`;
+
+        rows.forEach(r => {
+            html += `<tr><td><strong>${r}</strong></td>`;
+            cols.forEach(c => {
+                const val = pivot[r][c] || 0;
+                html += `<td>${val.toLocaleString()}</td>`;
+            });
+            html += `</tr>`;
+        });
+        target.innerHTML = html + `</tbody></table>`;
+    } else {
+        const canvas = document.createElement('canvas');
+        target.appendChild(canvas);
+        
+        // 그래프 데이터셋 구성 (열 기준별 막대 생성)
+        const datasets = cols.map((col, i) => ({
+            label: col,
+            data: rows.map(row => pivot[row][col] || 0),
+            backgroundColor: `hsla(${i * (360 / cols.length)}, 70%, 60%, 0.7)`
+        }));
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: { labels: rows, datasets: datasets },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+};
