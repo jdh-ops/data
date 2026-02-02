@@ -78,12 +78,19 @@
         // 모달 제어
         function showModal(content) {
             const modal = document.getElementById('commonModal');
-            if(modal) {
+            if (modal) {
+                // 모달 내부의 특정 컨테이너(.modal-content)에 HTML 주입
                 modal.querySelector('.modal-content').innerHTML = content;
                 modal.style.display = 'flex';
+            } else {
+                console.error("ID가 'commonModal'인 요소를 찾을 수 없습니다.");
             }
         }
-        function closeModal() { document.getElementById('commonModal').style.display = 'none'; }
+
+        function closeModal() {
+            const modal = document.getElementById('commonModal');
+            if (modal) modal.style.display = 'none';
+        }
         function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
 
         // 초기화 실행

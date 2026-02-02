@@ -97,3 +97,70 @@ window.closeExcelModal = () => {
     const modal = document.getElementById('excelUploadModal');
     if(modal) modal.style.display = 'none';
 };
+
+// [열 설정] 모달 열기 함수
+window.openColumnManagementModal = function() {
+    // currentLayout이 비어있으면 기본값 로드
+    const layout = currentLayout.length > 0 ? currentLayout : DEFAULT_LAYOUT;
+    
+    const modalHtml = `
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding-bottom:15px; border-bottom:1px solid #eee;">
+            <h5 style="margin:0;">⚙️ 열 관리 및 너비 설정</h5>
+            <button type="button" onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:20px;">✕</button>
+        </div>
+        <div class="modal-body" style="padding:15px 0; max-height:400px; overflow-y:auto;">
+            <div id="columnSortableList" class="list-group">
+                ${layout.map((col, index) => `
+                    <div class="list-group-item" data-id="${col.id}" style="display:flex; align-items:center; gap:10px; margin-bottom:8px; border:1px solid #ddd; padding:10px; border-radius:6px; background:#fff;">
+                        <span class="drag-handle" style="cursor:grab; color:#aaa;">☰</span>
+                        <input type="checkbox" ${col.isVisible ? 'checked' : ''} onchange="updateVisibility(${index}, this.checked)">
+                        <input type="text" class="form-control" style="flex:2;" value="${col.customName || col.defaultName}" oninput="updateCustomName(${index}, this.value)">
+                        <div style="flex:1; display:flex; align-items:center; gap:5px;">
+                            <input type="number" class="form-control" style="width:60px;" value="${col.width || 150}" oninput="updateColumnWidth(${index}, this.value)">
+                            <span style="font-size:11px; color:#999;">px</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="modal-footer" style="padding-top:15px; border-top:1px solid #eee;">
+            <button class="btn-primary" style="width:100%; padding:12px;" onclick="saveColumnLayout()">설정 저장</button>
+        </div>
+    `;
+
+    // page2.html에 정의된 showModal 함수 호출
+    if (typeof showModal === 'function') {
+        showModal(modalHtml);
+        // 드래그 앤 드롭 순서 변경 기능 활성화
+        new Sortable(document.getElementById('columnSortableList'), { handle: '.drag-handle', animation: 150 });
+    } else {
+        alert("모달 표시 함수(showModal)를 찾을 수 없습니다.");
+    }
+};
+
+// 데이터 업데이트용 보조 함수들
+window.updateVisibility = (index, isChecked) => { currentLayout[index].isVisible = isChecked; };
+window.updateCustomName = (index, value) => { currentLayout[index].customName = value; };
+window.updateColumnWidth = (index, value) => { currentLayout[index].width = parseInt(value); };
+
+// 설정 저장 함수
+window.saveColumnLayout = async function() {
+    const items = document.querySelectorAll('#columnSortableList .list-group-item');
+    const newLayout = [];
+    items.forEach(item => {
+        const id = parseInt(item.getAttribute('data-id'));
+        const found = currentLayout.find(c => c.id === id);
+        if (found) newLayout.push(found);
+    });
+
+    const { error } = await _supabase
+        .from('data_config')
+        .upsert({ project_key: tableName, columns_layout: newLayout }, { onConflict: 'project_key' });
+
+    if (!error) {
+        alert("✅ 열 설정이 저장되었습니다.");
+        currentLayout = newLayout;
+        renderDataTable(); // 표 다시 그리기
+        if (typeof closeModal === 'function') closeModal();
+    }
+};
