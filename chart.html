@@ -19,53 +19,50 @@
 </head>
 <body>
 
-    <div style="max-width: 1200px; margin: 0 auto;">
-        <h2 style="margin-bottom: 25px;">📊 맞춤형 데이터 리포트</h2>
-
-        <div class="main-content" style="max-width: 1200px; margin: 0 auto; padding: 40px;">
-            <h2 class="fw-bold mb-4">📈 맞춤형 데이터 분석 빌더</h2>
-        
-            <div class="card shadow-sm mb-4" style="background: white; border-radius: 12px; padding: 25px;">
-                <h5 class="fw-bold mb-3">🛠️ 분석 프리셋 설정</h5>
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold">1. 데이터 필터링 (태그/키워드)</label>
-                        <input type="text" id="presetFilter" class="form-control" placeholder="예: 정품, 이벤트">
-                    </div>
-        
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold">2. 시각화 방식</label>
-                        <select id="presetViewType" class="form-select">
-                            <option value="chart">📊 그래프 (Chart)</option>
-                            <option value="table">📋 표 (Table)</option>
-                        </select>
-                    </div>
-        
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold">3. X축 / 행 (기준)</label>
-                        <select id="presetXAxis" class="form-select">
-                            <option value="monthly">📅 월별 합산 (날짜 기준)</option>
-                            </select>
-                    </div>
-        
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold">4. Y축 / 열 (값)</label>
-                        <select id="presetYAxis" class="form-select">
-                            </select>
-                    </div>
+    <div class="main-content" style="max-width: 1200px; margin: 0 auto; padding: 40px;">
+        <h2 class="fw-bold mb-4">📈 맞춤형 데이터 분석 빌더</h2>
+    
+        <div class="card shadow-sm mb-4" style="background: white; border-radius: 12px; padding: 25px;">
+            <h5 class="fw-bold mb-3">🛠️ 분석 프리셋 설정</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">1. 데이터 필터링 (태그/키워드)</label>
+                    <input type="text" id="presetFilter" class="form-control" placeholder="예: 정품, 이벤트">
                 </div>
-        
-                <div class="mt-4 d-flex justify-content-end gap-2">
-                    <button class="btn-select" onclick="savePreset()">💾 프리셋 저장</button>
-                    <button class="btn-primary" onclick="generateAnalysis()" style="padding: 10px 40px;">🚀 생성하기</button>
+    
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">2. 시각화 방식</label>
+                    <select id="presetViewType" class="form-select">
+                        <option value="chart">📊 그래프 (Chart)</option>
+                        <option value="table">📋 표 (Table)</option>
+                    </select>
+                </div>
+    
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">3. X축 / 행 (기준)</label>
+                    <select id="presetXAxis" class="form-select">
+                        <option value="monthly">📅 월별 합산 (날짜 기준)</option>
+                        </select>
+                </div>
+    
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">4. Y축 / 열 (값)</label>
+                    <select id="presetYAxis" class="form-select">
+                        </select>
                 </div>
             </div>
-        
-            <div id="analysisResultArea" class="chart-main" style="min-height: 400px; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                <p class="text-center text-muted">설정을 완료하고 '생성하기' 버튼을 눌러주세요.</p>
+    
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <button class="btn-select" onclick="savePreset()">💾 프리셋 저장</button>
+                <button class="btn-primary" onclick="generateAnalysis()" style="padding: 10px 40px;">🚀 생성하기</button>
             </div>
         </div>
+    
+        <div id="analysisResultArea" class="chart-main" style="min-height: 400px; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+            <p class="text-center text-muted">설정을 완료하고 '생성하기' 버튼을 눌러주세요.</p>
+        </div>
     </div>
+
 
     <script src="config.js"></script>
     <script>
