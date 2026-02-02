@@ -88,18 +88,27 @@
 
         // 초기화 실행
         window.onload = async () => {
-            // 1. URL 파라미터가 있는지 확인 (테스트용 콘솔)
-            console.log("현재 URL 파라미터:", window.location.search);
-            
-            // 2. 타이틀 설정
-            const titleElement = document.getElementById('projectTitle');
-            if (titleElement && typeof projectKeyName !== 'undefined') {
-                titleElement.innerText = projectKeyName;
-            }
+            try {
+                // 1. 타이틀 설정
+                const titleElement = document.getElementById('projectTitle');
+                if (titleElement && typeof projectKeyName !== 'undefined') {
+                    titleElement.innerText = projectKeyName;
+                }
 
-            // 3. 표 렌더링 실행 (비동기 대기 필수)
-            await renderDataTable();
+                // 2. 표 렌더링 실행
+                if (typeof renderDataTable === 'function') {
+                    await renderDataTable();
+                    console.log("표 렌더링 완료");
+                }
+            } catch (e) {
+                console.error("초기화 중 오류:", e);
+            }
         };
+
+        // 페이지 이동용 함수
+        function goPage(p) { window.location.href = p + window.location.search; }
+        function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
+        function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
     </script>
 
 <div id="excelUploadModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
