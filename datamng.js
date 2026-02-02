@@ -394,3 +394,96 @@ window.processExcelUpload = async function() {
     };
     reader.readAsArrayBuffer(excelFileToUpload);
 };
+
+    // chart.html 전용 로직
+let rawData = [];
+let presets = []; // 로컬 스토리지 또는 DB에 저장 가능
+
+// 데이터 로드 및 초기화
+async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const tName = params.get('table');
+    
+    // 테이블 레이아웃 정보와 실제 데이터 동시 로드
+    const { data: config } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tName).maybeSingle();
+    const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tName);
+    
+    rawData = rows || [];
+    const layout = config?.columns_layout || [];
+
+    // 필드 선택 옵션 동적 생성
+    const xSelect = document.getElementById('presetXAxis');
+    const ySelect = document.getElementById('presetYAxis');
+
+    layout.filter(c => c.isVisible).forEach(col => {
+        const opt = `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`;
+        xSelect.innerHTML += opt;
+        ySelect.innerHTML += opt;
+    });
+}
+
+// [1, 2, 3] 분석 생성 실행 함수
+window.generateAnalysis = function() {
+    const filterKeyword = document.getElementById('presetFilter').value.trim();
+    const viewType = document.getElementById('presetViewType').value;
+    const xAxis = document.getElementById('presetXAxis').value;
+    const yAxis = document.getElementById('presetYAxis').value;
+
+    // 1단계: 데이터 필터링
+    let filteredData = rawData;
+    if (filterKeyword) {
+        filteredData = rawData.filter(row => 
+            Object.values(row).some(val => String(val).includes(filterKeyword))
+        );
+    }
+
+    // 2단계 & 날짜 설정: 데이터 그룹화
+    const resultData = {};
+    filteredData.forEach(item => {
+        let key = item[xAxis] || '기타';
+        
+        // [날짜 기준 설정] 날짜 형식일 경우 월별 묶기
+        if (xAxis === 'monthly' || xAxis === 'col1_val') { // 날짜가 col1_val이라고 가정
+            const rawDate = String(item.col1_val || '');
+            const match = rawDate.match(/(\d{4})[.-](\d{2})/); // YYYY.MM 또는 YYYY-MM 추출
+            key = match ? `${match[1]}.${match[2]}` : '날짜미상';
+        }
+        
+        // Y축 데이터 합산 또는 카운트 (여기서는 수량 기준)
+        resultData[key] = (resultData[key] || 0) + 1;
+    });
+
+    // 3단계: 설정값 순서대로 화면 출력
+    renderResult(resultData, viewType);
+};
+
+function renderResult(data, type) {
+    const area = document.getElementById('analysisResultArea');
+    area.innerHTML = ''; // 초기화
+
+    if (type === 'table') {
+        // 표 방식 출력
+        let html = `<table class="data-table"><thead><tr><th>분류(X축)</th><th>결과값(Y축)</th></tr></thead><tbody>`;
+        Object.entries(data).forEach(([k, v]) => {
+            html += `<tr><td>${k}</td><td>${v.toLocaleString()}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        area.innerHTML = html;
+    } else {
+        // 그래프 방식 출력 (Chart.js 활용)
+        const canvas = document.createElement('canvas');
+        area.appendChild(canvas);
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(data),
+                datasets: [{
+                    label: '분석 결과 수량',
+                    data: Object.values(data),
+                    backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+}
