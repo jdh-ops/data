@@ -48,12 +48,16 @@
         window.onload = async () => { await initChartPage(); };
 
         // [1] 프리셋 추가 함수
+        // chart.html 내 addPreset 함수 부분 수정
         function addPreset(type) {
             presetCount++;
             const id = `preset_${presetCount}`;
-            const layoutOptions = currentLayout.filter(c => c.isVisible).map(col => 
-                `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`
-            ).join('');
+
+            // [수정] 현재 사용자가 설정한 가시적인 열들만 옵션으로 추출
+            const layoutOptions = currentLayout
+                .filter(col => col.isVisible)
+                .map(col => `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`)
+                .join('');
 
             const presetHtml = `
                 <div class="preset-card" id="${id}" data-type="${type}">
@@ -61,35 +65,34 @@
                         ${type === 'table' ? 'TABLE' : 'CHART'}
                     </span>
                     <h6 class="fw-bold mb-3">#${presetCount} ${type === 'table' ? '표 설정' : '그래프 설정'}</h6>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div>
-                            <label class="small fw-bold">필터링 키워드</label>
-                            <input type="text" class="form-control p-filter" placeholder="태그 등 (비우면 전체)">
+                            <label class="small fw-bold">1. 데이터 필터링</label>
+                            <input type="text" class="form-control p-filter" placeholder="태그 등 키워드">
                         </div>
                         <div>
-                            <label class="small fw-bold">${type === 'table' ? '행 기준 (X축)' : 'X축 기준'}</label>
+                            <label class="small fw-bold">2. ${type === 'table' ? '행 기준 (X축)' : 'X축 기준'}</label>
                             <select class="form-select p-x">
-                                <option value="monthly">📅 월별 합산</option>
-                                ${layoutOptions}
-                            </select>
+                                <option value="monthly">📅 월별 합산 (날짜 기준)</option>
+                                ${layoutOptions} </select>
                         </div>
                         ${type === 'table' ? `
                         <div>
-                            <label class="small fw-bold">열 기준</label>
+                            <label class="small fw-bold">3. 열 기준 (구분)</label>
                             <select class="form-select p-y-base">
                                 <option value="total">전체 합계</option>
                                 ${layoutOptions}
                             </select>
                         </div>` : ''}
                         <div>
-                            <label class="small fw-bold">데이터 수 셀 기준</label>
+                            <label class="small fw-bold">${type === 'table' ? '4.' : '3.'} 데이터 수 카운트 기준</label>
                             <select class="form-select p-value">
-                                <option value="count">🔢 데이터 건수(Count)</option>
-                                ${layoutOptions.replace(/col/g, 'val_col')} 
+                                <option value="count">🔢 단순 데이터 건수(Count)</option>
+                                ${layoutOptions}
                             </select>
                         </div>
                     </div>
-                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:15px; color:red; border:none; background:none; cursor:pointer; font-size:12px;">❌ 삭제</button>
+                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:15px; color:#e74c3c; border:none; background:none; cursor:pointer; font-size:12px;">❌ 프리셋 삭제</button>
                 </div>
             `;
             document.getElementById('presetList').insertAdjacentHTML('beforeend', presetHtml);

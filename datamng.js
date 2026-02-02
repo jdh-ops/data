@@ -102,17 +102,20 @@ window.processExcelUpload = async function() {
 };
 
 // 차트 분석 전용
-wwindow.initChartPage = async function() {
+window.initChartPage = async function() {
     const params = new URLSearchParams(window.location.search);
     const tName = params.get('table');
-    tableName = tName; // 전역 변수 설정
+    tableName = tName; 
 
-    // 설정과 데이터를 가져와서 전역 변수에 저장
+    // 1. 설정과 데이터를 가져옴
     const { data: config } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tName).maybeSingle();
     const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tName);
     
     rawData = rows || [];
+    // 2. 현재 레이아웃을 전역 변수에 저장 (매우 중요)
     currentLayout = config?.columns_layout || DEFAULT_LAYOUT;
+    
+    console.log("차트 페이지 초기화 완료:", currentLayout);
 };
 
 window.generateAnalysis = function() {
