@@ -56,7 +56,43 @@
     </div>
     
     <script src="config.js"></script>
-    <script src="datamng.js"></script>
+    <script src="lib_data.js"></script>    <script src="page_manager.js"></script> <script>
+        // 페이지 초기화 실행
+        window.onload = async () => {
+            try {
+                // 타이틀 설정
+                const titleElement = document.getElementById('projectTitle');
+                if (titleElement && typeof projectKeyName !== 'undefined') {
+                    titleElement.innerText = projectKeyName;
+                }
+    
+                // 데이터 관리 표 렌더링 실행 (page_manager.js에 정의됨)
+                if (typeof renderDataTable === 'function') {
+                    await renderDataTable();
+                    console.log("관리 페이지 데이터 로드 완료");
+                }
+            } catch (e) {
+                console.error("초기화 오류:", e);
+            }
+        };
+    
+        // 공통 유틸 함수 (HTML 내 버튼 클릭용)
+        function goPage(p) { window.location.href = p + window.location.search; }
+        function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
+        function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
+    
+        // 모달 제어 함수 (page_manager.js에서 호출함)
+        function showModal(content) {
+            const modal = document.getElementById('commonModal');
+            if (modal) {
+                modal.querySelector('.modal-content').innerHTML = content;
+                modal.style.display = 'flex';
+            }
+        }
+        function closeModal() { document.getElementById('commonModal').style.display = 'none'; }
+        function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
+    </script>
+    
     <script>
         // 공통 페이지 이동
         function goPage(page) { window.location.href = page + window.location.search; }

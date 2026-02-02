@@ -49,7 +49,42 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="datamng.js"></script>
+    <script src="lib_data.js"></script>  <script src="page_chart.js"></script> <script>
+        window.onload = async () => {
+            // 차트 페이지 데이터 초기화 (page_chart.js에 정의됨)
+            const success = await initChartPage();
+            if (success) {
+                // 저장된 프리셋 목록 불러오기
+                if (typeof loadPresets === 'function') {
+                    await loadPresets();
+                    console.log("분석 프리셋 로드 완료");
+                }
+            } else {
+                alert("데이터를 불러오지 못했습니다. URL 파라미터를 확인하세요.");
+            }
+        };
+    
+        // 프리셋 버튼 목록 생성 (page_chart.js의 loadPresets 결과물 출력)
+        window.renderPresetButtons = function(data) {
+            const container = document.getElementById('presetButtons');
+            if (!data || data.length === 0) {
+                container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">저장된 프리셋이 없습니다.</span>';
+                return;
+            }
+            container.innerHTML = data.map(p => `
+                <button class="btn-select" style="font-size: 12px; padding: 5px 12px;" onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
+                    ${p.preset_name}
+                </button>
+            `).join('');
+        };
+    
+        // 저장된 프리셋을 UI에 적용 (addPreset은 chart.html 내부 함수)
+        window.applyPreset = function(encodedData) {
+            const preset = JSON.parse(decodeURIComponent(encodedData));
+            addPreset(preset.type, preset.config, preset.preset_name);
+        };
+    </script>
+    
     <script>
         let presetCount = 0;
 
