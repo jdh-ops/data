@@ -23,9 +23,23 @@ function getTableNameFromUrl() {
 }
 
 // [3] 공통 함수: 테이블 설정 불러오기
+// datamng.js 상단 수정
 async function loadTableConfig() {
-    if (!tableName) tableName = getTableNameFromUrl();
-    const { data } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tableName).maybeSingle();
+    // tableName이 비어있으면 강제로 다시 읽어오도록 보강
+    if (!tableName || tableName === "") {
+        tableName = getTableNameFromUrl();
+    }
+    
+    if (!tableName) {
+        console.error("Critical: tableName을 찾을 수 없습니다. URL을 확인하세요.");
+        return;
+    }
+
+    const { data } = await _supabase.from('data_config')
+        .select('columns_layout')
+        .eq('project_key', tableName)
+        .maybeSingle();
+
     currentLayout = data?.columns_layout || JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
 }
 

@@ -88,11 +88,17 @@
 
         // 초기화 실행
         window.onload = async () => {
-            const title = document.getElementById('projectTitle');
-            if (title && typeof projectKeyName !== 'undefined') title.innerText = projectKeyName;
+            // 1. URL 파라미터가 있는지 확인 (테스트용 콘솔)
+            console.log("현재 URL 파라미터:", window.location.search);
             
-            // datamng.js의 렌더링 함수 호출
-            if (typeof renderDataTable === 'function') await renderDataTable();
+            // 2. 타이틀 설정
+            const titleElement = document.getElementById('projectTitle');
+            if (titleElement && typeof projectKeyName !== 'undefined') {
+                titleElement.innerText = projectKeyName;
+            }
+
+            // 3. 표 렌더링 실행 (비동기 대기 필수)
+            await renderDataTable();
         };
     </script>
 </body>
