@@ -14,11 +14,12 @@
         .report-item { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 30px; }
         .pivot-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
         .saved-presets-bar { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #cbd5e0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .btn-select:hover { background: #edf2f7; }
     </style>
 </head>
 <body>
     <div class="builder-container" id="builderView">
-        <h2 class="fw-bold mb-4">📈 피벗 분석 리포트 빌더</h2>
+        <h2 class="fw-bold mb-4">⚒️ 리포트 프리셋 빌더</h2>
         
         <div class="saved-presets-bar" id="savedPresetsBar">
             <span class="small fw-bold">💾 저장된 프리셋:</span>
@@ -28,23 +29,23 @@
         </div>
 
         <div class="mb-4" style="display: flex; gap: 10px;">
-            <button class="btn-select" onclick="addPreset('table')">📋 피벗 테이블 추가</button>
-            <button class="btn-select" onclick="addPreset('chart')">📊 분석 차트 추가</button>
+            <button class="btn-select" onclick="addPreset('table')">📋 표(Table) 프리셋 추가</button>
+            <button class="btn-select" onclick="addPreset('chart')">📊 그래프(Chart) 프리셋 추가</button>
         </div>
 
         <div id="presetList"></div>
 
         <div class="mt-5 text-center">
-            <button class="btn-primary" style="width: 100%; height: 55px; font-size: 18px;" onclick="generateReport()">🚀 리포트 생성 및 화면 전환</button>
+            <button class="btn-primary" style="width: 100%; height: 55px; font-size: 18px; background: #3498db; border: none; color: white; border-radius: 8px; cursor: pointer;" onclick="generateReport()">🚀 리포트 생성하기</button>
         </div>
     </div>
 
     <div class="builder-container" id="reportView" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <h2 class="fw-bold">📑 맞춤형 분석 리포트 결과</h2>
+            <h2 class="fw-bold">📑 분석 리포트 결과</h2>
             <button class="btn-select" onclick="location.reload()">🔄 빌더로 돌아가기</button>
         </div>
-        <div id="reportContainer" class="report-grid"></div>
+        <div id="reportContainer"></div>
     </div>
 
     <script src="config.js"></script>
@@ -54,32 +55,27 @@
 
         window.onload = async () => {
             const success = await initChartPage();
-            if (success) {
-                loadPresets(); // datamng.js에 정의된 프리셋 로드 함수 호출
-            }
+            if (success) { loadPresets(); }
         };
 
-        // 프리셋 버튼 목록 렌더링
         window.renderPresetButtons = function(data) {
             const container = document.getElementById('presetButtons');
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">저장된 프리셋이 없습니다.</span>';
                 return;
             }
             container.innerHTML = data.map(p => `
-                <button class="btn-select" style="font-size: 12px; background: #f8fafc;" onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
-                    ${p.preset_name} (${p.type === 'table' ? '표' : '차트'})
+                <button class="btn-select" style="font-size: 12px; padding: 5px 12px;" onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
+                    ${p.preset_name}
                 </button>
             `).join('');
         };
 
-        // 저장된 프리셋 적용 기능
         window.applyPreset = function(encodedData) {
             const preset = JSON.parse(decodeURIComponent(encodedData));
             addPreset(preset.type, preset.config, preset.preset_name);
         };
 
-        // [피벗 테이블 방식] 프리셋 카드 추가
         function addPreset(type, savedConfig = null, savedName = "") {
             presetCount++;
             const id = `preset_${presetCount}`;
@@ -90,45 +86,21 @@
             const presetHtml = `
                 <div class="preset-card" id="${id}" data-type="${type}">
                     <span class="preset-type-badge" style="background:${type === 'table' ? '#4a5568' : '#3498db'}">
-                        ${type === 'table' ? 'PIVOT TABLE' : 'ANALYSIS CHART'}
+                        ${type === 'table' ? 'TABLE' : 'CHART'}
                     </span>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #f1f5f9; padding-bottom:15px;">
-                        <input type="text" class="p-name form-control" style="width:300px; font-weight:bold;" placeholder="프리셋 이름을 입력하세요" value="${savedName}">
-                        <button class="btn-select" style="background: #ebf8ff; color: #2b6cb0; border-color: #bee3f8;" onclick="saveThisPreset('${id}')">💾 프리셋 저장</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <input type="text" class="p-name form-control" style="width:300px; font-weight:bold; border: 1px solid #ddd; padding: 8px; border-radius: 4px;" placeholder="프리셋 이름" value="${savedName}">
+                        <button class="btn-select" style="color: #2b6cb0;" onclick="saveThisPreset('${id}')">💾 저장</button>
                     </div>
-                    
                     <div class="pivot-controls">
-                        <div>
-                            <label class="form-label">1. 필터링 (키워드)</label>
-                            <input type="text" class="p-filter form-control" placeholder="예: 정품" value="${savedConfig?.filter || ''}">
-                        </div>
-                        <div>
-                            <label class="form-label">2. 행 (Rows / X축)</label>
-                            <select class="p-x form-select">
-                                <option value="monthly" ${savedConfig?.x === 'monthly' ? 'selected' : ''}>📅 월별 합산 (날짜 기준)</option>
-                                ${layoutOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">3. 열 (Columns / 구분)</label>
-                            <select class="p-y-base form-select">
-                                <option value="total" ${savedConfig?.yBase === 'total' ? 'selected' : ''}>Σ 합계 (구분 없음)</option>
-                                ${layoutOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">4. 값 (Values)</label>
-                            <select class="p-value form-select">
-                                <option value="count">🔢 데이터 건수 (Count)</option>
-                            </select>
-                        </div>
+                        <div><label class="small">1. 필터</label><input type="text" class="p-filter form-control" value="${savedConfig?.filter || ''}"></div>
+                        <div><label class="small">2. 행(X축)</label><select class="p-x form-select"><option value="monthly">월별 합산</option>${layoutOptions}</select></div>
+                        <div><label class="small">3. 열(구분)</label><select class="p-y-base form-select"><option value="total">전체 합계</option>${layoutOptions}</select></div>
                     </div>
-                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:20px; color:#e74c3c; border:none; background:none; cursor:pointer; font-size:12px;">❌ 프리셋 삭제</button>
+                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:15px; color:#e74c3c; border:none; background:none; cursor:pointer;">삭제</button>
                 </div>
             `;
             document.getElementById('presetList').insertAdjacentHTML('beforeend', presetHtml);
-            
-            // 저장된 설정값이 있다면 드롭다운 값 수동 세팅 (monthly 외의 값들)
             if (savedConfig) {
                 const el = document.getElementById(id);
                 el.querySelector('.p-x').value = savedConfig.x;
@@ -136,46 +108,36 @@
             }
         }
 
-        // 개별 프리셋 저장 버튼
         window.saveThisPreset = function(id) {
             const el = document.getElementById(id);
             const config = {
                 filter: el.querySelector('.p-filter').value,
                 x: el.querySelector('.p-x').value,
-                yBase: el.querySelector('.p-y-base').value,
-                val: el.querySelector('.p-value').value
+                yBase: el.querySelector('.p-y-base').value
             };
             const name = el.querySelector('.p-name').value;
-            if(!name) return alert("프리셋 이름을 입력해주세요.");
-            saveAnalysisPreset(name, config, el.dataset.type); // datamng.js 함수 호출
+            if(!name) return alert("이름을 입력하세요.");
+            saveAnalysisPreset(name, config, el.dataset.type);
         };
 
-        // 리포트 생성 실행
         async function generateReport() {
             const presetElements = document.querySelectorAll('.preset-card');
             if (presetElements.length === 0) return alert("프리셋을 추가해주세요.");
-
             document.getElementById('builderView').style.display = 'none';
             document.getElementById('reportView').style.display = 'block';
-
             const container = document.getElementById('reportContainer');
             container.innerHTML = '';
-
             presetElements.forEach((el, index) => {
                 const type = el.dataset.type;
                 const config = {
                     filter: el.querySelector('.p-filter').value,
                     x: el.querySelector('.p-x').value,
-                    yBase: el.querySelector('.p-y-base').value,
-                    val: el.querySelector('.p-value').value
+                    yBase: el.querySelector('.p-y-base').value
                 };
-
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'report-item';
-                itemDiv.innerHTML = `<h4 class="fw-bold mb-4" style="color:#2d3748;">#${index+1} ${el.querySelector('.p-name').value || '분석 리포트'}</h4><div id="res_${index}" style="min-height:350px;"></div>`;
+                itemDiv.innerHTML = `<h3 class="mb-4">#${index+1} ${el.querySelector('.p-name').value}</h3><div id="res_${index}" style="min-height:300px;"></div>`;
                 container.appendChild(itemDiv);
-
-                // datamng.js의 피벗 처리 함수 호출
                 processAndRender(config, type, `res_${index}`);
             });
         }
