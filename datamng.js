@@ -102,19 +102,17 @@ window.processExcelUpload = async function() {
 };
 
 // 차트 분석 전용
-window.initChartPage = async function() {
+wwindow.initChartPage = async function() {
     const params = new URLSearchParams(window.location.search);
     const tName = params.get('table');
+    tableName = tName; // 전역 변수 설정
+
+    // 설정과 데이터를 가져와서 전역 변수에 저장
     const { data: config } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tName).maybeSingle();
     const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tName);
+    
     rawData = rows || [];
-    const layout = config?.columns_layout || DEFAULT_LAYOUT;
-    const xSelect = document.getElementById('presetXAxis');
-    const ySelect = document.getElementById('presetYAxis');
-    layout.filter(c => c.isVisible).forEach(col => {
-        const opt = `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`;
-        xSelect.innerHTML += opt; ySelect.innerHTML += opt;
-    });
+    currentLayout = config?.columns_layout || DEFAULT_LAYOUT;
 };
 
 window.generateAnalysis = function() {
