@@ -18,11 +18,14 @@
             <div class="menu-item" onclick="handleMenuClick('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
         </div>
-        <button class="toggle-btn" onclick="toggleSidebar()" style="position: absolute; bottom: 20px; right: 20px; background: #34495e; color: white; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer;">◀</button>
+        <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
     </div>
 
     <div class="main-content">
-        <h2 class="fw-bold mb-4">📊 데이터 관리 <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">📈 차트 분석 (새 탭)</button></h2>
+        <h2 class="fw-bold mb-4">
+            📊 데이터 관리 
+            <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">📈 차트 분석 (새 탭)</button>
+        </h2>
     
         <div class="top-controls">
             <div class="search-group">
@@ -35,7 +38,7 @@
             </div>
         </div>
     
-        <div id="editModeBar">
+        <div id="editModeBar" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: #fffcf0; border: 1px solid #fbd38d; border-radius: 8px;">
             <div class="left-btns">
                 <button class="btn-select" onclick="selectAllRows(true)">전체 선택</button>
                 <button class="btn-select" onclick="selectAllRows(false)">전체 취소</button>
@@ -52,62 +55,43 @@
         </div>
     </div>
     
-    <div id="excelUploadModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">📤 엑셀 데이터 업로드</h5>
-                <button type="button" onclick="closeExcelModal()" style="border:none; background:none; cursor:pointer; font-size:24px; color:#aaa;">✕</button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom: 15px; text-align: right;">
-                    <button class="btn-select" onclick="downloadExcelTemplate()">📄 템플릿 다운로드</button>
-                </div>
-                <div id="excelDropZone" onclick="document.getElementById('excelFileInput').click()" ondragover="handleExcelDragOver(event)" ondragleave="handleExcelDragLeave(event)" ondrop="handleExcelDrop(event)">
-                    <div style="font-size: 30px; margin-bottom: 10px;">📊</div>
-                    <p id="excelDropText">파일을 드래그하거나 클릭하여 선택하세요.</p>
-                    <input type="file" id="excelFileInput" hidden accept=".xlsx, .xls" onchange="handleExcelSelect(event)">
-                </div>
-                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식</p>
-                    <label><input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가</label>
-                    <label style="margin-left: 15px; color: #e74c3c;"><input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체</label>
-                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">⚠️ 프로젝트의 모든 기존 데이터가 삭제됩니다.</p>
-                </div>
-                <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
-            </div>
-            <div class="modal-footer" style="display: flex; gap: 10px; margin-top: 20px;">
-                <button id="startExcelUploadBtn" class="btn-primary" style="flex: 1;" onclick="processExcelUpload()" disabled>업로드 시작</button>
-                <button class="btn-select" style="flex: 1;" onclick="closeExcelModal()">취소</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="commonModal" class="modal">
-        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;"></div>
-    </div>
-
     <script src="config.js"></script>
     <script src="datamng.js"></script>
     <script>
-        function goPage(p) { window.location.href = p + window.location.search; }
-        function toggleSidebar() { 
-            const s = document.getElementById('sidebar'); 
-            s.classList.toggle('collapsed'); 
-            document.querySelector('.toggle-btn').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
+        // 공통 페이지 이동
+        function goPage(page) { window.location.href = page + window.location.search; }
+
+        // 사이드바 토글
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
         }
-        function openChartTab() { window.open(`chart.html${window.location.search}`, '_blank'); }
-        function showModal(h) { 
-            const m = document.getElementById('commonModal'); 
-            m.querySelector('.modal-content').innerHTML = h; 
-            m.style.display = 'flex'; 
+
+        // [핵심] 차트 페이지 새 탭 열기 (파라미터 전달)
+        function openChartTab() {
+            const params = window.location.search;
+            if (!params) return alert("프로젝트 정보가 없습니다.");
+            window.open(`chart.html${params}`, '_blank');
+        }
+
+        // 모달 제어
+        function showModal(content) {
+            const modal = document.getElementById('commonModal');
+            if(modal) {
+                modal.querySelector('.modal-content').innerHTML = content;
+                modal.style.display = 'flex';
+            }
         }
         function closeModal() { document.getElementById('commonModal').style.display = 'none'; }
         function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
-        function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
-        function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
+
+        // 초기화 실행
         window.onload = async () => {
-            const t = document.getElementById('projectTitle');
-            if (t && typeof projectKeyName !== 'undefined') t.innerText = projectKeyName;
+            const title = document.getElementById('projectTitle');
+            if (title && typeof projectKeyName !== 'undefined') title.innerText = projectKeyName;
+            
+            // datamng.js의 렌더링 함수 호출
             if (typeof renderDataTable === 'function') await renderDataTable();
         };
     </script>
