@@ -5,14 +5,16 @@
     <title>맞춤형 분석 리포트 빌더</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
         body { background: #f1f5f9; padding: 40px; display: block; height: auto; overflow-y: auto; }
-        .preset-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; position: relative; }
+        .preset-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .preset-type-badge { position: absolute; top: 15px; right: 15px; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
         .builder-container { max-width: 1000px; margin: 0 auto; }
         .report-grid { display: grid; grid-template-columns: 1fr; gap: 30px; }
         .report-item { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .form-label { font-size: 12px; font-weight: bold; color: #4a5568; margin-bottom: 5px; display: block; }
     </style>
 </head>
 <body>
@@ -20,14 +22,14 @@
         <h2 class="fw-bold mb-4">🛠️ 리포트 프리셋 빌더</h2>
         
         <div class="mb-4" style="display: flex; gap: 10px;">
-            <button class="btn-select" onclick="addPreset('table')">📋 표(Table) 프리셋 추가</button>
-            <button class="btn-select" onclick="addPreset('chart')">📊 그래프(Chart) 프리셋 추가</button>
+            <button id="addTableBtn" class="btn-select" onclick="addPreset('table')" disabled>📋 표(Table) 프리셋 추가</button>
+            <button id="addChartBtn" class="btn-select" onclick="addPreset('chart')" disabled>📊 그래프(Chart) 프리셋 추가</button>
         </div>
 
         <div id="presetList"></div>
 
         <div class="mt-5 text-center">
-            <button class="btn-primary" style="width: 100%; height: 50px; font-size: 18px;" onclick="generateReport()">🚀 리포트 생성하기</button>
+            <button id="generateBtn" class="btn-primary" style="width: 100%; height: 50px; font-size: 18px;" onclick="generateReport()" disabled>🚀 리포트 생성하기</button>
         </div>
     </div>
 
@@ -43,17 +45,30 @@
     <script src="datamng.js"></script>
     <script>
         let presetCount = 0;
-        const presets = [];
 
-        window.onload = async () => { await initChartPage(); };
+        // 페이지 로드 시 데이터 초기화 실행
+        window.onload = async () => {
+            const success = await initChartPage();
+            if (success) {
+                // 데이터 로드 완료 후 버튼 활성화
+                document.getElementById('addTableBtn').disabled = false;
+                document.getElementById('addChartBtn').disabled = false;
+                document.getElementById('generateBtn').disabled = false;
+                console.log("차트 페이지 준비 완료. 현재 레이아웃:", currentLayout);
+            }
+        };
 
-        // [1] 프리셋 추가 함수
-        // chart.html 내 addPreset 함수 부분 수정
+        // 프리셋 카드 추가 함수
         function addPreset(type) {
+            if (!currentLayout || currentLayout.length === 0) {
+                alert("레이아웃 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+                return;
+            }
+
             presetCount++;
             const id = `preset_${presetCount}`;
 
-            // [수정] 현재 사용자가 설정한 가시적인 열들만 옵션으로 추출
+            // DB에서 가져온 열 정보로 옵션 생성
             const layoutOptions = currentLayout
                 .filter(col => col.isVisible)
                 .map(col => `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`)
@@ -67,27 +82,28 @@
                     <h6 class="fw-bold mb-3">#${presetCount} ${type === 'table' ? '표 설정' : '그래프 설정'}</h6>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div>
-                            <label class="small fw-bold">1. 데이터 필터링</label>
+                            <label class="form-label">1. 데이터 필터링</label>
                             <input type="text" class="form-control p-filter" placeholder="태그 등 키워드">
                         </div>
                         <div>
-                            <label class="small fw-bold">2. ${type === 'table' ? '행 기준 (X축)' : 'X축 기준'}</label>
+                            <label class="form-label">2. ${type === 'table' ? '행 기준 (X축)' : 'X축 기준'}</label>
                             <select class="form-select p-x">
                                 <option value="monthly">📅 월별 합산 (날짜 기준)</option>
-                                ${layoutOptions} </select>
+                                ${layoutOptions}
+                            </select>
                         </div>
                         ${type === 'table' ? `
                         <div>
-                            <label class="small fw-bold">3. 열 기준 (구분)</label>
+                            <label class="form-label">3. 열 기준 (구분)</label>
                             <select class="form-select p-y-base">
                                 <option value="total">전체 합계</option>
                                 ${layoutOptions}
                             </select>
                         </div>` : ''}
                         <div>
-                            <label class="small fw-bold">${type === 'table' ? '4.' : '3.'} 데이터 수 카운트 기준</label>
+                            <label class="form-label">${type === 'table' ? '4.' : '3.'} 데이터 카운트 기준</label>
                             <select class="form-select p-value">
-                                <option value="count">🔢 단순 데이터 건수(Count)</option>
+                                <option value="count">🔢 단순 데이터 건수</option>
                                 ${layoutOptions}
                             </select>
                         </div>
@@ -98,13 +114,16 @@
             document.getElementById('presetList').insertAdjacentHTML('beforeend', presetHtml);
         }
 
-        // [2] 리포트 생성 및 화면 전환
+        // 리포트 생성 함수
         async function generateReport() {
             const presetElements = document.querySelectorAll('.preset-card');
-            if (presetElements.length === 0) return alert("최소 한 개의 프리셋을 추가해주세요.");
+            if (presetElements.length === 0) return alert("프리셋을 추가해주세요.");
 
-            const reportContainer = document.getElementById('reportContainer');
-            reportContainer.innerHTML = ''; // 초기화
+            document.getElementById('builderView').style.display = 'none';
+            document.getElementById('reportView').style.display = 'block';
+
+            const container = document.getElementById('reportContainer');
+            container.innerHTML = '';
 
             presetElements.forEach((el, index) => {
                 const type = el.dataset.type;
@@ -112,91 +131,17 @@
                     filter: el.querySelector('.p-filter').value,
                     x: el.querySelector('.p-x').value,
                     val: el.querySelector('.p-value').value,
-                    yBase: type === 'table' ? el.querySelector('.p-y-base').value : null
+                    yBase: type === 'table' ? el.querySelector('.p-y-base').value : 'total'
                 };
 
-                // 결과 영역 생성
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'report-item';
-                itemDiv.innerHTML = `<h5 class="fw-bold mb-4">#${index+1} 분석 결과</h5><div id="res_${index}"></div>`;
-                reportContainer.appendChild(itemDiv);
+                itemDiv.innerHTML = `<h5 class="fw-bold mb-4">#${index+1} 분석 결과</h5><div id="res_${index}" style="min-height:300px;"></div>`;
+                container.appendChild(itemDiv);
 
-                // 데이터 처리 및 렌더링
+                // datamng.js의 처리 함수 호출
                 processAndRender(config, type, `res_${index}`);
             });
-
-            // 화면 전환
-            document.getElementById('builderView').style.display = 'none';
-            document.getElementById('reportView').style.display = 'block';
-        }
-
-        function processAndRender(config, type, targetId) {
-            // 1. 데이터 필터링 (키워드 포함 여부 확인)
-            let filteredData = rawData;
-            if (config.filter) {
-                filteredData = rawData.filter(r => Object.values(r).some(v => String(v).includes(config.filter)));
-            }
-
-            // 2. 데이터 그룹화 (행 기준 x 열 기준)
-            const result = {};
-            const yCategories = new Set(); // 열 기준 항목들을 저장
-
-            filteredData.forEach(item => {
-                // 행(X축) 키 추출 (월별 또는 일반 열)
-                let xKey = item[config.x] || '미지정';
-                if (config.x === 'monthly') {
-                    const m = String(item.col1_val || '').match(/(\d{4})[.-](\d{2})/);
-                    xKey = m ? `${m[1]}.${m[2]}` : '날짜미상';
-                }
-
-                // 열(구분) 키 추출 (Table일 때 사용)
-                let yKey = (type === 'table' && config.yBase !== 'total') ? (item[config.yBase] || '기타') : '수량';
-                yCategories.add(yKey);
-
-                if (!result[xKey]) result[xKey] = {};
-                result[xKey][yKey] = (result[xKey][yKey] || 0) + 1;
-            });
-
-            const target = document.getElementById(targetId);
-            const xLabels = Object.keys(result).sort();
-            const yLabels = Array.from(yCategories);
-
-            // 3. 시각화 (표 방식)
-            if (type === 'table') {
-                let html = `<table class="data-table"><thead><tr><th>분류(${config.x})</th>`;
-                yLabels.forEach(y => html += `<th>${y}</th>`); // 열 헤더 생성
-                html += `</tr></thead><tbody>`;
-
-                xLabels.forEach(x => {
-                    html += `<tr><td>${x}</td>`;
-                    yLabels.forEach(y => {
-                        html += `<td>${result[x][y] || 0}</td>`;
-                    });
-                    html += `</tr>`;
-                });
-                target.innerHTML = html + `</tbody></table>`;
-            } 
-            // 3. 시각화 (그래프 방식)
-            else {
-                const canvas = document.createElement('canvas');
-                target.appendChild(canvas);
-                
-                const datasets = yLabels.map((y, i) => ({
-                    label: y,
-                    data: xLabels.map(x => result[x][y] || 0),
-                    backgroundColor: `hsla(${i * 50}, 70%, 60%, 0.8)` // 항목별 자동 색상 부여
-                }));
-
-                new Chart(canvas, {
-                    type: 'bar',
-                    data: { labels: xLabels, datasets: datasets },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true } }
-                    }
-                });
-            }
         }
     </script>
 </body>
