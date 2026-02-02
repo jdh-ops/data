@@ -131,39 +131,70 @@
         }
 
         function processAndRender(config, type, targetId) {
-            // 1. 데이터 필터링
-            let data = rawData;
+            // 1. 데이터 필터링 (키워드 포함 여부 확인)
+            let filteredData = rawData;
             if (config.filter) {
-                data = rawData.filter(r => Object.values(r).some(v => String(v).includes(config.filter)));
+                filteredData = rawData.filter(r => Object.values(r).some(v => String(v).includes(config.filter)));
             }
 
-            // 2. 그룹화 (X축 기준 및 월별 처리)
+            // 2. 데이터 그룹화 (행 기준 x 열 기준)
             const result = {};
-            data.forEach(item => {
-                let key = item[config.x] || '미지정';
+            const yCategories = new Set(); // 열 기준 항목들을 저장
+
+            filteredData.forEach(item => {
+                // 행(X축) 키 추출 (월별 또는 일반 열)
+                let xKey = item[config.x] || '미지정';
                 if (config.x === 'monthly') {
                     const m = String(item.col1_val || '').match(/(\d{4})[.-](\d{2})/);
-                    key = m ? `${m[1]}.${m[2]}` : '날짜미상';
+                    xKey = m ? `${m[1]}.${m[2]}` : '날짜미상';
                 }
-                result[key] = (result[key] || 0) + 1;
+
+                // 열(구분) 키 추출 (Table일 때 사용)
+                let yKey = (type === 'table' && config.yBase !== 'total') ? (item[config.yBase] || '기타') : '수량';
+                yCategories.add(yKey);
+
+                if (!result[xKey]) result[xKey] = {};
+                result[xKey][yKey] = (result[xKey][yKey] || 0) + 1;
             });
 
-            // 3. 시각화 (표 또는 그래프)
             const target = document.getElementById(targetId);
+            const xLabels = Object.keys(result).sort();
+            const yLabels = Array.from(yCategories);
+
+            // 3. 시각화 (표 방식)
             if (type === 'table') {
-                let html = `<table class="data-table"><thead><tr><th>분류(${config.x})</th><th>수량(${config.val})</th></tr></thead><tbody>`;
-                Object.entries(result).forEach(([k, v]) => { html += `<tr><td>${k}</td><td>${v}</td></tr>`; });
+                let html = `<table class="data-table"><thead><tr><th>분류(${config.x})</th>`;
+                yLabels.forEach(y => html += `<th>${y}</th>`); // 열 헤더 생성
+                html += `</tr></thead><tbody>`;
+
+                xLabels.forEach(x => {
+                    html += `<tr><td>${x}</td>`;
+                    yLabels.forEach(y => {
+                        html += `<td>${result[x][y] || 0}</td>`;
+                    });
+                    html += `</tr>`;
+                });
                 target.innerHTML = html + `</tbody></table>`;
-            } else {
+            } 
+            // 3. 시각화 (그래프 방식)
+            else {
                 const canvas = document.createElement('canvas');
                 target.appendChild(canvas);
+                
+                const datasets = yLabels.map((y, i) => ({
+                    label: y,
+                    data: xLabels.map(x => result[x][y] || 0),
+                    backgroundColor: `hsla(${i * 50}, 70%, 60%, 0.8)` // 항목별 자동 색상 부여
+                }));
+
                 new Chart(canvas, {
                     type: 'bar',
-                    data: {
-                        labels: Object.keys(result),
-                        datasets: [{ label: '데이터 수', data: Object.values(result), backgroundColor: '#3498db' }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false }
+                    data: { labels: xLabels, datasets: datasets },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true } }
+                    }
                 });
             }
         }
