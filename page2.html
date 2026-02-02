@@ -34,7 +34,12 @@
     </div>
 
     <div class="main-content">
-        <h2 class="fw-bold mb-4">📊 데이터 관리</h2>
+        <h2 class="fw-bold mb-4">
+            📊 데이터 관리 
+            <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">
+                📈 차트 분석 (새 탭)
+            </button>
+        </h2>
     
         <div class="top-controls" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center;">
             <div class="search-group" style="display: flex; gap: 8px; flex: 1; min-width: 300px;">
@@ -158,6 +163,18 @@
             }
             if (typeof renderDataTable === 'function') await renderDataTable();
         };
+        function openChartTab() {
+            // 1. 현재 주소창의 파라미터(?table=...&key=...)를 그대로 가져옵니다.
+            const currentParams = window.location.search; 
+
+            if (!currentParams) {
+                alert("프로젝트 정보가 없습니다. 관문을 통해 다시 접속해주세요.");
+                return;
+            }
+
+            // 2. 새 탭('_blank')으로 chart.html을 열면서 파라미터를 전달합니다.
+            window.open(`chart.html${currentParams}`, '_blank');
+        }
     </script>
 </body>
 </html>
