@@ -15,6 +15,7 @@
         .pivot-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
         .saved-presets-bar { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #cbd5e0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         .btn-select:hover { background: #edf2f7; }
+        .form-label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: bold; color: #4a5568; }
     </style>
 </head>
 <body>
@@ -49,50 +50,22 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="lib_data.js"></script>  <script src="page_chart.js"></script> <script>
-        window.onload = async () => {
-            // 차트 페이지 데이터 초기화 (page_chart.js에 정의됨)
-            const success = await initChartPage();
-            if (success) {
-                // 저장된 프리셋 목록 불러오기
-                if (typeof loadPresets === 'function') {
-                    await loadPresets();
-                    console.log("분석 프리셋 로드 완료");
-                }
-            } else {
-                alert("데이터를 불러오지 못했습니다. URL 파라미터를 확인하세요.");
-            }
-        };
-    
-        // 프리셋 버튼 목록 생성 (page_chart.js의 loadPresets 결과물 출력)
-        window.renderPresetButtons = function(data) {
-            const container = document.getElementById('presetButtons');
-            if (!data || data.length === 0) {
-                container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">저장된 프리셋이 없습니다.</span>';
-                return;
-            }
-            container.innerHTML = data.map(p => `
-                <button class="btn-select" style="font-size: 12px; padding: 5px 12px;" onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
-                    ${p.preset_name}
-                </button>
-            `).join('');
-        };
-    
-        // 저장된 프리셋을 UI에 적용 (addPreset은 chart.html 내부 함수)
-        window.applyPreset = function(encodedData) {
-            const preset = JSON.parse(decodeURIComponent(encodedData));
-            addPreset(preset.type, preset.config, preset.preset_name);
-        };
-    </script>
-    
+    <script src="lib_data.js"></script>
+    <script src="page_chart.js"></script>
+
     <script>
         let presetCount = 0;
 
+        // 초기 로드
         window.onload = async () => {
             const success = await initChartPage();
-            if (success) { loadPresets(); }
+            if (success) { 
+                await loadPresets(); 
+                console.log("초기화 완료");
+            }
         };
 
+        // 프리셋 버튼 생성
         window.renderPresetButtons = function(data) {
             const container = document.getElementById('presetButtons');
             if (!data || data.length === 0) {
@@ -106,17 +79,17 @@
             `).join('');
         };
 
+        // 프리셋 적용
         window.applyPreset = function(encodedData) {
             const preset = JSON.parse(decodeURIComponent(encodedData));
             addPreset(preset.type, preset.config, preset.preset_name);
         };
 
-        // [피벗 테이블 방식] 프리셋 카드 추가 (필터, 행, 열, 날짜형식 모두 포함)
+        // 프리셋 카드 추가 (UI 수정)
         function addPreset(type, savedConfig = null, savedName = "") {
             presetCount++;
             const id = `preset_${presetCount}`;
             
-            // lib_data.js의 currentLayout에서 사용 가능한 열 목록 생성
             const layoutOptions = currentLayout.filter(c => c.isVisible).map(col => 
                 `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`
             ).join('');
@@ -165,7 +138,6 @@
             
             document.getElementById('presetList').insertAdjacentHTML('beforeend', presetHtml);
             
-            // 저장된 프리셋 로드 시 select 값 강제 매칭
             if (savedConfig) {
                 const el = document.getElementById(id);
                 el.querySelector('.p-x').value = savedConfig.x;
@@ -174,41 +146,46 @@
             }
         }
 
-        // 프리셋 저장 시 모든 설정값 추출
+        // 프리셋 저장
         window.saveThisPreset = function(id) {
             const el = document.getElementById(id);
             const config = {
                 filter: el.querySelector('.p-filter').value,
                 x: el.querySelector('.p-x').value,
                 yBase: el.querySelector('.p-y-base').value,
-                dateFormat: el.querySelector('.p-date-format').value,
-                val: 'count' // 기본값
+                dateFormat: el.querySelector('.p-date-format').value
             };
             const name = el.querySelector('.p-name').value;
             if(!name) return alert("프리셋 이름을 입력해주세요.");
-            
-            // page_chart.js의 saveAnalysisPreset 호출
             saveAnalysisPreset(name, config, el.dataset.type);
         };
 
+        // 리포트 생성 (dateFormat 추가됨)
         async function generateReport() {
             const presetElements = document.querySelectorAll('.preset-card');
             if (presetElements.length === 0) return alert("프리셋을 추가해주세요.");
+
             document.getElementById('builderView').style.display = 'none';
             document.getElementById('reportView').style.display = 'block';
+
             const container = document.getElementById('reportContainer');
             container.innerHTML = '';
+
             presetElements.forEach((el, index) => {
                 const type = el.dataset.type;
                 const config = {
                     filter: el.querySelector('.p-filter').value,
                     x: el.querySelector('.p-x').value,
-                    yBase: el.querySelector('.p-y-base').value
+                    yBase: el.querySelector('.p-y-base').value,
+                    dateFormat: el.querySelector('.p-date-format').value // [필수 추가]
                 };
+
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'report-item';
+                // 제목 옆 건수 표시는 page_chart.js에서 처리함
                 itemDiv.innerHTML = `<h3 class="mb-4">#${index+1} ${el.querySelector('.p-name').value}</h3><div id="res_${index}" style="min-height:300px;"></div>`;
                 container.appendChild(itemDiv);
+
                 processAndRender(config, type, `res_${index}`);
             });
         }
