@@ -7,20 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .edit-mode-active {
-            outline: 3px solid var(--primary-color) !important;
-            background-color: #fffcf0 !important;
-        }
-        .edit-mode-active td { cursor: cell; }
-        .table-responsive {
-            max-height: calc(100vh - 250px);
-            overflow-y: auto;
-        }
-    </style>
 </head>
 <body>
-
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
         <div class="sidebar-menu">
@@ -30,20 +18,15 @@
             <div class="menu-item" onclick="handleMenuClick('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
         </div>
-        <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
+        <button class="toggle-btn" onclick="toggleSidebar()" style="position: absolute; bottom: 20px; right: 20px; background: #34495e; color: white; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer;">◀</button>
     </div>
 
     <div class="main-content">
-        <h2 class="fw-bold mb-4">
-            📊 데이터 관리 
-            <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">
-                📈 차트 분석 (새 탭)
-            </button>
-        </h2>
+        <h2 class="fw-bold mb-4">📊 데이터 관리 <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">📈 차트 분석 (새 탭)</button></h2>
     
-        <div class="top-controls" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center;">
-            <div class="search-group" style="display: flex; gap: 8px; flex: 1; min-width: 300px;">
-                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" onkeyup="filterTable()">
+        <div class="top-controls">
+            <div class="search-group">
+                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." onkeyup="filterTable()">
                 <button class="btn-select" onclick="resetTableFilter()">초기화</button>
             </div>
             <div class="button-group" style="display: flex; gap: 8px;">
@@ -52,7 +35,7 @@
             </div>
         </div>
     
-        <div id="editModeBar" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #fffcf0; border: 1px solid #fbd38d; border-radius: 8px;">
+        <div id="editModeBar">
             <div class="left-btns">
                 <button class="btn-select" onclick="selectAllRows(true)">전체 선택</button>
                 <button class="btn-select" onclick="selectAllRows(false)">전체 취소</button>
@@ -64,46 +47,35 @@
             </div>
         </div>
     
-        <div class="card shadow-sm" style="background: white; border-radius: 12px; overflow: hidden; border: 1px solid #eee;">
-            <div id="dataManagerContainer" class="table-responsive"></div>
+        <div class="card shadow-sm" style="background: white; border-radius: 12px; overflow: hidden; border: 1px solid #eee; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+            <div id="dataManagerContainer" style="max-height: calc(100vh - 250px); overflow-y: auto;"></div>
         </div>
     </div>
     
     <div id="excelUploadModal" class="modal">
-        <div class="modal-content" style="width: 500px;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 20px;">
-                <h5 class="modal-title" style="margin: 0; font-weight: bold; font-size: 1.1rem;">📤 엑셀 데이터 업로드</h5>
-                <button type="button" onclick="closeExcelModal()" 
-                        style="border: none; background: none; cursor: pointer; font-size: 24px; color: #a0aec0; line-height: 1; padding: 0; margin: 0;"
-                        onmouseover="this.style.color='#4a5568'" 
-                        onmouseout="this.style.color='#a0aec0'">
-                    ✕
-                </button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📤 엑셀 데이터 업로드</h5>
+                <button type="button" onclick="closeExcelModal()" style="border:none; background:none; cursor:pointer; font-size:24px; color:#aaa;">✕</button>
             </div>
-            
-            <div class="modal-body" style="padding: 20px 0;">
-                <div style="margin-bottom: 20px; text-align: right;">
-                    <button class="btn-select" onclick="downloadExcelTemplate()" style="font-size: 12px; background: #f8fafc;">📄 템플릿 양식 다운로드</button>
+            <div class="modal-body">
+                <div style="margin-bottom: 15px; text-align: right;">
+                    <button class="btn-select" onclick="downloadExcelTemplate()">📄 템플릿 다운로드</button>
                 </div>
-                
-                <div id="excelDropZone" style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px 20px; text-align: center; background: #f8fafc; cursor: pointer;" onclick="document.getElementById('excelFileInput').click()" ondragover="handleExcelDragOver(event)" ondragleave="handleExcelDragLeave(event)" ondrop="handleExcelDrop(event)">
+                <div id="excelDropZone" onclick="document.getElementById('excelFileInput').click()" ondragover="handleExcelDragOver(event)" ondragleave="handleExcelDragLeave(event)" ondrop="handleExcelDrop(event)">
                     <div style="font-size: 30px; margin-bottom: 10px;">📊</div>
-                    <p id="excelDropText" style="color: #718096; margin-bottom: 0;">파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.</p>
+                    <p id="excelDropText">파일을 드래그하거나 클릭하여 선택하세요.</p>
                     <input type="file" id="excelFileInput" hidden accept=".xlsx, .xls" onchange="handleExcelSelect(event)">
                 </div>
-    
-                <div style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px;">
-                    <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식 선택</p>
-                    <div style="display: flex; gap: 20px; font-size: 13px;">
-                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가</label>
-                        <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: #e74c3c;"><input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체</label>
-                    </div>
-                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">⚠️ 주의: '대체' 선택 시 현재 프로젝트의 모든 데이터가 삭제됩니다.</p>
+                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">⚙️ 업로드 방식</p>
+                    <label><input type="radio" name="uploadMode" value="append" checked> 기존 데이터에 추가</label>
+                    <label style="margin-left: 15px; color: #e74c3c;"><input type="radio" name="uploadMode" value="overwrite"> 기존 데이터 대체</label>
+                    <p id="overwriteWarning" style="display: none; color: #e74c3c; font-size: 11px; margin-top: 8px;">⚠️ 프로젝트의 모든 기존 데이터가 삭제됩니다.</p>
                 </div>
                 <p id="excelFileName" style="margin-top: 10px; font-weight: bold; color: var(--primary-color); text-align: center;"></p>
             </div>
-    
-            <div class="modal-footer" style="border-top: 1px solid #eee; padding-top: 15px; display: flex; gap: 10px;">
+            <div class="modal-footer" style="display: flex; gap: 10px; margin-top: 20px;">
                 <button id="startExcelUploadBtn" class="btn-primary" style="flex: 1;" onclick="processExcelUpload()" disabled>업로드 시작</button>
                 <button class="btn-select" style="flex: 1;" onclick="closeExcelModal()">취소</button>
             </div>
@@ -111,70 +83,33 @@
     </div>
 
     <div id="commonModal" class="modal">
-        <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;"></div>
+        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;"></div>
     </div>
 
     <script src="config.js"></script>
     <script src="datamng.js"></script>
-
     <script>
-        function goPage(page) {
-            window.location.href = page + window.location.search;
+        function goPage(p) { window.location.href = p + window.location.search; }
+        function toggleSidebar() { 
+            const s = document.getElementById('sidebar'); 
+            s.classList.toggle('collapsed'); 
+            document.querySelector('.toggle-btn').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
         }
-
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
-            document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        function openChartTab() { window.open(`chart.html${window.location.search}`, '_blank'); }
+        function showModal(h) { 
+            const m = document.getElementById('commonModal'); 
+            m.querySelector('.modal-content').innerHTML = h; 
+            m.style.display = 'flex'; 
         }
-
-        function showModal(contentHtml) {
-            const modal = document.getElementById('commonModal');
-            modal.querySelector('.modal-content').innerHTML = contentHtml;
-            modal.style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('commonModal').style.display = 'none';
-        }
-
-        function openExcelUploadModal() {
-            document.getElementById('excelUploadModal').style.display = 'flex';
-        }
-
-        function closeExcelModal() {
-            document.getElementById('excelUploadModal').style.display = 'none';
-        }
-
-        function goToGateway() {
-            if (confirm("로그아웃하시겠습니까?")) {
-                window.location.replace("index.html");
-            }
-        }
-
-        function handleMenuClick(sectionId) {
-            window.location.href = `page1.html${window.location.search}#${sectionId}`;
-        }
-
+        function closeModal() { document.getElementById('commonModal').style.display = 'none'; }
+        function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
+        function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
+        function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
         window.onload = async () => {
-            const titleElement = document.getElementById('projectTitle');
-            if (titleElement && typeof projectKeyName !== 'undefined') {
-                titleElement.innerText = projectKeyName; 
-            }
+            const t = document.getElementById('projectTitle');
+            if (t && typeof projectKeyName !== 'undefined') t.innerText = projectKeyName;
             if (typeof renderDataTable === 'function') await renderDataTable();
         };
-        function openChartTab() {
-            // 1. 현재 주소창의 파라미터(?table=...&key=...)를 그대로 가져옵니다.
-            const currentParams = window.location.search; 
-
-            if (!currentParams) {
-                alert("프로젝트 정보가 없습니다. 관문을 통해 다시 접속해주세요.");
-                return;
-            }
-
-            // 2. 새 탭('_blank')으로 chart.html을 열면서 파라미터를 전달합니다.
-            window.open(`chart.html${currentParams}`, '_blank');
-        }
     </script>
 </body>
 </html>

@@ -6,175 +6,55 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        body { background: #f8fafc; padding: 30px; display: block; height: auto; overflow-y: auto; }
-        .chart-main { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); min-height: 500px; position: relative; margin-top: 20px; }
-        .data-table-view { width: 100%; border-collapse: collapse; }
-        .data-table-view th, .data-table-view td { border: 1px solid #e2e8f0; padding: 12px; text-align: center; font-size: 13px; }
-        .data-table-view th { background: #f1f5f9; }
-    </style>
 </head>
-<body>
-
-    <div class="main-content" style="max-width: 1200px; margin: 0 auto; padding: 40px;">
-        <h2 class="fw-bold mb-4">📈 맞춤형 데이터 분석 빌더</h2>
+<body style="display: block; overflow-y: auto; height: auto; padding: 40px;">
+    <div style="max-width: 1200px; margin: 0 auto;">
+        <h2 class="fw-bold mb-4">📈 맞춤형 데이터 분석 리포트</h2>
     
-        <div class="card shadow-sm mb-4" style="background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0;">
+        <div class="card shadow-sm mb-4">
             <h5 class="fw-bold mb-3">🛠️ 분석 프리셋 설정</h5>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div>
                     <label class="form-label small fw-bold">1. 데이터 필터링</label>
-                    <input type="text" id="presetFilter" class="form-control" placeholder="태그/키워드 입력" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <input type="text" id="presetFilter" class="form-control" placeholder="태그/키워드 입력">
                 </div>
-    
                 <div>
                     <label class="form-label small fw-bold">2. 시각화 방식</label>
-                    <select id="presetViewType" class="form-select" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <select id="presetViewType" class="form-select">
                         <option value="bar">📊 막대 그래프 (Bar)</option>
                         <option value="line">📈 꺾은선 그래프 (Line)</option>
                         <option value="pie">🍕 파이 차트 (Pie)</option>
                         <option value="table">📋 표 (Table)</option>
                     </select>
                 </div>
-    
                 <div>
                     <label class="form-label small fw-bold">3. X축 / 행 (기준)</label>
-                    <select id="presetXAxis" class="form-select" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <select id="presetXAxis" class="form-select">
                         <option value="monthly">📅 월별 합산 (날짜 기준)</option>
                     </select>
                 </div>
-    
                 <div>
                     <label class="form-label small fw-bold">4. Y축 / 열 (값)</label>
-                    <select id="presetYAxis" class="form-select" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <select id="presetYAxis" class="form-select">
                         <option value="count">🔢 데이터 수량 (Count)</option>
                     </select>
                 </div>
             </div>
-    
-            <div class="mt-4" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                <button class="btn-select" onclick="savePreset()" style="padding:10px 20px;">💾 프리셋 저장</button>
-                <button class="btn-primary" onclick="generateAnalysis()" style="padding: 10px 40px; background:var(--primary-color); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">🚀 생성하기</button>
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-select" onclick="alert('저장되었습니다.')">💾 프리셋 저장</button>
+                <button class="btn-primary" onclick="generateAnalysis()">🚀 생성하기</button>
             </div>
         </div>
     
-        <div id="analysisResultArea" class="chart-main">
-            <p id="placeholderText" class="text-center text-muted" style="text-align:center; padding-top:200px; color:#94a3b8;">설정을 완료하고 '생성하기' 버튼을 눌러주세요.</p>
-            <canvas id="mainChart" style="display:none;"></canvas>
-            <div id="tableView" style="display:none;"></div>
+        <div id="analysisResultArea" style="background: white; padding: 30px; border-radius: 15px; border: 1px solid #eee; min-height: 400px;">
+            <p style="text-align: center; color: #94a3b8; padding-top: 150px;">설정을 완료하고 '생성하기' 버튼을 눌러주세요.</p>
         </div>
     </div>
 
     <script src="config.js"></script>
+    <script src="datamng.js"></script>
     <script>
-        let rawData = [];
-        let mainChart = null;
-        let currentLayout = [];
-
-        async function init() {
-            const params = new URLSearchParams(window.location.search);
-            const tName = params.get('table');
-            if (!tName) return alert("프로젝트 정보가 없습니다.");
-
-            // 1. 데이터 및 설정 로드
-            const { data: config } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tName).maybeSingle();
-            const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tName);
-            
-            rawData = rows || [];
-            currentLayout = config?.columns_layout || [];
-
-            // 2. 셀렉트 박스 옵션 채우기 (ID 일치 확인: presetXAxis, presetYAxis)
-            const xSelect = document.getElementById('presetXAxis');
-            const ySelect = document.getElementById('presetYAxis');
-
-            currentLayout.filter(c => c.isVisible).forEach(col => {
-                const opt = `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`;
-                xSelect.innerHTML += opt;
-                ySelect.innerHTML += opt;
-            });
-        }
-
-        // [핵심] 생성하기 버튼 클릭 시 로직
-        window.generateAnalysis = function() {
-            const filterKeyword = document.getElementById('presetFilter').value.trim();
-            const viewType = document.getElementById('presetViewType').value;
-            const xAxis = document.getElementById('presetXAxis').value;
-
-            // 1. 데이터 필터링
-            let filtered = rawData;
-            if (filterKeyword) {
-                filtered = rawData.filter(row => 
-                    Object.values(row).some(val => String(val).includes(filterKeyword))
-                );
-            }
-
-            // 2. 그룹화 로직 (날짜 월별 묶기 포함)
-            const groupedData = {};
-            filtered.forEach(item => {
-                let key = item[xAxis] || '미지정';
-                
-                // 날짜 형식일 경우 월별 묶기 처리
-                if (xAxis === 'monthly' || xAxis === 'col1_val') {
-                    const dateVal = String(item.col1_val || '');
-                    const match = dateVal.match(/(\d{4})[.-](\d{2})/);
-                    key = match ? `${match[1]}.${match[2]}` : '날짜없음';
-                }
-                groupedData[key] = (groupedData[key] || 0) + 1;
-            });
-
-            // 3. 화면 초기화 및 렌더링
-            document.getElementById('placeholderText').style.display = 'none';
-            const canvas = document.getElementById('mainChart');
-            const tableView = document.getElementById('tableView');
-
-            if (viewType === 'table') {
-                canvas.style.display = 'none';
-                tableView.style.display = 'block';
-                renderTable(groupedData);
-            } else {
-                canvas.style.display = 'block';
-                tableView.style.display = 'none';
-                renderChart(groupedData, viewType);
-            }
-        };
-
-        function renderChart(data, type) {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            if (mainChart) mainChart.destroy();
-
-            mainChart = new Chart(ctx, {
-                type: type === 'pie' ? 'pie' : (type === 'line' ? 'line' : 'bar'),
-                data: {
-                    labels: Object.keys(data),
-                    datasets: [{
-                        label: '수량(건)',
-                        data: Object.values(data),
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
-                        borderWidth: 1
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: type === 'pie' ? 'right' : 'top' } }
-                }
-            });
-        }
-
-        function renderTable(data) {
-            let html = `<table class="data-table-view"><thead><tr><th>분류(X축)</th><th>수량(건)</th></tr></thead><tbody>`;
-            Object.entries(data).forEach(([key, val]) => {
-                html += `<tr><td>${key}</td><td>${val.toLocaleString()}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-            document.getElementById('tableView').innerHTML = html;
-        }
-
-        window.savePreset = function() {
-            alert("현재 설정이 브라우저에 임시 저장되었습니다. (추후 DB 연동 가능)");
-        };
-
-        init();
+        window.onload = async () => { await initChartPage(); };
     </script>
 </body>
 </html>
