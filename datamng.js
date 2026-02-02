@@ -1,5 +1,5 @@
-// [1] 전역 변수 설정 (중복 선언 주의)
-let tableName = ""; 
+// [1] 전역 변수 설정 (config.js의 window.tableName과 연동)
+let tableName = typeof window.tableName !== 'undefined' ? window.tableName : ""; 
 let isEditMode = false;
 let rawData = [];
 let currentLayout = [];

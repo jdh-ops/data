@@ -189,7 +189,7 @@
             // 2. 제목 설정
             const titleElement = document.getElementById('projectTitle');
             if (titleElement) {
-                titleElement.innerText = typeof projectKeyName !== 'undefined' ? projectKeyName : tableName;
+                titleElement.innerText = typeof projectKeyName !== 'undefined' ? projectKeyName : (window.tableName || 'PROJECT');
             }
 
             // 3. 필터 버튼 로드 (비동기 처리)
