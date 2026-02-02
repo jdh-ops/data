@@ -37,86 +37,97 @@ window.processAndRender = function(config, type, targetId) {
     const target = document.getElementById(targetId);
     if (!target) return;
 
-    // 1. 데이터 필터링
+    // 1. 데이터 필터링 (AND, OR, 제외 로직)
     let filteredData = rawData;
-    if (config.filter) {
-        filteredData = rawData.filter(r => 
-            Object.values(r).some(v => String(v).includes(config.filter))
-        );
+    if (config.filterVal) {
+        const keywords = config.filterVal.split(',').map(k => k.trim()).filter(k => k);
+        const col = config.filterCol;
+        const op = config.filterOp || 'and';
+
+        filteredData = rawData.filter(row => {
+            const targets = col === 'all' ? Object.values(row).map(String) : [String(row[col] || '')];
+            
+            if (op === 'not') {
+                return !keywords.some(kw => targets.some(t => t.includes(kw)));
+            } else if (op === 'or') {
+                return keywords.some(kw => targets.some(t => t.includes(kw)));
+            } else {
+                return keywords.every(kw => targets.some(t => t.includes(kw)));
+            }
+        });
     }
 
-    // [변경사항] 데이터 수 표시를 위해 상위 제목 요소 업데이트
-    const headerElement = target.closest('.report-item')?.querySelector('h4, h3');
-    if (headerElement) {
-        // 기존 텍스트 유지하며 (N건) 추가
-        const originalTitle = headerElement.innerText.split('(')[0].trim();
-        headerElement.innerText = `${originalTitle} (${filteredData.length}건)`;
-    }
-
-    if (filteredData.length === 0) {
-        target.innerHTML = `<div style="padding:50px; text-align:center; color:#94a3b8;">분석할 데이터가 없습니다.</div>`;
-        return;
-    }
-
-    // 2. 피벗 그룹화 (교차 집계)
+    // 2. 피벗 데이터 그룹화 (월별 합산 로직 포함)
     const pivot = {};
-    const colCategories = new Set();
+    const colSet = new Set();
 
     filteredData.forEach(item => {
-        let rowKey = item[config.x] || '미지정';
-        if (config.x === 'monthly') {
-            const m = String(item.col1_val || '').match(/(\d{4})[.-](\d{2})/);
-            rowKey = m ? `${m[1]}.${m[2]}` : '날짜미상';
+        let rowKey = String(item[config.x] || '미분류');
+        let colKey = config.yBase === 'total' ? '합계' : String(item[config.yBase] || '기타');
+
+        // [핵심] 월별 합산 체크 시 날짜 변환 (예: 2025-12-01 -> 2025-12)
+        if (config.useMonth) {
+            const dateMatch = rowKey.match(/(\d{4})[.-](\d{2})/);
+            if (dateMatch) {
+                rowKey = `${dateMatch[1]}-${dateMatch[2]}`;
+            }
         }
 
-        let colKey = (config.yBase && config.yBase !== 'total') ? (item[config.yBase] || '기타') : '합계';
-        colCategories.add(colKey);
+        if (!pivot[rowKey]) pivot[rowKey] = { _total: 0 };
+        if (!pivot[rowKey][colKey]) pivot[rowKey][colKey] = 0;
 
-        if (!pivot[rowKey]) pivot[rowKey] = {};
-        pivot[rowKey][colKey] = (pivot[rowKey][colKey] || 0) + 1;
+        pivot[rowKey][colKey] += 1;
+        pivot[rowKey]._total += 1;
+        colSet.add(colKey);
     });
 
-    // 3. 행 정렬 (사용자 선택 방식 적용)
+    const cols = Array.from(colSet).sort();
+
+    // 3. 정렬 로직 (합계 기준 정렬 등)
     const rows = Object.keys(pivot).sort((a, b) => {
         const format = config.dateFormat || 'raw';
+        if (format === 'totalAsc') return pivot[a]._total - pivot[b]._total;
+        if (format === 'totalDesc') return pivot[b]._total - pivot[a]._total;
         if (format === 'monthOnly') {
-            const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
-            const numB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
-            return numA - numB;
+            return (parseInt(a.replace(/[^0-9]/g, '')) || 0) - (parseInt(b.replace(/[^0-9]/g, '')) || 0);
         }
         if (format === 'yyyy-mm') {
-            const getVal = (str) => {
-                const m = str.match(/(\d{4})[.-](\d{2})/);
-                return m ? parseInt(m[1] + m[2]) : 0;
-            };
-            const valA = getVal(a);
-            const valB = getVal(b);
-            if (valA && valB) return valA - valB;
+            const getV = (s) => { const m = s.match(/(\d{4})[.-](\d{2})/); return m ? parseInt(m[1]+m[2]) : 0; };
+            return getV(a) - getV(b);
         }
         return a.localeCompare(b);
     });
 
-    const cols = Array.from(colCategories).sort();
-
-    // 4. 최종 출력
+    // 4. 결과 렌더링 (테이블 또는 차트)
     if (type === 'table') {
-        renderPivotTable(target, rows, cols, pivot, config.x);
+        const xLabel = currentLayout.find(c => `col${c.id}_val` === config.x)?.customName || '항목';
+        renderPivotTable(target, rows, cols, pivot, xLabel);
     } else {
-        renderPivotChart(target, rows, cols, pivot);
+        renderPivotChart(target, rows, cols, pivot, config);
     }
 };
 
 /**
  * [보조] 피벗 테이블 HTML 생성 (하단 합계 추가)
  */
+// page_chart.js 내 renderPivotTable 함수 수정
 function renderPivotTable(target, rows, cols, pivot, xLabel) {
+    // 1. 우측 합계 열을 표시할지 결정 (열 구분이 'total'인 경우 숨김)
+    // cols가 ['개수'] 하나만 있고, 데이터 상에 열 구분이 없는 경우를 체크합니다.
+    const isTotalMode = cols.length === 1 && (cols[0] === '개수' || cols[0] === '합계');
+
     let html = `<table class="data-table"><thead><tr><th>구분 (${xLabel})</th>`;
     cols.forEach(c => html += `<th>${c}</th>`);
-    html += `<th style="background:#f8fafc; font-weight:bold;">총계</th></tr></thead><tbody>`;
+    
+    // 전체 합계 모드가 아닐 때만 우측 '전체 합계' 헤더 추가
+    if (!isTotalMode) {
+        html += `<th style="background:#f8fafc; font-weight:bold;">전체 합계</th></tr></thead><tbody>`;
+    } else {
+        html += `</tr></thead><tbody>`;
+    }
 
-    // 열별 합계를 저장할 객체
-    const colTotals = {};
     let grandTotal = 0;
+    const colTotals = {};
 
     rows.forEach(r => {
         let rowTotal = 0;
@@ -127,16 +138,26 @@ function renderPivotTable(target, rows, cols, pivot, xLabel) {
             rowTotal += val;
             colTotals[c] = (colTotals[c] || 0) + val;
         });
-        html += `<td style="background:#f8fafc; font-weight:bold;">${rowTotal.toLocaleString()}</td></tr>`;
+
+        // 전체 합계 모드가 아닐 때만 우측 행별 합계 수치 추가
+        if (!isTotalMode) {
+            html += `<td style="background:#f8fafc; font-weight:bold;">${rowTotal.toLocaleString()}</td></tr>`;
+        } else {
+            html += `</tr>`;
+        }
         grandTotal += rowTotal;
     });
 
-    // [변경사항] 하단 합계 행(Tfoot) 추가
+    // 2. 하단 합계 행은 항상 유지합니다.
     html += `</tbody><tfoot><tr style="background:#edf2f7; font-weight:bold;"><td>합계</td>`;
-    cols.forEach(c => {
-        html += `<td>${(colTotals[c] || 0).toLocaleString()}</td>`;
-    });
-    html += `<td>${grandTotal.toLocaleString()}</td></tr></tfoot></table>`;
+    cols.forEach(c => html += `<td>${(colTotals[c] || 0).toLocaleString()}</td>`);
+    
+    // 전체 합계 모드가 아닐 때만 우측 하단 모서리 총합계 추가
+    if (!isTotalMode) {
+        html += `<td>${grandTotal.toLocaleString()}</td></tr></tfoot></table>`;
+    } else {
+        html += `</tr></tfoot></table>`;
+    }
     
     target.innerHTML = html;
 }
@@ -144,26 +165,29 @@ function renderPivotTable(target, rows, cols, pivot, xLabel) {
 /**
  * [보조] Chart.js 그래프 생성
  */
-function renderPivotChart(target, rows, cols, pivot) {
+function renderPivotChart(target, rows, cols, pivot, config) {
     const canvas = document.createElement('canvas');
     target.innerHTML = ''; 
     target.appendChild(canvas);
     
+    const chartType = config.chartType || 'bar'; // 사용자가 선택한 타입 적용
+    
     const datasets = cols.map((col, i) => ({
         label: col,
         data: rows.map(row => pivot[row][col] || 0),
-        backgroundColor: `hsla(${i * (360 / cols.length)}, 70%, 60%, 0.7)`
+        backgroundColor: chartType === 'pie' || chartType === 'doughnut' 
+            ? rows.map((_, idx) => `hsla(${idx * (360 / rows.length)}, 70%, 60%, 0.7)`) // 파이차트는 항목별 색상 다르게
+            : `hsla(${i * (360 / cols.length)}, 70%, 60%, 0.7)`
     }));
 
     new Chart(canvas, {
-        type: 'bar',
+        type: chartType,
         data: { labels: rows, datasets: datasets },
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
-                legend: { position: 'top' },
-                title: { display: false } // 제목은 HTML 태그에서 직접 처리
+                legend: { position: chartType === 'pie' ? 'right' : 'top' } 
             }
         }
     });

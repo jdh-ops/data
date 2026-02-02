@@ -8,41 +8,34 @@
     <link rel="stylesheet" href="style.css">
     <style>
         body { background: #f1f5f9; padding: 40px; display: block; height: auto; overflow-y: auto; }
-        .builder-container { max-width: 1100px; margin: 0 auto; }
-        .preset-card { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .preset-type-badge { position: absolute; top: 15px; right: 15px; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .builder-container { max-width: 1200px; margin: 0 auto; }
+        .preset-card { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; min-height: 480px; }
+        .preset-type-badge { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
         .report-item { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        .pivot-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
+        .pivot-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
         .saved-presets-bar { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #cbd5e0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         .btn-select:hover { background: #edf2f7; }
         .form-label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: bold; color: #4a5568; }
+        #presetList { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+        @media (max-width: 950px) { #presetList { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="builder-container" id="builderView">
         <h2 class="fw-bold mb-4">⚒️ 리포트 프리셋 빌더</h2>
-        
         <div class="saved-presets-bar" id="savedPresetsBar">
             <span class="small fw-bold">💾 저장된 프리셋:</span>
             <div id="presetButtons" style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <span style="color: #94a3b8; font-size: 13px;">불러오는 중...</span>
             </div>
         </div>
-
         <div class="mb-4" style="display: flex; gap: 10px;">
             <button class="btn-select" onclick="addPreset('table')">📋 표(Table) 프리셋 추가</button>
             <button class="btn-select" onclick="addPreset('chart')">📊 그래프(Chart) 프리셋 추가</button>
         </div>
-
         <div id="presetList"></div>
-
         <div class="generate-btn-container" style="margin-top: 80px; padding-top: 40px; border-top: 1px dashed #cbd5e0; text-align: center;">
-            <button class="btn-primary" 
-                    style="width: 100%; height: 65px; font-size: 20px; background: #3182ce; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(49, 130, 206, 0.3);" 
-                    onclick="generateReport()">
-                🚀 생성하기
-            </button>
-            <p style="color: #a0aec0; font-size: 13px; margin-top: 15px;">설정된 모든 프리셋을 기반으로 실시간 리포트를 생성합니다.</p>
+            <button class="btn-primary" style="width: 100%; height: 65px; font-size: 20px; background: #3182ce; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;" onclick="generateReport()">🚀 리포트 생성하기</button>
         </div>
     </div>
 
@@ -61,96 +54,111 @@
     <script>
         let presetCount = 0;
 
-        // 초기 로드
         window.onload = async () => {
             const success = await initChartPage();
-            if (success) { 
-                await loadPresets(); 
-                console.log("초기화 완료");
-            }
+            if (success) { await loadPresets(); }
         };
 
-        // 프리셋 버튼 생성
-        // [수정] 프리셋 버튼 목록 렌더링 (삭제 버튼 포함)
         window.renderPresetButtons = function(data) {
             const container = document.getElementById('presetButtons');
             if (!data || data.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">저장된 프리셋이 없습니다.</span>';
                 return;
             }
-            
-            // 버튼 내부에 삭제 아이콘을 포함하는 구조로 변경
             container.innerHTML = data.map(p => `
                 <div class="preset-item" style="display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding-right: 4px;">
-                    <button class="btn-select" 
-                            style="font-size: 12px; padding: 5px 8px; border: none; background: transparent;" 
-                            onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
+                    <button class="btn-select" style="font-size: 12px; padding: 5px 8px; border: none; background: transparent;" onclick="applyPreset('${encodeURIComponent(JSON.stringify(p))}')">
                         ${p.preset_name}
                     </button>
-                    <span onclick="deleteAnalysisPreset(${p.id}, event)" 
-                        style="cursor: pointer; color: #cbd5e0; font-size: 14px; padding: 2px 5px; transition: color 0.2s;"
-                        onmouseover="this.style.color='#e74c3c'"
-                        onmouseout="this.style.color='#cbd5e0'">
-                        ✕
-                    </span>
+                    <span onclick="deleteAnalysisPreset(${p.id}, event)" style="cursor: pointer; color: #cbd5e0; font-size: 14px; padding: 2px 5px;">✕</span>
                 </div>
             `).join('');
         };
 
-        // 프리셋 적용
         window.applyPreset = function(encodedData) {
             const preset = JSON.parse(decodeURIComponent(encodedData));
             addPreset(preset.type, preset.config, preset.preset_name);
         };
 
-        // 프리셋 카드 추가 (UI 수정)
         function addPreset(type, savedConfig = null, savedName = "") {
             presetCount++;
             const id = `preset_${presetCount}`;
-            
             const layoutOptions = currentLayout.filter(c => c.isVisible).map(col => 
                 `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`
             ).join('');
 
+            const chartTypeSelector = `
+                <div>
+                    <label class="form-label">3. 그래프 모양</label>
+                    <select class="p-chart-type form-select">
+                        <option value="bar" ${savedConfig?.chartType === 'bar' ? 'selected' : ''}>📊 막대</option>
+                        <option value="line" ${savedConfig?.chartType === 'line' ? 'selected' : ''}>📈 선</option>
+                        <option value="pie" ${savedConfig?.chartType === 'pie' ? 'selected' : ''}>🍕 파이</option>
+                    </select>
+                </div>`;
+
+            const columnSelector = `
+                <div>
+                    <label class="form-label">3. 열 (구분)</label>
+                    <select class="p-y-base form-select" onchange="toggleMonthCheck('${id}')">
+                        <option value="total" ${savedConfig?.yBase === 'total' || !savedConfig ? 'selected' : ''}>합계</option>
+                        ${layoutOptions}
+                    </select>
+                </div>`;
+
             const presetHtml = `
                 <div class="preset-card" id="${id}" data-type="${type}">
-                    <span class="preset-type-badge" style="background:${type === 'table' ? '#4a5568' : '#3498db'}">
-                        ${type === 'table' ? 'PIVOT TABLE' : 'ANALYSIS CHART'}
-                    </span>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #f1f5f9; padding-bottom:15px;">
-                        <input type="text" class="p-name form-control" style="width:300px; font-weight:bold;" placeholder="프리셋 이름을 입력하세요" value="${savedName}">
-                        <button class="btn-select" style="background: #ebf8ff; color: #2b6cb0; border-color: #bee3f8;" onclick="saveThisPreset('${id}')">💾 프리셋 저장</button>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                        <span class="preset-type-badge" style="background:${type === 'table' ? '#4a5568' : '#3498db'}">${type.toUpperCase()}</span>
+                        <input type="text" class="p-name form-control" style="flex:1; font-weight:bold;" placeholder="프리셋 이름" value="${savedName}">
+                        <button class="btn-select" style="width:80px; background:#ebf8ff; padding:8px;" onclick="saveThisPreset('${id}')">💾 저장</button>
                     </div>
-                    
+
+                    <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:15px;">
+                        <label class="form-label">🔍 1. 필터 설정</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <select class="p-filter-col form-select" style="width:130px;">
+                                <option value="all" ${savedConfig?.filterCol === 'all' || !savedConfig ? 'selected' : ''}>전체 검색</option>
+                                ${layoutOptions}
+                            </select>
+                            <input type="text" class="p-filter-val form-control" style="flex:1;" placeholder="키워드 (쉼표구분)" value="${savedConfig?.filterVal || ''}">
+                            <div style="display:flex; gap:5px; font-size:11px; white-space:nowrap; background:white; padding:5px 8px; border-radius:5px; border:1px solid #ced4da;">
+                                <label><input type="radio" name="op_${id}" value="and" ${savedConfig?.filterOp !== 'or' && savedConfig?.filterOp !== 'not' ? 'checked' : ''}> AND</label>
+                                <label><input type="radio" name="op_${id}" value="or" ${savedConfig?.filterOp === 'or' ? 'checked' : ''}> OR</label>
+                                <label style="color:#e53e3e;"><input type="radio" name="op_${id}" value="not" ${savedConfig?.filterOp === 'not' ? 'checked' : ''}> 제외</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="pivot-controls">
                         <div>
-                            <label class="form-label">1. 필터링 (키워드)</label>
-                            <input type="text" class="p-filter form-control" placeholder="예: 정품" value="${savedConfig?.filter || ''}">
-                        </div>
-                        <div>
-                            <label class="form-label">2. 행 (Rows / X축)</label>
-                            <select class="p-x form-select">
-                                <option value="monthly" ${savedConfig?.x === 'monthly' ? 'selected' : ''}>📅 월별 합산 (날짜 기준)</option>
+                            <label class="form-label">2. 행 (X축)</label>
+                            <select class="p-x form-select" onchange="toggleMonthCheck('${id}')">
+                                <option value="" disabled ${!savedConfig ? 'selected' : ''}>-- 선택 --</option>
                                 ${layoutOptions}
                             </select>
                         </div>
-                        <div>
-                            <label class="form-label">3. 열 (Columns / 구분)</label>
-                            <select class="p-y-base form-select">
-                                <option value="total" ${savedConfig?.yBase === 'total' ? 'selected' : ''}>Σ 합계 (구분 없음)</option>
-                                ${layoutOptions}
-                            </select>
+                        
+                        ${type === 'chart' ? chartTypeSelector : columnSelector}
+
+                        <div id="month_check_area_${id}" style="grid-column: span 2; display: none; background: #fff5f5; padding: 8px; border-radius: 6px; border: 1px dashed #feb2b2; margin-top: 5px;">
+                            <label style="font-size: 12px; font-weight: bold; color: #c53030; cursor: pointer;">
+                                <input type="checkbox" class="p-use-month" ${savedConfig?.useMonth ? 'checked' : ''}> 📅 날짜 데이터입니다. '월별'로 묶어서 합산할까요?
+                            </label>
                         </div>
-                        <div>
-                            <label class="form-label">4. 날짜 정렬 방식</label>
+
+                        <div style="grid-column: span 2;">
+                            <label class="form-label">4. 정렬 방식</label>
                             <select class="p-date-format form-select">
-                                <option value="raw" ${savedConfig?.dateFormat === 'raw' ? 'selected' : ''}>일반 문자열 순</option>
-                                <option value="monthOnly" ${savedConfig?.dateFormat === 'monthOnly' ? 'selected' : ''}>숫자 월 순 (2월, 3월...)</option>
-                                <option value="yyyy-mm" ${savedConfig?.dateFormat === 'yyyy-mm' ? 'selected' : ''}>연월 순 (2024.02...)</option>
+                                <option value="raw" ${savedConfig?.dateFormat === 'raw' ? 'selected' : ''}>행 이름 순</option>
+                                <option value="monthOnly" ${savedConfig?.dateFormat === 'monthOnly' ? 'selected' : ''}>OO월 순</option>
+                                <option value="yyyy-mm" ${savedConfig?.dateFormat === 'yyyy-mm' ? 'selected' : ''}>yyyy-mm 순</option>
+                                <option value="totalAsc" ${savedConfig?.dateFormat === 'totalAsc' ? 'selected' : ''}>합계 적은 순</option>
+                                <option value="totalDesc" ${savedConfig?.dateFormat === 'totalDesc' ? 'selected' : ''}>합계 많은 순</option>
                             </select>
                         </div>
                     </div>
-                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:20px; color:#e74c3c; border:none; background:none; cursor:pointer; font-size:12px;">❌ 프리셋 삭제</button>
+                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:15px; color:#e74c3c; border:none; background:none; font-size:11px; cursor:pointer; align-self:center;">❌ 프리셋 삭제</button>
                 </div>
             `;
             
@@ -158,65 +166,154 @@
             
             if (savedConfig) {
                 const el = document.getElementById(id);
-                el.querySelector('.p-x').value = savedConfig.x;
-                el.querySelector('.p-y-base').value = savedConfig.yBase;
+                el.querySelector('.p-filter-col').value = savedConfig.filterCol || 'all';
+                el.querySelector('.p-x').value = savedConfig.x || '';
                 el.querySelector('.p-date-format').value = savedConfig.dateFormat || 'raw';
+                if (type === 'table') el.querySelector('.p-y-base').value = savedConfig.yBase || 'total';
+                toggleMonthCheck(id); // 저장된 프리셋 로드 시 체크박스 노출 여부 결정
             }
         }
 
-        // 프리셋 저장
         window.saveThisPreset = function(id) {
             const el = document.getElementById(id);
+            const type = el.dataset.type;
             const config = {
-                filter: el.querySelector('.p-filter').value,
+                filterCol: el.querySelector('.p-filter-col').value,
+                filterVal: el.querySelector('.p-filter-val').value,
+                filterOp: el.querySelector(`input[name="op_${id}"]:checked`).value,
                 x: el.querySelector('.p-x').value,
-                yBase: el.querySelector('.p-y-base').value,
                 dateFormat: el.querySelector('.p-date-format').value
             };
+            if(type === 'chart') config.chartType = el.querySelector('.p-chart-type').value;
+            else config.yBase = el.querySelector('.p-y-base').value;
+
             const name = el.querySelector('.p-name').value;
-            if(!name) return alert("프리셋 이름을 입력해주세요.");
-            saveAnalysisPreset(name, config, el.dataset.type);
+            if(!name) return alert("이름을 입력하세요.");
+            saveAnalysisPreset(name, config, type);
         };
 
-        // 리포트 생성 (dateFormat 추가됨)
         async function generateReport() {
-            const presetElements = document.querySelectorAll('.preset-card');
-            if (presetElements.length === 0) return alert("프리셋을 추가해주세요.");
+            const presets = document.querySelectorAll('.preset-card');
+            if (presets.length === 0) return alert("프리셋을 추가해주세요.");
+            let allValid = true;
+            presets.forEach((el) => {
+                if (!el.querySelector('.p-x').value) {
+                    alert(`⚠️ [${el.querySelector('.p-name').value || "프리셋"}]의 행(X축)을 선택하세요.`);
+                    allValid = false;
+                }
+            });
+            if (!allValid) return;
 
             document.getElementById('builderView').style.display = 'none';
             document.getElementById('reportView').style.display = 'block';
-
             const container = document.getElementById('reportContainer');
             container.innerHTML = '';
 
-            presetElements.forEach((el, index) => {
+            presets.forEach((el, index) => {
+                const id = el.id;
                 const type = el.dataset.type;
                 const config = {
-                    filter: el.querySelector('.p-filter').value,
+                    filterCol: el.querySelector('.p-filter-col').value,
+                    filterVal: el.querySelector('.p-filter-val').value,
+                    filterOp: el.querySelector(`input[name="op_${id}"]:checked`).value,
                     x: el.querySelector('.p-x').value,
-                    yBase: el.querySelector('.p-y-base').value,
-                    dateFormat: el.querySelector('.p-date-format').value // [필수 추가]
+                    dateFormat: el.querySelector('.p-date-format').value
                 };
+                if(type === 'chart') config.chartType = el.querySelector('.p-chart-type').value;
+                else config.yBase = el.querySelector('.p-y-base').value;
 
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'report-item';
-                // 제목 옆 건수 표시는 page_chart.js에서 처리함
                 itemDiv.innerHTML = `<h3 class="mb-4">#${index+1} ${el.querySelector('.p-name').value}</h3><div id="res_${index}" style="min-height:300px;"></div>`;
                 container.appendChild(itemDiv);
-
                 processAndRender(config, type, `res_${index}`);
             });
         }
 
-        // 리포트 뷰에서 빌더 뷰로 단순히 화면만 전환함
+        // 날짜 필드인지 확인하여 체크박스 표시 여부 결정
+        function toggleMonthCheck(presetId) {
+            const el = document.getElementById(presetId);
+            const xVal = el.querySelector('.p-x').value;
+            const yVal = el.dataset.type === 'table' ? el.querySelector('.p-y-base').value : 'total';
+            const checkArea = document.getElementById(`month_check_area_${presetId}`);
+
+            // [중요] 보통 col1_val이 날짜인 경우가 많으므로 col1을 포함하거나, 
+            // 혹은 '일자', '날짜', 'DATE'라는 단어가 포함된 열을 골랐을 때 나타나게 합니다.
+            const selectedCol = currentLayout.find(c => `col${c.id}_val` === xVal || `col${c.id}_val` === yVal);
+            const colName = selectedCol ? (selectedCol.customName || selectedCol.defaultName).toUpperCase() : "";
+            
+            if (colName.includes("날짜") || colName.includes("일자") || colName.includes("DATE") || xVal === "col1_val") {
+                checkArea.style.display = "block";
+            } else {
+                checkArea.style.display = "none";
+                el.querySelector('.p-use-month').checked = false;
+            }
+        }
+
+        // 저장 함수 (useMonth 값 추가)
+        window.saveThisPreset = function(id) {
+            const el = document.getElementById(id);
+            const type = el.dataset.type;
+            const config = {
+                filterCol: el.querySelector('.p-filter-col').value,
+                filterVal: el.querySelector('.p-filter-val').value,
+                filterOp: el.querySelector(`input[name="op_${id}"]:checked`).value,
+                x: el.querySelector('.p-x').value,
+                useMonth: el.querySelector('.p-use-month').checked, // 체크박스 상태 저장
+                dateFormat: el.querySelector('.p-date-format').value
+            };
+            if(type === 'chart') config.chartType = el.querySelector('.p-chart-type').value;
+            else config.yBase = el.querySelector('.p-y-base').value;
+
+            const name = el.querySelector('.p-name').value;
+            if(!name) return alert("이름을 입력하세요.");
+            saveAnalysisPreset(name, config, type);
+        };
+
+        // 리포트 생성 함수 (config에 useMonth 전달)
+        async function generateReport() {
+            const presets = document.querySelectorAll('.preset-card');
+            if (presets.length === 0) return alert("프리셋을 추가해주세요.");
+            let allValid = true;
+            presets.forEach((el) => {
+                if (!el.querySelector('.p-x').value) {
+                    alert(`⚠️ [${el.querySelector('.p-name').value || "프리셋"}]의 행(X축)을 선택하세요.`);
+                    allValid = false;
+                }
+            });
+            if (!allValid) return;
+
+            document.getElementById('builderView').style.display = 'none';
+            document.getElementById('reportView').style.display = 'block';
+            const container = document.getElementById('reportContainer');
+            container.innerHTML = '';
+
+            presets.forEach((el, index) => {
+                const id = el.id;
+                const type = el.dataset.type;
+                const config = {
+                    filterCol: el.querySelector('.p-filter-col').value,
+                    filterVal: el.querySelector('.p-filter-val').value,
+                    filterOp: el.querySelector(`input[name="op_${id}"]:checked`).value,
+                    x: el.querySelector('.p-x').value,
+                    useMonth: el.querySelector('.p-use-month').checked, // 추가
+                    dateFormat: el.querySelector('.p-date-format').value
+                };
+                if(type === 'chart') config.chartType = el.querySelector('.p-chart-type').value;
+                else config.yBase = el.querySelector('.p-y-base').value;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'report-item';
+                itemDiv.innerHTML = `<h3 class="mb-4">#${index+1} ${el.querySelector('.p-name').value}</h3><div id="res_${index}" style="min-height:300px;"></div>`;
+                container.appendChild(itemDiv);
+                processAndRender(config, type, `res_${index}`);
+            });
+        }
+
         function goBackToBuilder() {
             document.getElementById('reportView').style.display = 'none';
             document.getElementById('builderView').style.display = 'block';
-            // 새로고침을 하지 않으므로 presetList에 담긴 설정값들이 그대로 유지됨
         }
-
-
-
     </script>
 </body>
 </html>

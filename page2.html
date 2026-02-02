@@ -7,6 +7,50 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 데이터 관리 표 스타일 복구 및 행 높이 고정 */
+        .manager-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 14px;
+            table-layout: fixed; /* 열 너비 고정 및 성능 향상 */
+        }
+    
+        .manager-table th, .manager-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            /* [핵심] 행 높이 고정 */
+            height: 45px; 
+            max-height: 45px;
+        }
+    
+        .manager-table thead th {
+            background: #f8fafc;
+            font-weight: bold;
+            position: sticky; /* 스크롤 시 헤더 고정 */
+            top: 0;
+            z-index: 10;
+        }
+    
+        .manager-table tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+    
+        /* 수정 모드 시 입력창 스타일 */
+        .manager-table input[type="text"] {
+            width: 100%;
+            height: 30px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            padding: 2px 5px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="sidebar" id="sidebar">
@@ -27,14 +71,25 @@
             <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">📈 차트 분석 (새 탭)</button>
         </h2>
     
-        <div class="top-controls">
-            <div class="search-group">
-                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." onkeyup="filterTable()">
-                <button class="btn-select" onclick="resetTableFilter()">초기화</button>
+        <div class="top-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px;">
+            <div class="search-group" style="display: flex; gap: 8px; align-items: center; flex: 1;">
+                <select id="searchFieldSelect" class="form-select" style="width: 130px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e0;">
+                    <option value="all">전체 검색</option>
+                </select>
+                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." 
+                       style="flex: 1; height: 38px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 12px;" 
+                       onkeyup="if(event.key==='Enter') searchData()">
+                <button class="btn-primary" onclick="searchData()" style="padding: 0 20px; height: 38px; border-radius: 8px; font-weight: bold;">검색</button>
+                <button class="btn-select" onclick="resetTableFilter()" style="padding: 0 15px; height: 38px; border-radius: 8px;">초기화</button>
+                
+                <span id="dataCountDisplay" style="font-size: 13px; color: #718096; margin-left: 5px; white-space: nowrap; font-weight: 500;">
+                    전체: 0건
+                </span>
             </div>
+        
             <div class="button-group" style="display: flex; gap: 8px;">
-                <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()">✏️ 수정하기</button>
-                <button class="btn-primary" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
+                <button id="editModeToggle" class="btn-select" style="height: 38px; padding: 0 15px; border-radius: 8px;" onclick="toggleEditMode()">✏️ 수정하기</button>
+                <button class="btn-primary" style="height: 38px; padding: 0 15px; border-radius: 8px; background: #3182ce;" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
             </div>
         </div>
     
@@ -56,32 +111,49 @@
     </div>
     
     <script src="config.js"></script>
-    <script src="lib_data.js"></script>    <script src="page_manager.js"></script> <script>
-        // 페이지 초기화 실행
+    <script src="lib_data.js"></script>    
+    <script src="page_manager.js"></script> 
+    
+    <script>
+        // 1. 페이지 초기화 (중복 제거 및 통합)
         window.onload = async () => {
             try {
-                // 타이틀 설정
+                // 프로젝트 타이틀 설정
                 const titleElement = document.getElementById('projectTitle');
                 if (titleElement && typeof projectKeyName !== 'undefined') {
                     titleElement.innerText = projectKeyName;
                 }
     
-                // 데이터 관리 표 렌더링 실행 (page_manager.js에 정의됨)
+                // 데이터 관리 표 렌더링
                 if (typeof renderDataTable === 'function') {
                     await renderDataTable();
-                    console.log("관리 페이지 데이터 로드 완료");
+                    console.log("관리 페이지 초기화 완료");
                 }
             } catch (e) {
                 console.error("초기화 오류:", e);
             }
         };
     
-        // 공통 유틸 함수 (HTML 내 버튼 클릭용)
+        // 2. 공통 이동 및 유틸리티 함수
         function goPage(p) { window.location.href = p + window.location.search; }
         function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
         function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
+        
+        // 사이드바 토글
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
     
-        // 모달 제어 함수 (page_manager.js에서 호출함)
+        // 차트 분석 새 탭 열기
+        function openChartTab() {
+            const params = window.location.search;
+            if (!params) return alert("프로젝트 정보가 없습니다.");
+            window.open(`chart.html${params}`, '_blank');
+        }
+    
+        // 3. 모달 제어 함수
         function showModal(content) {
             const modal = document.getElementById('commonModal');
             if (modal) {
@@ -90,68 +162,10 @@
             }
         }
         function closeModal() { document.getElementById('commonModal').style.display = 'none'; }
+        
+        // 엑셀 업로드 모달 전용
+        function openExcelUploadModal() { document.getElementById('excelUploadModal').style.display = 'flex'; }
         function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
-    </script>
-    
-    <script>
-        // 공통 페이지 이동
-        function goPage(page) { window.location.href = page + window.location.search; }
-
-        // 사이드바 토글
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
-            document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
-        }
-
-        // [핵심] 차트 페이지 새 탭 열기 (파라미터 전달)
-        function openChartTab() {
-            const params = window.location.search;
-            if (!params) return alert("프로젝트 정보가 없습니다.");
-            window.open(`chart.html${params}`, '_blank');
-        }
-
-        // 모달 제어
-        function showModal(content) {
-            const modal = document.getElementById('commonModal');
-            if (modal) {
-                // 모달 내부의 특정 컨테이너(.modal-content)에 HTML 주입
-                modal.querySelector('.modal-content').innerHTML = content;
-                modal.style.display = 'flex';
-            } else {
-                console.error("ID가 'commonModal'인 요소를 찾을 수 없습니다.");
-            }
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('commonModal');
-            if (modal) modal.style.display = 'none';
-        }
-        function closeExcelModal() { document.getElementById('excelUploadModal').style.display = 'none'; }
-
-        // 초기화 실행
-        window.onload = async () => {
-            try {
-                // 1. 타이틀 설정
-                const titleElement = document.getElementById('projectTitle');
-                if (titleElement && typeof projectKeyName !== 'undefined') {
-                    titleElement.innerText = projectKeyName;
-                }
-
-                // 2. 표 렌더링 실행
-                if (typeof renderDataTable === 'function') {
-                    await renderDataTable();
-                    console.log("표 렌더링 완료");
-                }
-            } catch (e) {
-                console.error("초기화 중 오류:", e);
-            }
-        };
-
-        // 페이지 이동용 함수
-        function goPage(p) { window.location.href = p + window.location.search; }
-        function handleMenuClick(id) { window.location.href = `page1.html${window.location.search}#${id}`; }
-        function goToGateway() { if (confirm("로그아웃하시겠습니까?")) window.location.replace("index.html"); }
     </script>
 
 <div id="excelUploadModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
