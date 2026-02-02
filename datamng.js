@@ -1,5 +1,6 @@
 // datamng.js
 let isEditMode = false;
+let rawData = []; // 차트용 데이터 저장소
 
 // 1. 상수 정의 (기본 레이아웃 20개 세팅)
 const DEFAULT_LAYOUT = [
@@ -31,9 +32,10 @@ async function loadTableConfig() {
     }
 }
 
-// 3. 필터 관련 함수
+// 3. 필터 관련 함수 (page2 전용)
 window.filterTable = function() {
     const input = document.getElementById('tableSearchInput');
+    if(!input) return;
     const filter = input.value.toUpperCase();
     const table = document.querySelector(".data-table");
     if (!table) return;
@@ -58,16 +60,16 @@ window.resetTableFilter = function() {
     window.filterTable();
 };
 
-// 4. 표 렌더링 (관리 열 삭제됨)
+// 4. 표 렌더링 (page2 전용)
 window.renderDataTable = async function() {
     await loadTableConfig(); 
     const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tableName).order('created_at', { ascending: false });
 
     const visibleCols = currentLayout.filter(col => col.isVisible);
     const container = document.getElementById('dataManagerContainer');
+    if(!container) return; // 차트 페이지일 경우 중단
 
     let html = `<table class="data-table"><thead><tr>`;
-    // 수정 모드일 때만 맨 앞에 체크박스 열 추가
     if (isEditMode) html += `<th style="width:40px;"></th>`;
     
     visibleCols.forEach(col => {
@@ -90,21 +92,7 @@ window.renderDataTable = async function() {
     container.innerHTML = html;
 };
 
-window.selectAllRows = function(status) {
-    document.querySelectorAll('.row-check').forEach(chk => chk.checked = status);
-};
-
-// [1] 선택 삭제 기능
-window.deleteSelectedRows = async function() {
-    const selectedIds = Array.from(document.querySelectorAll('.row-check:checked')).map(chk => chk.dataset.id);
-    if (selectedIds.length === 0) return alert("삭제할 행을 선택해주세요.");
-    if (!confirm(`${selectedIds.length}개의 데이터를 삭제하시겠습니까?`)) return;
-
-    const { error } = await _supabase.from('data_rows').delete().in('id', selectedIds);
-    if (!error) renderDataTable();
-};
-
-// 5. 수정 모드 토글 (버튼 텍스트 및 스타일 제어)
+// 5. 수정 모드 토글 (page2 전용)
 window.toggleEditMode = function() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editModeToggle');
@@ -114,17 +102,17 @@ window.toggleEditMode = function() {
         btn.innerText = "✅ 수정 완료";
         btn.style.background = "var(--primary-color)";
         btn.style.color = "white";
-        editBar.style.display = "flex";
+        if(editBar) editBar.style.display = "flex";
     } else {
         btn.innerText = "✏️ 수정하기";
         btn.style.background = "#edf2f7";
         btn.style.color = "#333";
-        editBar.style.display = "none";
+        if(editBar) editBar.style.display = "none";
     }
-    renderDataTable(); // 체크박스 표시를 위해 재렌더링
+    renderDataTable(); 
 };
 
-// 6. 셀 클릭 핸들러 (수정 모드일 때만 활성화)
+// 6. 셀 클릭 핸들러 (page2 전용)
 window.handleCellClick = function(td, rowId, colField) {
     if (!isEditMode) return; 
     if (td.querySelector('input')) return;
@@ -150,6 +138,7 @@ window.handleCellClick = function(td, rowId, colField) {
 // 7. 열 설정 관련
 window.updateCustomName = (index, value) => { currentLayout[index].customName = value; };
 window.updateVisibility = (index, isChecked) => { currentLayout[index].isVisible = isChecked; };
+window.updateColumnWidth = (index, value) => { currentLayout[index].width = parseInt(value); };
 
 window.saveColumnLayout = async function() {
     const items = document.querySelectorAll('#columnSortableList .list-group-item');
@@ -167,199 +156,30 @@ window.saveColumnLayout = async function() {
     if (!error) {
         alert("✅ 설정이 저장되었습니다.");
         currentLayout = newLayout;
-        renderDataTable();
+        if(document.getElementById('dataManagerContainer')) renderDataTable();
         if (typeof closeModal === 'function') closeModal();
     }
 };
 
-window.openColumnManagementModal = function() {
-    const layout = currentLayout.length > 0 ? currentLayout : DEFAULT_LAYOUT;
-    const modalHtml = `
-        <div class="modal-header d-flex justify-content-between" style="padding: 15px; border-bottom: 1px solid #eee;">
-            <h5 class="modal-title">📊 열 관리 및 너비 설정</h5>
-            <button type="button" onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:20px;">✕</button>
-        </div>
-        <div class="modal-body" style="padding: 15px; max-height: 400px; overflow-y: auto;">
-            <div id="columnSortableList" class="list-group">
-                ${layout.map((col, index) => `
-                    <div class="list-group-item" data-id="${col.id}" style="display:flex; align-items:center; gap:10px; margin-bottom:8px; border:1px solid #ddd; padding:10px; border-radius:6px; background:#fff;">
-                        <span class="drag-handle" style="cursor:grab; color:#aaa;">☰</span>
-                        <input type="checkbox" ${col.isVisible ? 'checked' : ''} onchange="updateVisibility(${index}, this.checked)">
-                        <input type="text" class="form-control" style="flex:2;" value="${col.customName || col.defaultName}" oninput="updateCustomName(${index}, this.value)">
-                        <div style="flex:1; display:flex; align-items:center; gap:5px;">
-                            <input type="number" class="form-control" style="width:60px;" value="${col.width || 150}" oninput="updateColumnWidth(${index}, this.value)">
-                            <span style="font-size:11px; color:#999;">px</span>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        <div class="modal-footer" style="padding: 15px; border-top: 1px solid #eee; background: #f8fafc;">
-            <button class="btn-primary" style="width:100%; padding:12px;" onclick="saveColumnLayout()">설정 저장</button>
-        </div>
-    `;
-    if (typeof showModal === 'function') showModal(modalHtml);
-    new Sortable(document.getElementById('columnSortableList'), { handle: '.drag-handle', animation: 150 });
-};
-
-// 너비 데이터 업데이트 함수
-window.updateColumnWidth = (index, value) => { currentLayout[index].width = parseInt(value); };
-
-// 8. 엑셀 업로드
-window.handleExcelUpload = async function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-        
-        const visibleCols = currentLayout.filter(c => c.isVisible || c.customName);
-        const rowsToInsert = jsonData.map(row => {
-            let dbRow = { project_key: tableName };
-            visibleCols.forEach(col => {
-                const header = col.customName || col.defaultName;
-                if (row[header] !== undefined) dbRow[`col${col.id}_val`] = String(row[header]);
-            });
-            return dbRow;
-        });
-
-        const { error } = await _supabase.from('data_rows').insert(rowsToInsert);
-        if (!error) {
-            alert(`✅ ${rowsToInsert.length}건의 데이터가 업로드되었습니다.`);
-            renderDataTable();
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = ''; 
-};
-
-// [1] 빈 행 추가 기능
-window.addNewRow = async function() {
-    // 1. 새 행에 들어갈 기본 데이터 객체 생성
-    // 모든 컬럼(col1~col20)을 빈 값으로 초기화하여 삽입합니다.
-    const newRow = {
-        project_key: tableName,
-        created_at: new Date().toISOString()
-    };
-
-    // 2. Supabase DB에 행 삽입
-    const { data, error } = await _supabase
-        .from('data_rows')
-        .insert([newRow])
-        .select(); // 삽입된 데이터를 다시 가져옴
-
-    if (error) {
-        console.error("행 추가 실패:", error);
-        alert("행을 추가하지 못했습니다: " + error.message);
-    } else {
-        // 3. 성공 시 표를 다시 그려서 새 행이 보이게 함
-        await renderDataTable();
-        
-        // 4. (선택사항) 방금 추가된 행의 첫 번째 셀로 포커스 이동 시각화
-        console.log("새 행 추가 완료:", data);
-    }
-};
-
-// datamng.js 에 추가
-
-let excelFileToUpload = null;
-
-// 1. 모달 제어 함수
+// 8. 엑셀 업로드 관련
 window.openExcelUploadModal = function() {
-    document.getElementById('excelUploadModal').style.display = 'flex';
-    resetExcelModal();
+    const modal = document.getElementById('excelUploadModal');
+    if(modal) modal.style.display = 'flex';
 };
 
-window.closeExcelModal = function() {
-    document.getElementById('excelUploadModal').style.display = 'none';
-};
-
-function resetExcelModal() {
-    excelFileToUpload = null;
-    document.getElementById('excelFileName').innerText = "";
-    document.getElementById('excelDropText').innerHTML = "파일을 이 곳으로 드래그하거나 클릭하여 선택하세요.<br><span style='font-size: 11px;'>(.xlsx, .xls 파일 지원)</span>";
-    document.getElementById('startExcelUploadBtn').disabled = true;
-}
-
-// 2. 템플릿 다운로드 (현재 설정된 열 기반)
-window.downloadExcelTemplate = function() {
-    const visibleCols = currentLayout.filter(c => c.isVisible);
-    const headers = visibleCols.map(c => c.customName || c.defaultName);
-    
-    // 빈 데이터 시트 생성
-    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    
-    // 파일 다운로드
-    XLSX.writeFile(workbook, `${projectKeyName}_템플릿.xlsx`);
-};
-
-// 3. 드래그 앤 드롭 및 파일 선택 핸들러
-window.handleExcelDragOver = function(e) {
-    e.preventDefault();
-    document.getElementById('excelDropZone').style.background = "#edf2f7";
-    document.getElementById('excelDropZone').style.borderColor = "var(--primary-color)";
-};
-
-window.handleExcelDragLeave = function(e) {
-    e.preventDefault();
-    document.getElementById('excelDropZone').style.background = "#f8fafc";
-    document.getElementById('excelDropZone').style.borderColor = "#cbd5e0";
-};
-
-window.handleExcelDrop = function(e) {
-    e.preventDefault();
-    window.handleExcelDragLeave(e);
-    const files = e.dataTransfer.files;
-    if (files.length > 0) prepareExcelFile(files[0]);
-};
-
-window.handleExcelSelect = function(e) {
-    if (e.target.files.length > 0) prepareExcelFile(e.target.files[0]);
-};
-
-function prepareExcelFile(file) {
-    if (!file.name.match(/\.(xlsx|xls)$/)) {
-        alert("엑셀 파일만 업로드 가능합니다.");
-        return;
-    }
-    excelFileToUpload = file;
-    document.getElementById('excelFileName').innerText = `선택된 파일: ${file.name}`;
-    document.getElementById('startExcelUploadBtn').disabled = false;
-}
-
-// 라디오 버튼 변경 감지 (경고 문구 표시용)
-document.addEventListener('change', (e) => {
-    if (e.target.name === 'uploadMode') {
-        const warning = document.getElementById('overwriteWarning');
-        if (warning) warning.style.display = e.target.value === 'overwrite' ? 'block' : 'none';
-    }
-});
-
-// 4. 업로드 시작 버튼 클릭 시 처리
 window.processExcelUpload = async function() {
-    if (!excelFileToUpload) return;
+    const fileInput = document.getElementById('excelFileInput');
+    const file = fileInput.files[0];
+    if (!file) return;
     
-    // 선택된 모드 확인 (추가 혹은 대체)
     const uploadMode = document.querySelector('input[name="uploadMode"]:checked').value;
     
-    if (uploadMode === 'overwrite') {
-        if (!confirm("⚠️ 정말로 기존 데이터를 모두 삭제하고 엑셀 파일로 교체하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
-            return;
-        }
-    }
-
     const reader = new FileReader();
     reader.onload = async (e) => {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
         
-        if (jsonData.length === 0) return alert("엑셀에 데이터가 없습니다.");
-
         const visibleCols = currentLayout.filter(c => c.isVisible);
         const rowsToInsert = jsonData.map(row => {
             let dbRow = { project_key: tableName };
@@ -370,66 +190,44 @@ window.processExcelUpload = async function() {
             return dbRow;
         });
 
-        try {
-            // [핵심] 대체(overwrite) 모드일 경우 기존 데이터 삭제 처리
-            if (uploadMode === 'overwrite') {
-                const { error: delError } = await _supabase
-                    .from('data_rows')
-                    .delete()
-                    .eq('project_key', tableName);
-                
-                if (delError) throw delError;
-            }
-
-            // 데이터 삽입
-            const { error: insError } = await _supabase.from('data_rows').insert(rowsToInsert);
-            if (insError) throw insError;
-
-            alert(`✨ ${rowsToInsert.length}건 ${uploadMode === 'append' ? '추가' : '대체'} 완료!`);
-            closeExcelModal();
-            renderDataTable();
-        } catch (err) {
-            alert("처리 중 오류 발생: " + err.message);
+        if (uploadMode === 'overwrite') {
+            await _supabase.from('data_rows').delete().eq('project_key', tableName);
         }
+        await _supabase.from('data_rows').insert(rowsToInsert);
+        alert("업로드 완료");
+        location.reload();
     };
-    reader.readAsArrayBuffer(excelFileToUpload);
+    reader.readAsArrayBuffer(file);
 };
 
-    // chart.html 전용 로직
-let rawData = [];
-let presets = []; // 로컬 스토리지 또는 DB에 저장 가능
-
-// 데이터 로드 및 초기화
-async function init() {
+// 9. 차트 분석 페이지 전용 로직 (chart.html 전용)
+window.initChartPage = async function() {
     const params = new URLSearchParams(window.location.search);
     const tName = params.get('table');
-    
-    // 테이블 레이아웃 정보와 실제 데이터 동시 로드
+    if(!tName) return;
+
     const { data: config } = await _supabase.from('data_config').select('columns_layout').eq('project_key', tName).maybeSingle();
     const { data: rows } = await _supabase.from('data_rows').select('*').eq('project_key', tName);
     
     rawData = rows || [];
-    const layout = config?.columns_layout || [];
+    const layout = config?.columns_layout || DEFAULT_LAYOUT;
 
-    // 필드 선택 옵션 동적 생성
     const xSelect = document.getElementById('presetXAxis');
     const ySelect = document.getElementById('presetYAxis');
+    if(!xSelect || !ySelect) return;
 
     layout.filter(c => c.isVisible).forEach(col => {
         const opt = `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`;
         xSelect.innerHTML += opt;
         ySelect.innerHTML += opt;
     });
-}
+};
 
-// [1, 2, 3] 분석 생성 실행 함수
 window.generateAnalysis = function() {
     const filterKeyword = document.getElementById('presetFilter').value.trim();
     const viewType = document.getElementById('presetViewType').value;
     const xAxis = document.getElementById('presetXAxis').value;
-    const yAxis = document.getElementById('presetYAxis').value;
 
-    // 1단계: 데이터 필터링
     let filteredData = rawData;
     if (filterKeyword) {
         filteredData = rawData.filter(row => 
@@ -437,51 +235,41 @@ window.generateAnalysis = function() {
         );
     }
 
-    // 2단계 & 날짜 설정: 데이터 그룹화
     const resultData = {};
     filteredData.forEach(item => {
         let key = item[xAxis] || '기타';
-        
-        // [날짜 기준 설정] 날짜 형식일 경우 월별 묶기
-        if (xAxis === 'monthly' || xAxis === 'col1_val') { // 날짜가 col1_val이라고 가정
+        // 날짜 처리 로직
+        if (xAxis === 'monthly' || xAxis === 'col1_val') {
             const rawDate = String(item.col1_val || '');
-            const match = rawDate.match(/(\d{4})[.-](\d{2})/); // YYYY.MM 또는 YYYY-MM 추출
+            const match = rawDate.match(/(\d{4})[.-](\d{2})/);
             key = match ? `${match[1]}.${match[2]}` : '날짜미상';
         }
-        
-        // Y축 데이터 합산 또는 카운트 (여기서는 수량 기준)
         resultData[key] = (resultData[key] || 0) + 1;
     });
 
-    // 3단계: 설정값 순서대로 화면 출력
     renderResult(resultData, viewType);
 };
 
 function renderResult(data, type) {
     const area = document.getElementById('analysisResultArea');
-    area.innerHTML = ''; // 초기화
+    if(!area) return;
+    area.innerHTML = ''; 
 
     if (type === 'table') {
-        // 표 방식 출력
-        let html = `<table class="data-table"><thead><tr><th>분류(X축)</th><th>결과값(Y축)</th></tr></thead><tbody>`;
+        let html = `<table class="data-table"><thead><tr><th>분류</th><th>수량</th></tr></thead><tbody>`;
         Object.entries(data).forEach(([k, v]) => {
             html += `<tr><td>${k}</td><td>${v.toLocaleString()}</td></tr>`;
         });
         html += `</tbody></table>`;
         area.innerHTML = html;
     } else {
-        // 그래프 방식 출력 (Chart.js 활용)
         const canvas = document.createElement('canvas');
         area.appendChild(canvas);
         new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: Object.keys(data),
-                datasets: [{
-                    label: '분석 결과 수량',
-                    data: Object.values(data),
-                    backgroundColor: 'rgba(52, 152, 219, 0.7)'
-                }]
+                datasets: [{ label: '수량', data: Object.values(data), backgroundColor: 'rgba(52, 152, 219, 0.7)' }]
             },
             options: { responsive: true, maintainAspectRatio: false }
         });
