@@ -111,8 +111,7 @@
             addPreset(preset.type, preset.config, preset.preset_name);
         };
 
-        function addPreset(type, savedConfig = null, savedName = "") {
-            presetCount++;
+        function addPreset(type, savedConfig = null, savedName = "") {            presetCount++;
             const id = `preset_${presetCount}`;
             const layoutOptions = currentLayout.filter(c => c.isVisible).map(col => 
                 `<option value="col${col.id}_val">${col.customName || col.defaultName}</option>`
@@ -120,20 +119,17 @@
 
             const presetHtml = `
                 <div class="preset-card" id="${id}" data-type="${type}">
-                    <span class="preset-type-badge" style="background:${type === 'table' ? '#4a5568' : '#3498db'}">
-                        ${type === 'table' ? 'TABLE' : 'CHART'}
-                    </span>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <input type="text" class="p-name form-control" style="width:300px; font-weight:bold; border: 1px solid #ddd; padding: 8px; border-radius: 4px;" placeholder="프리셋 이름" value="${savedName}">
-                        <button class="btn-select" style="color: #2b6cb0;" onclick="saveThisPreset('${id}')">💾 저장</button>
-                    </div>
                     <div class="pivot-controls">
-                        <div><label class="small">1. 필터</label><input type="text" class="p-filter form-control" value="${savedConfig?.filter || ''}"></div>
-                        <div><label class="small">2. 행(X축)</label><select class="p-x form-select"><option value="monthly">월별 합산</option>${layoutOptions}</select></div>
-                        <div><label class="small">3. 열(구분)</label><select class="p-y-base form-select"><option value="total">전체 합계</option>${layoutOptions}</select></div>
+                        <div>
+                            <label class="small">📅 날짜 정렬 방식</label>
+                            <select class="p-date-format form-select">
+                                <option value="raw" ${savedConfig?.dateFormat === 'raw' ? 'selected' : ''}>일반 문자열 순</option>
+                                <option value="monthOnly" ${savedConfig?.dateFormat === 'monthOnly' ? 'selected' : ''}>숫자 월 순 (2월, 3월...)</option>
+                                <option value="yyyy-mm" ${savedConfig?.dateFormat === 'yyyy-mm' ? 'selected' : ''}>연월 순 (2024.02...)</option>
+                            </select>
+                        </div>
                     </div>
-                    <button onclick="document.getElementById('${id}').remove()" style="margin-top:15px; color:#e74c3c; border:none; background:none; cursor:pointer;">삭제</button>
-                </div>
+                    </div>
             `;
             document.getElementById('presetList').insertAdjacentHTML('beforeend', presetHtml);
             if (savedConfig) {
@@ -148,7 +144,8 @@
             const config = {
                 filter: el.querySelector('.p-filter').value,
                 x: el.querySelector('.p-x').value,
-                yBase: el.querySelector('.p-y-base').value
+                yBase: el.querySelector('.p-y-base').value,
+                dateFormat: el.querySelector('.p-date-format').value // [추가]
             };
             const name = el.querySelector('.p-name').value;
             if(!name) return alert("이름을 입력하세요.");
