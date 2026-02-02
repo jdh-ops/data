@@ -199,3 +199,27 @@ window.loadPresets = async function() {
         renderPresetButtons(data || []);
     }
 };
+
+// [추가] 프리셋 삭제 함수
+window.deleteAnalysisPreset = async function(presetId, event) {
+    // 버튼 클릭 시 프리셋 적용(부모 이벤트)이 발생하지 않도록 방지
+    if (event) event.stopPropagation();
+
+    if (!confirm("이 프리셋을 영구적으로 삭제하시겠습니까?")) return;
+
+    try {
+        const { error } = await _supabase
+            .from('analysis_presets')
+            .delete()
+            .eq('id', presetId);
+
+        if (!error) {
+            alert("🗑️ 프리셋이 삭제되었습니다.");
+            await loadPresets(); // 목록 새로고침
+        } else {
+            throw error;
+        }
+    } catch (err) {
+        alert("삭제 중 오류 발생: " + err.message);
+    }
+};
