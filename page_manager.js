@@ -5,6 +5,7 @@ const PAGE_SIZE = 100;
 let currentSortField = 'col1_val'; 
 let isAscending = true;
 let hotInstance = null;
+let displayRows = [];
 
 // 리사이징 상태 관리 변수
 let isResizing = false;
@@ -92,7 +93,7 @@ window.renderDataTable = async function(searchKeyword = "", page = 0) {
 
     if (error) return console.error(error);
 
-    let displayRows = rows || [];
+    displayRows = rows || [];
 
     // 숫자 인식 정렬 수행 (Natural Sort)
     displayRows.sort((a, b) => {
@@ -136,8 +137,13 @@ window.renderDataTable = async function(searchKeyword = "", page = 0) {
     }
 
     const countDisplayHtml = `
-        <div id="dataCountDisplay" style="margin: 12px 0 8px 0; padding: 6px 12px; font-size: 13px; color: #4a5568; background: #f7fafc; border-radius: 4px; border-left: 4px solid #3182ce; font-weight: 600;">
-            🔍 검색 결과: <span style="color:#3182ce;">${totalAfterFilter.toLocaleString()}</span>건 / 전체: ${count?.toLocaleString() || 0}건
+        <div id="dataCountDisplay" style="margin: 12px 0 8px 0; padding: 6px 12px; font-size: 13px; color: #4a5568; background: #f7fafc; border-radius: 4px; border-left: 4px solid #3182ce; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                🔍 검색 결과: <span style="color:#3182ce;">${totalAfterFilter.toLocaleString()}</span>건 / 전체: ${count?.toLocaleString() || 0}건
+            </div>
+            <button onclick="downloadExcel()" class="btn-select" style="padding: 4px 10px; height: 28px; font-size: 12px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                엑셀 다운로드
+            </button>
         </div>
     `;
 
@@ -445,4 +451,41 @@ window.loadTableConfig = async function() {
             }));
         }
     }
+};
+
+//엑셀 다운로드 (라이브러리 사용)
+window.downloadExcel = function() {
+    if (typeof XLSX === 'undefined') {
+        return alert("엑셀 라이브러리가 로드되지 않았습니다.");
+    }
+
+    if (!displayRows || displayRows.length === 0) {
+        return alert("다운로드할 데이터가 없습니다.");
+    }
+
+    const visibleCols = currentLayout.filter(col => col.isVisible);
+    const header = visibleCols.map(col => col.customName || col.defaultName);
+    const data = displayRows.map(row => 
+        visibleCols.map(col => row[`col${col.id}_val`] || "")
+    );
+    
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data");
+
+    // 날짜 생성 (YYMMDD)
+    const date = new Date();
+    const formattedDate = date.getFullYear().toString().slice(2) + 
+                         (date.getMonth() + 1).toString().padStart(2, '0') + 
+                         date.getDate().toString().padStart(2, '0');
+    
+    // [수정] config.js에 선언된 projectKeyName 변수 사용
+    // 변수가 없을 경우를 대비해 전역 변수나 tableName을 백업으로 둡니다.
+    const finalName = (typeof projectKeyName !== 'undefined' && projectKeyName) 
+                      ? projectKeyName 
+                      : (window.tableName || 'data');
+
+    const fileName = `${finalName}_${formattedDate}.xlsx`;
+    
+    XLSX.writeFile(wb, fileName);
 };
