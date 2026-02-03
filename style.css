@@ -25,9 +25,51 @@ body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; heigh
 .main-content { flex: 1; overflow-y: auto; padding: 40px; transition: 0.3s; position: relative; }
 
 /* 공통 버튼 및 입력창 */
-.btn-primary { padding: 10px 25px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-.btn-select { padding: 8px 15px; background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; font-size: 14px; }
+.btn-primary { 
+    padding: 10px 20px; /* 좌우 여백을 살짝 조정 */
+    background: var(--primary-color); 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    /* 추가 속성 */
+    white-space: nowrap;      /* 글자가 세로로 꺾이지 않도록 방지 */
+    display: inline-flex;      /* 내부 정렬 최적화 */
+    align-items: center; 
+    justify-content: center;
+    min-width: fit-content;    /* 글자 길이에 맞춰 너비 자동 확보 */
+}
+
+.btn-select { 
+    padding: 8px 15px; 
+    background: #edf2f7; 
+    border: 1px solid #e2e8f0; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-size: 14px; 
+    /* 추가 속성 */
+    white-space: nowrap;      /* 글자가 세로로 꺾이지 않도록 방지 */
+    display: inline-flex;
+    align-items: center; 
+    justify-content: center;
+    min-width: fit-content;
+}
 .btn-select:hover { background: #e2e8f0; }
+
+/* 혹시 몰라 추가하는 보조 클래스 */
+.btn-secondary {
+    padding: 8px 15px;
+    background: white;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
 
 .form-control, .form-select { padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 100%; box-sizing: border-box; }
 

@@ -9,19 +9,16 @@ window.initChartPage = async function() {
     if (!tableName) return false;
 
     try {
-        // 1. 열 설정 레이아웃 로드
-        await loadTableConfig();
-        
-        // 2. 해당 프로젝트의 전체 로우 데이터 로드
-        const { data, error } = await _supabase
-            .from('data_rows')
-            .select('*')
-            .eq('project_key', tableName);
+        // 열 설정과 로우 데이터를 병렬로 로드하여 속도 개선 (Promise.all 활용 가능)
+        const [configResult, dataResult] = await Promise.all([
+            loadTableConfig(),
+            _supabase.from('data_rows').select('*').eq('project_key', tableName)
+        ]);
 
-        if (error) throw error;
+        if (dataResult.error) throw dataResult.error;
         
-        rawData = data || [];
-        console.log("차트 데이터 로드 완료:", rawData.length, "건");
+        rawData = dataResult.data || [];
+        // [수정] 불필요한 리렌더링을 방지하기 위해 로드가 확실히 끝난 뒤 true 반환
         return true;
     } catch (err) {
         console.error("차트 초기화 중 오류:", err);
@@ -197,15 +194,15 @@ function renderPivotChart(target, rows, cols, pivot, config) {
  * [3] 프리셋 저장 및 로드
  */
 window.saveAnalysisPreset = async function(presetName, config, type) {
-    if (!tableName) tableName = getTableNameFromUrl();
+    // project_key를 tableName 대신 'COMMON'으로 고정하여 모든 페이지에서 보이게 함
     const { error } = await _supabase.from('analysis_presets').insert([{
-        project_key: tableName,
+        project_key: 'COMMON', 
         preset_name: presetName,
         type: type,
         config: config
     }]);
     if (!error) {
-        alert("💾 프리셋이 저장되었습니다.");
+        alert("💾 공통 프리셋이 저장되었습니다.");
         loadPresets();
     } else {
         alert("저장 실패: " + error.message);
@@ -213,13 +210,13 @@ window.saveAnalysisPreset = async function(presetName, config, type) {
 };
 
 window.loadPresets = async function() {
-    if (!tableName) tableName = getTableNameFromUrl();
+    // .eq 조건을 삭제하여 접속 키워드와 상관없이 전체 프리셋을 로드함
     const { data, error } = await _supabase
         .from('analysis_presets')
         .select('*')
-        .eq('project_key', tableName)
         .order('created_at', { ascending: false });
-    if (!error && typeof renderPresetButtons === 'function') {
+    
+    if (!error) {
         renderPresetButtons(data || []);
     }
 };
@@ -247,3 +244,71 @@ window.deleteAnalysisPreset = async function(presetId, event) {
         alert("삭제 중 오류 발생: " + err.message);
     }
 };
+
+window.injectCompactModalStyle = function() {
+    if (document.getElementById('compact-modal-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'compact-modal-style';
+    style.innerHTML = `
+        /* 1. 프리셋 카드 전체 여백 조절 */
+        .preset-card {
+            min-height: auto !important;
+            padding: 12px 18px !important; /* 상하 여백 25px -> 12px로 축소 */
+            margin-bottom: 12px !important;
+        }
+
+        /* 2. 상단 (TABLE 배지 / 이름 / 저장 버튼) 영역 축소 */
+        .preset-card > div:first-child {
+            margin-bottom: 8px !important;
+            padding-bottom: 5px !important;
+            gap: 5px !important;
+        }
+
+        /* 3. '1. 필터 설정' 하늘색 박스 영역 슬림화 */
+        .preset-card > div:nth-child(2) {
+            padding: 8px 12px !important; /* 내부 여백 축소 */
+            margin-bottom: 10px !important; /* 다음 항목과의 간격 축소 */
+            border-radius: 8px !important;
+        }
+
+        /* 4. 필터 설정 내부 요소 (select, input, radio) 정렬 */
+        .preset-card .p-filter-col, 
+        .preset-card .p-filter-val {
+            height: 32px !important; /* 입력창 높이 축소 */
+            font-size: 13px !important;
+        }
+
+        /* 5. '2. 행(X축)', '3. 열' 등 라벨과 컨트롤 사이의 간격 축소 */
+        .preset-card .form-label {
+            margin-bottom: 2px !important; /* 라벨을 입력창에 가깝게 붙임 */
+            font-size: 12px !important;
+        }
+
+        /* 6. 피벗 컨트롤 (행/열 선택창) 간격 축소 */
+        .pivot-controls {
+            gap: 10px !important; /* 좌우 간격 축소 */
+            margin-top: 5px !important;
+        }
+        
+        .pivot-controls select {
+            height: 32px !important;
+            font-size: 13px !important;
+        }
+
+        /* 7. 하단 '정렬 방식' 및 '삭제' 버튼 여백 제거 */
+        .preset-card select.p-date-format {
+            margin-top: 0px !important;
+        }
+
+        .preset-card button[onclick*="remove"] {
+            margin-top: 5px !important;
+            padding: 0 !important;
+            font-size: 11px !important;
+        }
+    `;
+    document.head.appendChild(style);
+};
+
+// 즉시 실행
+window.injectCompactModalStyle();

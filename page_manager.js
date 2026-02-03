@@ -1,40 +1,115 @@
-// page_manager.js
+// [1] 초기 전역 변수 설정 (중복 제거 및 리사이징 변수 통합)
 let isEditMode = false;
+let currentPage = 0; 
+const PAGE_SIZE = 100; 
+let currentSortField = 'col1_val'; 
+let isAscending = true;
+let hotInstance = null;
 
-// [1] 표 렌더링 (조회 제한 해제)
-// [수정] 표 렌더링 함수 (수정모드에서만 체크박스 노출)
-window.renderDataTable = async function(searchKeyword = "") {
-    // 1. 기초 정보 설정
-    tableName = getTableNameFromUrl();
-    const container = document.getElementById('dataManagerContainer');
-    const countDisplay = document.getElementById('dataCountDisplay');
+// 리사이징 상태 관리 변수
+let isResizing = false;
+let currentResizer = null;
+let startX, startWidth, currentColumnId;
+
+// [2] 숫자 우선 추출 함수 (2월, 10월 등 대응)
+const getNumericValue = (val) => {
+    if (val === null || val === undefined || val === "") return -Infinity;
+    const strVal = String(val).replace(/,/g, '').trim();
+    const match = strVal.match(/^[-+]?\d+(\.\d+)?/); 
+    if (match) return parseFloat(match[0]);
+    return strVal;
+};
+
+// [3] 리사이징 핵심 로직 (마우스 드래그 이벤트)
+window.initResize = function(e, columnId, thElement) {
+    isResizing = true;
+    currentResizer = thElement;
+    startX = e.pageX;
+    startWidth = thElement.offsetWidth;
+    currentColumnId = columnId;
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResize);
     
-    if (!container || !tableName) return;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+};
 
-    // 2. 테이블 레이아웃 로드
-    await loadTableConfig(); 
+const handleMouseMove = (e) => {
+    if (!isResizing || !currentResizer) return;
+    const diff = e.pageX - startX;
+    const newWidth = Math.max(50, startWidth + diff); 
+    currentResizer.style.width = `${newWidth}px`;
+    currentResizer.style.minWidth = `${newWidth}px`;
+};
+
+const stopResize = async () => {
+    if (!isResizing || !currentResizer) return;
+    isResizing = false;
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+
+    const finalWidth = currentResizer.offsetWidth;
+    const colIdx = currentLayout.findIndex(c => c.id === currentColumnId);
     
-    // 3. Supabase 데이터 조회 (.limit(10000) 유지)
-    let { data: rows, error } = await _supabase
-        .from('data_rows')
-        .select('*')
-        .eq('project_key', tableName)
-        .order('created_at', { ascending: false }) 
-        .limit(10000); // 1000건 제한 해제 확인됨
-
-    if (error) {
-        console.error("데이터 로드 에러:", error);
-        if (countDisplay) countDisplay.innerText = "데이터 로드 오류";
-        return;
+    if (colIdx > -1) {
+        currentLayout[colIdx].width = finalWidth;
+        await _supabase
+            .from('data_config')
+            .upsert({ 
+                project_key: tableName, 
+                columns_layout: currentLayout 
+            }, { onConflict: 'project_key' });
     }
 
-    // 4. 필터링 및 카운트 처리
-    let displayRows = rows || [];
-    const totalCount = rows ? rows.length : 0; // 전체 가져온 개수 (1000개 이상 확인용)
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResize);
+};
+
+// [4] 메인 렌더링 함수 (테이블 헤더 리사이저 포함)
+window.renderDataTable = async function(searchKeyword = "", page = 0) {
+    currentPage = page;
+    tableName = getTableNameFromUrl();
+    const container = document.getElementById('dataManagerContainer');
+    const select = document.getElementById('searchFieldSelect');
     
+    // [추가] 수정 모드일 때만 '열 설정' 버튼을 보여줌
+    const columnSettingBtn = document.getElementById('columnSettingBtn'); // HTML에 id="columnSettingBtn" 추가 필요
+    if (columnSettingBtn) {
+        columnSettingBtn.style.display = isEditMode ? "inline-block" : "none";
+    }
+
+    if (!container || !tableName) return;
+
+    await loadTableConfig(); 
+    
+    // 데이터 조회 (서버 정렬은 ID 순으로 고정)
+    let { data: rows, error, count } = await _supabase
+        .from('data_rows')
+        .select('*', { count: 'exact' })
+        .eq('project_key', tableName)
+        .order('id', { ascending: true }); 
+
+    if (error) return console.error(error);
+
+    let displayRows = rows || [];
+
+    // 숫자 인식 정렬 수행 (Natural Sort)
+    displayRows.sort((a, b) => {
+        const valA = getNumericValue(a[currentSortField]);
+        const valB = getNumericValue(b[currentSortField]);
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            return isAscending ? valA - valB : valB - valA;
+        }
+        return isAscending 
+            ? String(valA).localeCompare(String(valB), undefined, { numeric: true }) 
+            : String(valB).localeCompare(String(valA), undefined, { numeric: true });
+    });
+
+    // 검색 필터링
     if (searchKeyword) {
-        const searchTarget = document.getElementById('searchFieldSelect').value;
-        displayRows = rows.filter(row => {
+        const searchTarget = select?.value || 'all';
+        displayRows = displayRows.filter(row => {
             if (searchTarget === 'all') {
                 return Object.values(row).join(" ").toLowerCase().includes(searchKeyword.toLowerCase());
             } else {
@@ -43,212 +118,331 @@ window.renderDataTable = async function(searchKeyword = "") {
         });
     }
 
-    // 5. 상단 건수 표시 업데이트
-    if (countDisplay) {
-        const currentCount = displayRows.length;
-        countDisplay.innerText = searchKeyword 
-            ? `검색 결과: ${currentCount}건 / 전체: ${totalCount}건`
-            : `전체: ${totalCount}건`;
+    const totalAfterFilter = displayRows.length;
+    const from = currentPage * PAGE_SIZE;
+    const to = from + PAGE_SIZE;
+    const pagedRows = displayRows.slice(from, to); 
+    const visibleCols = currentLayout.filter(col => col.isVisible);
+
+    // 검색 드롭다운 복구
+    if (select && select.options.length <= 1) {
+        select.innerHTML = '<option value="all">전체 검색</option>';
+        visibleCols.forEach(col => {
+            const opt = document.createElement('option');
+            opt.value = `col${col.id}_val`;
+            opt.text = col.customName || col.defaultName;
+            select.add(opt);
+        });
     }
 
-    // 6. 테이블 렌더링
-    const visibleCols = currentLayout.filter(col => col.isVisible);
-    let html = `<table class="manager-table">
-        <thead>
-            <tr>
-                ${isEditMode ? '<th style="width:50px;">선택</th>' : ''}
-                ${visibleCols.map(col => `<th style="width:${col.width || 150}px;">${col.customName || col.defaultName}</th>`).join('')}
-            </tr>
-        </thead>
-        <tbody>`;
+    const countDisplayHtml = `
+        <div id="dataCountDisplay" style="margin: 12px 0 8px 0; padding: 6px 12px; font-size: 13px; color: #4a5568; background: #f7fafc; border-radius: 4px; border-left: 4px solid #3182ce; font-weight: 600;">
+            🔍 검색 결과: <span style="color:#3182ce;">${totalAfterFilter.toLocaleString()}</span>건 / 전체: ${count?.toLocaleString() || 0}건
+        </div>
+    `;
 
-    if (displayRows.length === 0) {
-        html += `<tr><td colspan="${visibleCols.length + (isEditMode ? 1 : 0)}">데이터가 없습니다.</td></tr>`;
+    // 테이블 HTML 생성 (리사이저 포함)
+    let html = countDisplayHtml + `
+    <div style="width: 100%; overflow-x: auto;">
+        <table class="manager-table ${isEditMode ? 'edit-active' : ''}" id="mainDataTable" 
+               style="table-layout: fixed; width: 0; min-width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8fafc;">
+                    <th class="col-checkbox" style="width: 50px;"><input type="checkbox" onclick="selectAllRows(this.checked)"></th>
+                    ${visibleCols.map(col => {
+                        const colKey = `col${col.id}_val`;
+                        const isCurrent = currentSortField === colKey;
+                        const icon = isCurrent ? (isAscending ? '▲' : '▼') : '↕';
+                        const colWidth = col.width || 150; // 기본 너비 150px
+                        return `
+                            <th style="width:${colWidth}px; position: relative; border-right: 1px solid #edf2f7; background: #f8fafc; padding: 0;" data-col-id="${col.id}">
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 10px; cursor: pointer; height: 100%;" onclick="toggleSort('${colKey}')">
+                                    <span style="font-size:12px; color:#3182ce; min-width: 14px; text-align: center;">${icon}</span>
+                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px;">${col.customName || col.defaultName}</span>
+                                </div>
+                                <div class="resizer" 
+                                     style="position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 10; background: transparent;"
+                                     onmousedown="event.stopPropagation(); initResize(event, ${col.id}, this.parentElement)">
+                                </div>
+                            </th>`;
+                    }).join('')}
+                </tr>
+            </thead>
+            <tbody>`;
+
+    if (pagedRows.length === 0) {
+        html += `<tr><td colspan="${visibleCols.length + 1}" style="text-align:center; padding:20px;">데이터가 없습니다.</td></tr>`;
     } else {
-        displayRows.forEach(row => {
+        pagedRows.forEach(row => {
             html += `<tr>
-                ${isEditMode ? `<td><input type="checkbox" class="row-checkbox" data-id="${row.id}"></td>` : ''}
+                <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${row.id}"></td>
                 ${visibleCols.map(col => {
                     const colKey = `col${col.id}_val`;
                     const val = row[colKey] || "";
-                    return `<td>
-                        ${isEditMode 
-                            ? `<input type="text" value="${val}" style="width:95%; height:28px; border:1px solid #ddd; border-radius:4px; text-align:center;" onchange="updateCell('${row.id}', '${colKey}', this.value)">` 
-                            : val}
+                    return `<td onclick="activateEdit(this, '${row.id}', '${colKey}')" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span class="cell-text">${val}</span>
                     </td>`;
                 }).join('')}
             </tr>`;
         });
     }
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-};
-
-// [추가] 선택 삭제 기능
-window.deleteSelectedRows = async function() {
-    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-    if (checkedBoxes.length === 0) return alert("삭제할 행을 선택해주세요.");
-
-    if (!confirm(`정말로 ${checkedBoxes.length}개의 행을 삭제하시겠습니까?`)) return;
-
-    const idsToDelete = Array.from(checkedBoxes).map(cb => cb.dataset.id);
-
-    const { error } = await _supabase
-        .from('data_rows')
-        .delete()
-        .in('id', idsToDelete);
-
-    if (error) {
-        alert("삭제 실패: " + error.message);
-    } else {
-        alert("성공적으로 삭제되었습니다.");
-        await renderDataTable(); // 삭제 후 리로드
-    }
-};
-
-// [추가] 전체 선택/취소
-window.selectAllRows = function(isSelected) {
-    const checkboxes = document.querySelectorAll('.row-checkbox');
-    checkboxes.forEach(cb => cb.checked = isSelected);
-};
-
-// 셀 개별 수정 함수
-window.updateCell = async function(rowId, colField, newVal) {
-    const { error } = await _supabase
-        .from('data_rows')
-        .update({ [colField]: newVal })
-        .eq('id', rowId);
     
-    if (error) console.error("수정 실패:", error.message);
+    html += `</tbody></table></div>`;
+
+    
+    const paginationHtml = `
+        <div class="pagination-controls" style="display: flex; justify-content: center; gap: 20px; margin-top: 20px; padding-bottom: 20px;">
+            <button class="btn-select" onclick="renderDataTable('${searchKeyword}', ${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>이전 100개</button>
+            <span style="align-self: center; font-weight: bold;">${currentPage + 1} 페이지</span>
+            <button class="btn-select" onclick="renderDataTable('${searchKeyword}', ${currentPage + 1})" ${to >= totalAfterFilter ? 'disabled' : ''}>다음 100개</button>
+        </div>
+    `;
+    container.innerHTML = html + paginationHtml;
 };
 
-// [2] 대량 데이터 업로드 (배치 처리 추가)
-// 엑셀 업로드 시 이 함수를 호출하도록 연결하세요.
-window.uploadExcelData = async function(allData) {
-    if (!tableName) tableName = getTableNameFromUrl();
-    const BATCH_SIZE = 500; // 500건씩 끊어서 안전하게 업로드
-    let successCount = 0;
-
-    for (let i = 0; i < allData.length; i += BATCH_SIZE) {
-        const batch = allData.slice(i, i + BATCH_SIZE).map(item => ({
-            ...item,
-            project_key: tableName // 프로젝트 키 자동 삽입
-        }));
-
-        const { error } = await _supabase.from('data_rows').insert(batch);
-
-        if (error) {
-            console.error(`${i}번째 데이터부터 업로드 실패:`, error.message);
-            alert(`업로드 중 오류 발생: ${error.message}`);
-            return;
-        }
-        successCount += batch.length;
-        console.log(`${successCount}건 업로드 완료...`);
+// [5] 정렬 토글 및 기타 UI 제어 함수
+window.toggleSort = function(field) {
+    if (currentSortField === field) {
+        isAscending = !isAscending;
+    } else {
+        currentSortField = field;
+        isAscending = true;
     }
-
-    alert(`총 ${successCount}건의 데이터가 성공적으로 업로드되었습니다.`);
-    renderDataTable();
+    renderDataTable(document.getElementById('tableSearchInput')?.value || "");
 };
 
-// ... (기존 toggleEditMode, handleCellClick, openColumnManagementModal, saveColumnLayout은 동일하게 유지)
-
-window.toggleEditMode = function() {
-    isEditMode = !isEditMode;
-    const btn = document.getElementById('editModeToggle');
-    const bar = document.getElementById('editModeBar');
-    if(btn) btn.innerText = isEditMode ? "✅ 수정 완료" : "✏️ 수정하기";
-    if(bar) bar.style.display = isEditMode ? "flex" : "none";
-    renderDataTable();
-};
-
-window.handleCellClick = function(td, rowId, colField) {
+window.activateEdit = function(td, rowId, colField) {
     if (!isEditMode || td.querySelector('input')) return;
-    const original = td.innerText === '-' ? '' : td.innerText;
-    td.innerHTML = `<input type="text" class="form-control" style="text-align:center;" value="${original}">`;
+    const currentText = td.querySelector('.cell-text').innerText;
+    td.innerHTML = `<input type="text" class="edit-input" value="${currentText}" style="width:100%; height:100%; border:2px solid #3182ce; border-radius:4px; text-align:center;">`;
     const input = td.querySelector('input');
     input.focus();
-    input.onblur = async () => {
-        const val = input.value;
-        td.innerText = val || '-';
-        if (original !== val) await _supabase.from('data_rows').update({ [colField]: val }).eq('id', rowId);
+    input.onblur = async function() {
+        const newVal = this.value;
+        if (newVal !== currentText) await updateCell(rowId, colField, newVal);
+        td.innerHTML = `<span class="cell-text">${newVal}</span>`;
     };
     input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); };
 };
 
-window.openColumnManagementModal = function() {
-    const layout = currentLayout;
-    const modalHtml = `
-        <div class="modal-header"><h5>⚙️ 열 설정</h5><button onclick="closeModal()">✕</button></div>
-        <div class="modal-body">
-            <div id="columnSortableList">
-                ${layout.map((col, index) => `
-                    <div class="list-group-item" data-id="${col.id}" style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #ddd; margin-bottom:5px;">
-                        <span class="drag-handle">☰</span>
-                        <input type="checkbox" ${col.isVisible ? 'checked' : ''} onchange="currentLayout[${index}].isVisible = this.checked">
-                        <input type="text" value="${col.customName || col.defaultName}" oninput="currentLayout[${index}].customName = this.value">
-                        <input type="number" style="width:60px;" value="${col.width || 150}" oninput="currentLayout[${index}].width = parseInt(this.value)">
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        <button class="btn-primary" onclick="saveColumnLayout()">설정 저장</button>
-    `;
-    if (typeof showModal === 'function') {
-        showModal(modalHtml);
-        new Sortable(document.getElementById('columnSortableList'), { handle: '.drag-handle', animation: 150 });
+window.updateCell = async function(rowId, colField, newVal) {
+    await _supabase.from('data_rows').update({ [colField]: newVal }).eq('id', rowId);
+};
+
+window.deleteSelectedRows = async function() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    if (checkedBoxes.length === 0 || !confirm(`정말로 ${checkedBoxes.length}개의 행을 삭제하시겠습니까?`)) return;
+    const idsToDelete = Array.from(checkedBoxes).map(cb => cb.dataset.id);
+    const { error } = await _supabase.from('data_rows').delete().in('id', idsToDelete);
+    if (!error) { alert("삭제되었습니다."); renderDataTable(); }
+};
+
+window.selectAllRows = function(isSelected) {
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isSelected);
+};
+
+window.toggleEditMode = function() {
+    isEditMode = !isEditMode;
+    const btn = document.getElementById('editModeToggle');
+    if(btn) btn.innerText = isEditMode ? "✅ 수정 완료" : "✏️ 수정하기";
+    
+    // 모드 변경 시 테이블을 다시 그려 버튼 노출 상태를 업데이트함
+    renderDataTable(document.getElementById('tableSearchInput')?.value || "");
+};
+
+window.addNewRow = function() {
+    document.getElementById('addRowModal').style.display = 'flex';
+    const container = document.getElementById('handsontableContainer');
+    const visibleCols = currentLayout.filter(col => col.isVisible);
+    if (!hotInstance) {
+        hotInstance = new Handsontable(container, {
+            data: Array.from({ length: 10 }, () => Array(visibleCols.length).fill("")), 
+            colHeaders: visibleCols.map(c => c.customName || c.defaultName),
+            rowHeaders: true,
+            width: '100%', height: '400px', stretchH: 'all',
+            copyPaste: true, minSpareRows: 1, fillHandle: true,
+            licenseKey: 'non-commercial-and-evaluation'
+        });
+    } else {
+        hotInstance.loadData(Array.from({ length: 10 }, () => Array(visibleCols.length).fill("")));
+    }
+    setTimeout(() => hotInstance.selectCell(0, 0), 100);
+};
+
+window.submitNewRows = async function() {
+    const rawData = hotInstance.getData();
+    const visibleCols = currentLayout.filter(col => col.isVisible);
+    const rowsToInsert = rawData.filter(row => row.some(cell => cell !== "" && cell !== null)).map(row => {
+        const rowData = { project_key: tableName };
+        visibleCols.forEach((col, idx) => { rowData[`col${col.id}_val`] = row[idx]; });
+        return rowData;
+    });
+    if (rowsToInsert.length === 0) return alert("데이터가 없습니다.");
+    const { error } = await _supabase.from('data_rows').insert(rowsToInsert);
+    if (!error) { 
+        alert("추가되었습니다."); 
+        document.getElementById('addRowModal').style.display = 'none';
+        renderDataTable(); 
     }
 };
+
+window.searchData = function() { renderDataTable(document.getElementById('tableSearchInput')?.value || ""); };
+
+window.resetTableFilter = function() {
+    const input = document.getElementById('tableSearchInput');
+    const select = document.getElementById('searchFieldSelect');
+    if(input) input.value = "";
+    if(select) select.value = "all";
+    renderDataTable();
+};
+
+// [6] 열 설정 모달 및 레이아웃 저장
+window.openColumnManagementModal = function() {
+    const layout = currentLayout;
+    if (!layout || layout.length === 0) return alert("데이터를 로딩 중입니다.");
+
+    const modalHtml = `
+        <style>
+            /* 부모 컨테이너가 무엇이든 이 클래스가 포함된 부모의 너비를 강제 고정 */
+            .modal-content, .modal-dialog, #columnModalWrapper {
+                width: 300px !important; /* 가로길이 조절 포인트 */
+                min-width: 300px !important;
+                padding: 10px !important; /* 외부 여백 조절 포인트 */
+                margin: auto !important;
+            }
+        </style>
+
+        <div id="columnModalWrapper" style="width: 100%; box-sizing: border-box; overflow: hidden;">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid #edf2f7;">
+                <h5 style="margin:0; font-size:14px; color:#4a5568; font-weight: 600;">⚙️ 열 설정</h5>
+                <button onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:18px; color:#a0aec0; line-height: 1;">✕</button>
+            </div>
+            
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto; overflow-x: hidden; padding: 0;">
+                <div id="columnSortableList" style="display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
+                    ${layout.map((col) => `
+                        <div class="list-group-item" data-id="${col.id}" 
+                             style="display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); width: 100%; box-sizing: border-box;">
+                            
+                            <span class="drag-handle" style="cursor: grab; color: #cbd5e0; font-size: 14px; flex-shrink: 0; user-select: none;">⋮⋮</span>
+                            <input type="checkbox" style="width: 14px; height: 14px; cursor: pointer; accent-color: #319795; flex-shrink: 0;" 
+                                   ${col.isVisible ? 'checked' : ''} 
+                                   onchange="currentLayout.find(c => c.id === ${col.id}).isVisible = this.checked">
+                            
+                            <div style="flex: 1; min-width: 0;">
+                                <input type="text" style="width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; color: #2d3748; outline: none;" 
+                                       value="${col.customName || col.defaultName}" 
+                                       oninput="currentLayout.find(c => c.id === ${col.id}).customName = this.value">
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #edf2f7;">
+                <button class="btn-primary" style="padding:5px 12px; background:#3182ce; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600;" onclick="saveColumnLayout()">설정 저장</button>
+                <button class="btn-select" style="padding:5px 12px; border:1px solid #cbd5e0; border-radius:4px; background:#fff; cursor:pointer; font-size:12px;" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    `;
+
+    if (typeof showModal === 'function') {
+        showModal(modalHtml);
+        
+        // 부모의 스타일을 강제로 한 번 더 입힘
+        setTimeout(() => {
+            const wrapper = document.getElementById('columnModalWrapper');
+            let parent = wrapper.parentElement;
+            while (parent) {
+                // 프로젝트의 모달 클래스 명칭을 찾아 너비 강제 적용
+                if (parent.classList.contains('modal-content') || parent.classList.contains('modal-dialog')) {
+                    parent.style.setProperty('width', '320px', 'important');
+                    parent.style.setProperty('padding', '10px', 'important');
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+        }, 50);
+
+        if (window.Sortable) {
+            new Sortable(document.getElementById('columnSortableList'), { 
+                handle: '.drag-handle', 
+                animation: 150
+            });
+        }
+    }
+};
+
 
 window.saveColumnLayout = async function() {
     const items = document.querySelectorAll('#columnSortableList .list-group-item');
-    const newLayout = Array.from(items).map(item => currentLayout.find(c => c.id === parseInt(item.dataset.id)));
-    await _supabase.from('data_config').upsert({ project_key: tableName, columns_layout: newLayout }, { onConflict: 'project_key' });
-    currentLayout = newLayout;
-    renderDataTable();
-    closeModal();
-};
-
-// 행 추가 함수 전체 코드
-window.addNewRow = async function() {
-    tableName = getTableNameFromUrl();
-    if (!tableName) return alert("프로젝트를 먼저 선택해주세요.");
-
-    // 1. Supabase에 빈 행을 먼저 생성합니다.
-    // project_key만 넣고 나머지 colN_val은 빈 값으로 생성합니다.
-    const { data, error } = await _supabase
-        .from('data_rows')
-        .insert([{ project_key: tableName }])
-        .select();
-
+    const newLayout = Array.from(items).map(item => {
+        const id = parseInt(item.dataset.id);
+        return currentLayout.find(c => c.id === id);
+    });
+    
+    const { error } = await _supabase
+        .from('data_config')
+        .upsert({ 
+            project_key: tableName, 
+            columns_layout: newLayout 
+        }, { onConflict: 'project_key' });
+    
     if (error) {
-        console.error("행 추가 에러:", error.message);
-        return alert("행을 추가하지 못했습니다: " + error.message);
+        alert("저장 실패: " + error.message);
+    } else {
+        currentLayout = newLayout;
+        alert("설정이 저장되었습니다.");
+        if (typeof closeModal === 'function') closeModal();
+        renderDataTable(); 
     }
-
-    // 2. 행 추가 성공 시, 사용자 경험을 위해 강제로 수정 모드를 켭니다.
-    isEditMode = true;
-    const btn = document.getElementById('editModeToggle');
-    const bar = document.getElementById('editModeBar');
-    if(btn) btn.innerText = "✅ 수정 완료";
-    if(bar) bar.style.display = "flex";
-
-    // 3. 표를 다시 그려서 방금 추가된 빈 행이 화면에 나타나게 합니다.
-    await renderDataTable();
-
-    // 4. (선택 사항) 추가된 행으로 화면 스크롤 이동
-    console.log("새로운 행이 추가되었습니다 ID:", data[0].id);
 };
 
-// [추가] 검색 실행 함수
-window.searchData = function() {
-    const keyword = document.getElementById('tableSearchInput').value;
-    renderDataTable(keyword);
-};
+// [핵심 수정] 열 설정 로드 시 'test' 레이아웃을 기본값으로 활용
+window.loadTableConfig = async function() {
+    tableName = getTableNameFromUrl();
+    if (!tableName) return;
 
-// [추가] 초기화 함수
-window.resetTableFilter = function() {
-    document.getElementById('tableSearchInput').value = "";
-    document.getElementById('searchFieldSelect').value = "all";
-    renderDataTable();
+    // [1] 현재 키워드(예: 코이즈) 설정 조회
+    let { data, error } = await _supabase
+        .from('data_config')
+        .select('columns_layout')
+        .eq('project_key', tableName)
+        .maybeSingle(); // 데이터가 없어도 에러를 뱉지 않음
+
+    if (data && data.columns_layout && data.columns_layout.length > 0) {
+        // 현재 키워드 전용 설정이 있다면 사용
+        currentLayout = data.columns_layout;
+        console.log(`'${tableName}' 전용 설정을 로드했습니다.`);
+    } else {
+        // [2] 설정이 없다면 'test' 설정을 가져옴
+        console.warn(`'${tableName}' 설정이 없어 'test' 설정을 조회합니다.`);
+        
+        let { data: defaultData } = await _supabase
+            .from('data_config')
+            .select('columns_layout')
+            .eq('project_key', 'test_data')
+            .maybeSingle();
+
+        if (defaultData && defaultData.columns_layout) {
+            currentLayout = defaultData.columns_layout;
+            console.log("'test' 설정을 기본값으로 적용했습니다.");
+            
+            // [3] 옵션: 가져온 'test' 설정을 '코이즈'에도 즉시 저장하여 동기화
+            // 이렇게 해두면 다음 접속 시 '코이즈' 전용 데이터로 바로 인식됩니다.
+            await _supabase.from('data_config').upsert({
+                project_key: tableName,
+                columns_layout: currentLayout
+            }, { onConflict: 'project_key' });
+        } else {
+            // [4] 'test' 조차 없다면 완전 초기화
+            currentLayout = Array.from({ length: 20 }, (_, i) => ({
+                id: i + 1,
+                defaultName: `필드 ${i + 1}`,
+                customName: "",
+                isVisible: true,
+                width: 150
+            }));
+        }
+    }
 };

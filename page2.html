@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 데이터 관리 표 스타일 복구 및 행 높이 고정 */
+        /* 1. 기본 테이블 구조 및 행 높이 고정 */
         .manager-table {
             width: 100%;
             border-collapse: collapse;
@@ -24,9 +24,9 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            /* [핵심] 행 높이 고정 */
-            height: 45px; 
+            height: 45px;      /* [핵심] 행 높이 고정 */
             max-height: 45px;
+            box-sizing: border-box;
         }
     
         .manager-table thead th {
@@ -41,14 +41,37 @@
             background-color: #f1f5f9;
         }
     
-        /* 수정 모드 시 입력창 스타일 */
+        /* 2. [신규] 체크박스 열 제어 (딜레이 방지 핵심) */
+        .col-checkbox {
+            width: 50px !important;
+            text-align: center;
+        }
+    
+        /* 수정 모드 활성화 시(edit-active 클래스 추가 시) 체크박스 열 노출 */
+        .edit-active .col-checkbox {
+            display: table-cell;
+        }
+    
+        /* 3. 수정 모드 시 입력창 스타일 */
         .manager-table input[type="text"] {
             width: 100%;
-            height: 30px;
-            border: 1px solid #cbd5e0;
+            height: 32px;
+            border: 2px solid #3182ce; /* 포커스 시 색상 강조 */
             border-radius: 4px;
             padding: 2px 5px;
             text-align: center;
+            outline: none;
+        }
+    
+        /* 편집 가능한 셀에 마우스 오버 시 효과 */
+        .edit-active td[onclick] {
+            cursor: pointer;
+            background-color: #fffaf0; /* 편집 가능 영역임을 시각적으로 암시 */
+        }
+
+        .row-checkbox {
+            cursor: pointer;
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -71,25 +94,35 @@
             <button class="btn-select" onclick="openChartTab()" style="font-size: 14px; margin-left: 10px; vertical-align: middle;">📈 차트 분석 (새 탭)</button>
         </h2>
     
-        <div class="top-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px;">
-            <div class="search-group" style="display: flex; gap: 8px; align-items: center; flex: 1;">
-                <select id="searchFieldSelect" class="form-select" style="width: 130px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e0;">
+        <div class="top-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; height: 38px;">
+            <div class="search-group" style="display: flex; gap: 8px; align-items: center; flex: 1; height: 100%;">
+                <select id="searchFieldSelect" class="form-select" 
+                        style="width: 130px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e0; padding: 0 10px; box-sizing: border-box;">
                     <option value="all">전체 검색</option>
                 </select>
-                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." 
-                       style="flex: 1; height: 38px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 12px;" 
-                       onkeyup="if(event.key==='Enter') searchData()">
-                <button class="btn-primary" onclick="searchData()" style="padding: 0 20px; height: 38px; border-radius: 8px; font-weight: bold;">검색</button>
-                <button class="btn-select" onclick="resetTableFilter()" style="padding: 0 15px; height: 38px; border-radius: 8px;">초기화</button>
                 
-                <span id="dataCountDisplay" style="font-size: 13px; color: #718096; margin-left: 5px; white-space: nowrap; font-weight: 500;">
-                    전체: 0건
-                </span>
+                <input type="text" id="tableSearchInput" class="search-input" placeholder="검색어를 입력하세요..." 
+                       style="flex: 1; height: 38px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 12px; box-sizing: border-box; font-size: 14px;" 
+                       onkeyup="if(event.key==='Enter') searchData()">
+                
+                <button class="btn-primary" onclick="searchData()" 
+                        style="padding: 0 20px; height: 38px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">검색</button>
+                <button class="btn-select" onclick="resetTableFilter()" 
+                        style="padding: 0 15px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">초기화</button>
             </div>
         
-            <div class="button-group" style="display: flex; gap: 8px;">
-                <button id="editModeToggle" class="btn-select" style="height: 38px; padding: 0 15px; border-radius: 8px;" onclick="toggleEditMode()">✏️ 수정하기</button>
-                <button class="btn-primary" style="height: 38px; padding: 0 15px; border-radius: 8px; background: #3182ce;" onclick="openExcelUploadModal()">📤 엑셀 업로드</button> 
+            <div class="button-group" style="display: flex; gap: 8px; height: 100%;">
+                <button id="columnSettingBtn" class="btn-select" onclick="openColumnManagementModal()"
+                        style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer; display: none;">⚙️ 열 설정</button>
+                
+                <button class="btn-select" onclick="deleteSelectedRows()"
+                        style="color: #e53e3e; border: 1px solid #feb2b2; height: 38px; padding: 0 15px; border-radius: 8px; background: white; cursor: pointer;">🗑️ 선택 삭제</button>
+                
+                <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()"
+                        style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer;">✏️ 수정하기</button>
+                
+                <button class="btn-primary" onclick="addNewRow()"
+                        style="height: 38px; padding: 0 15px; border-radius: 8px; background: #3182ce; color: white; border: none; cursor: pointer;">➕ 행 추가</button> 
             </div>
         </div>
     
@@ -203,6 +236,30 @@
 <div id="commonModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
     <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 500px; max-height: 80vh; overflow-y: auto;"></div>
 </div>
+
+<div id="addRowModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; width: 80%; max-width: 1000px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">➕ 데이터 일괄 추가</h3>
+            <button onclick="closeAddRowModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+        </div>
+        
+        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+            💡 엑셀에서 데이터를 복사(Ctrl+C)한 후, 아래 표의 첫 번째 칸을 클릭하고 붙여넣기(Ctrl+V) 하세요.
+        </p>
+
+        <div id="handsontableContainer" style="flex: 1; overflow: hidden; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn-primary" onclick="submitNewRows()" style="padding: 10px 25px;">DB에 저장하기</button>
+            <button class="btn-select" onclick="closeAddRowModal()" style="padding: 10px 25px;">취소</button>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css">
+<script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
 
 </body>
 </html>
