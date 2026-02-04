@@ -149,9 +149,9 @@ window.renderDataTable = async function(searchKeyword = "", page = 0) {
 
     // 테이블 HTML 생성 (리사이저 포함)
     let html = countDisplayHtml + `
-    <div style="width: 100%; overflow-x: auto;">
-        <table class="manager-table ${isEditMode ? 'edit-active' : ''}" id="mainDataTable" 
-               style="table-layout: fixed; width: 0; min-width: 100%; border-collapse: collapse;">
+        <div style="width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table class="manager-table ${isEditMode ? 'edit-active' : ''}" id="mainDataTable" 
+                style="table-layout: fixed; width: 0; min-width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="background: #f8fafc;">
                     <th class="col-checkbox" style="width: 50px;"><input type="checkbox" onclick="selectAllRows(this.checked)"></th>
@@ -248,12 +248,25 @@ window.selectAllRows = function(isSelected) {
 };
 
 window.toggleEditMode = function() {
+    // 1. 상태 반전
     isEditMode = !isEditMode;
-    const btn = document.getElementById('editModeToggle');
-    if(btn) btn.innerText = isEditMode ? "✅ 수정 완료" : "✏️ 수정하기";
     
-    // 모드 변경 시 테이블을 다시 그려 버튼 노출 상태를 업데이트함
-    renderDataTable(document.getElementById('tableSearchInput')?.value || "");
+    // 2. 버튼 텍스트 및 스타일 변경
+    const btn = document.getElementById('editModeToggle');
+    if (btn) {
+        btn.innerText = isEditMode ? "✅ 수정 완료" : "✏️ 수정하기";
+        btn.style.background = isEditMode ? "#3182ce" : "white";
+        btn.style.color = isEditMode ? "white" : "#333";
+    }
+
+    // 3. 상단 편집 바 노출 제어
+    const editBar = document.getElementById('editModeBar');
+    if (editBar) {
+        editBar.style.display = isEditMode ? "flex" : "none";
+    }
+
+    // 4. [핵심] 테이블 다시 그리기 (이때 .edit-active 클래스가 붙음)
+    renderDataTable(document.getElementById('tableSearchInput')?.value || "", currentPage);
 };
 
 window.addNewRow = function() {
@@ -488,4 +501,14 @@ window.downloadExcel = function() {
     const fileName = `${finalName}_${formattedDate}.xlsx`;
     
     XLSX.writeFile(wb, fileName);
+};
+
+window.closeAddRowModal = function() {
+    const modal = document.getElementById('addRowModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.closeExcelModal = function() {
+    const modal = document.getElementById('excelUploadModal');
+    if (modal) modal.style.display = 'none';
 };

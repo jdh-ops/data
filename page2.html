@@ -113,17 +113,12 @@
             </div>
         
             <div class="button-group" style="display: flex; gap: 8px; height: 100%;">
-                <button id="columnSettingBtn" class="btn-select" onclick="openColumnManagementModal()"
-                        style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer; display: none;">⚙️ 열 설정</button>
-                
-                <button class="btn-select" onclick="deleteSelectedRows()"
-                        style="color: #e53e3e; border: 1px solid #feb2b2; height: 38px; padding: 0 15px; border-radius: 8px; background: white; cursor: pointer;">🗑️ 선택 삭제</button>
-                
+                <button class="btn-select" style="color: red; border-color: #feb2b2;" onclick="deleteSelectedRows()">🗑️ 삭제</button>
                 <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()"
                         style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer;">✏️ 수정하기</button>
-                
-                <button class="btn-primary" onclick="addNewRow()"
-                        style="height: 38px; padding: 0 15px; border-radius: 8px; background: #3182ce; color: white; border: none; cursor: pointer;">➕ 행 추가</button> 
+                <button class="btn-select" onclick="openExcelUploadModal()"
+                        style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer;">📤 엑셀 업로드</button>
+            
             </div>
         </div>
     
@@ -135,7 +130,6 @@
             <div class="right-btns" style="display: flex; gap: 8px;">
                 <button class="btn-select" onclick="openColumnManagementModal()">⚙️ 열 설정</button>
                 <button class="btn-select" onclick="addNewRow()">➕ 행 추가</button>
-                <button class="btn-select" style="color: red; border-color: #feb2b2;" onclick="deleteSelectedRows()">🗑️ 삭제</button>
             </div>
         </div>
     

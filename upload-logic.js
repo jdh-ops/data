@@ -4,11 +4,17 @@
 
     // [핵심 수정] 전역에서 접근 가능하도록 window에 연결
     window.onSectionChange = function(sectionId) {
-        console.log("Section changed to:", sectionId);
-        if (sectionId === 'dashboard') {
-            if (typeof window.fetchImages === 'function') window.fetchImages();
-        } else if (sectionId === 'upload') {
-            window.listFiles(); // 파일 업로드 섹션 진입 시 목록 로드
+        console.log("섹션 변경 감지:", sectionId);
+        if (sectionId === 'upload') {
+            // 업로드 섹션으로 올 때 파일 리스트를 새로고침하는 함수 호출
+            if (typeof fetchFiles === 'function') {
+                fetchFiles(); 
+            }
+        } else if (sectionId === 'dashboard') {
+            // 대시보드로 갈 때 이미지 리스트 새로고침
+            if (typeof fetchImages === 'function') {
+                fetchImages();
+            }
         }
     };
 
