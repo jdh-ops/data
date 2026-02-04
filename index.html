@@ -103,18 +103,29 @@
 
         // 이미 로그인된 상태인지 확인 (자동 로그인 방지 및 리다이렉트)
         window.onload = async () => {
-            const { data: { user } } = await _supabase.auth.getUser();
+            // 1. 현재 세션(로그인 정보)을 가져옵니다.
+            const { data: { user }, error } = await _supabase.auth.getUser();
+
             if (user) {
-                if (user.email.endsWith('@wegofair.com')) {
+                const email = user.email || "";
+                
+                // 2. 이메일 도메인 체크 (@wegofair.com)
+                if (email.endsWith("@wegofair.com")) {
+                    // 접속 성공 시 UI 변화
                     const message = document.getElementById('message');
-                    message.style.color = "#3498db";
-                    message.innerHTML = `✅ 인증 완료: ${user.email.split('@')[0]}님<br>접속할 키워드를 입력해 주세요.`;
-                    // 로그인 버튼 숨기기 (선택 사항)
-                    document.querySelector('button[onclick="signInWithGoogle()"]').style.display = 'none';
+                    message.style.color = "#27ae60";
+                    message.innerHTML = `${email.split('@')[0]}님<br>이제 키워드를 입력하고 접속하세요.`;
+                    
+                    // 로그인 버튼은 숨기고 키워드 입력창에 포커스
+                    const googleBtn = document.querySelector('button[onclick="signInWithGoogle()"]');
+                    if (googleBtn) googleBtn.style.display = 'none';
+                    document.getElementById('keywordInput').focus();
+                    
                 } else {
-                    // 다른 도메인 로그아웃 처리
+                    // 허용되지 않은 도메인이면 로그아웃 처리
+                    alert("접근 거부: @wegofair.com 계정만 이용 가능합니다.");
                     await _supabase.auth.signOut();
-                    alert("허가되지 않은 도메인입니다.");
+                    window.location.reload(); // 페이지 새로고침하여 초기 상태로
                 }
             }
         };

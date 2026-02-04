@@ -1,6 +1,6 @@
 // config.js
 const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // (제공하신 키 유지)
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w'; // (제공하신 키 유지)
 
 // Supabase 클라이언트 초기화
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
