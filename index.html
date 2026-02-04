@@ -75,6 +75,14 @@
     <script>    
         // 구글 로그인 실행 함수
         async function signInWithGoogle() {
+            // 1. 현재 접속 중인 환경에 따라 리다이렉트 주소 자동 설정
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            // 로컬이면 Go Live 주소, 아니면 GitHub Pages 주소 사용
+            const redirectUrl = isLocal 
+                ? window.location.origin + '/index.html' 
+                : 'https://jdh-ops.github.io/data/index.html';
+
             const { data, error } = await _supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -82,7 +90,7 @@
                         prompt: 'select_account',
                         access_type: 'offline'
                     },
-                    redirectTo: 'https://jdh-ops.github.io/data/index.html'
+                    redirectTo: redirectUrl
                 }
             });
 
