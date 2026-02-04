@@ -11,6 +11,12 @@ function openCreateModal() {
 
 // 2. 실제 데이터 생성 진행
 async function processCreate() {
+    // [보안 추가] 생성 단계에서도 로그인 및 도메인 확인
+    const { data: { user } } = await _supabase.auth.getUser();
+    if (!user || !user.email.endsWith('@wegofair.com')) {
+        return alert("키워드 생성 권한이 없습니다. Wegofair 계정으로 로그인해 주세요.");
+    }
+
     const keyword = document.getElementById('newKeyword').value.trim();
     const nickname = document.getElementById('englishNickname').value.trim();
     const inputPw = document.getElementById('adminPw').value;
@@ -73,13 +79,24 @@ function closeCreateModal() {
  * 사용자가 입력한 키워드가 keywords 테이블에 있는지 확인하고 이동합니다.
  */
 async function checkKeyword() {
-    // HTML 요소 가져오기
+    // [보안 추가] 1. 먼저 로그인이 되어 있는지 확인
+    const { data: { user } } = await _supabase.auth.getUser();
+    
+    // 로그인이 안 되어 있거나, 이메일 도메인이 다르면 차단
+    if (!user || !user.email.endsWith('@wegofair.com')) {
+        const message = document.getElementById('message');
+        message.style.color = "#e74c3c";
+        message.innerText = "먼저 Wegofair 계정으로 로그인해 주세요.";
+        // 에러 시 구글 로그인 버튼을 강조하거나 위로 스크롤 시킬 수 있음
+        return;
+    }
+
+    // --- 여기서부터는 기존 로직과 동일합니다 ---
     const keywordInput = document.getElementById('keywordInput');
     const message = document.getElementById('message');
     const createBtn = document.getElementById('create-btn');
     const loginBtn = document.getElementById('loginBtn');
     
-    // 입력값 확인
     const keyword = keywordInput.value.trim();
     if (!keyword) {
         message.style.color = "#e74c3c";
@@ -87,13 +104,11 @@ async function checkKeyword() {
         return;
     }
 
-    // 버튼 비활성화 및 상태 표시
     loginBtn.disabled = true;
     message.style.color = "#34495e";
     message.innerText = "데이터 확인 중...";
 
     try {
-        // Supabase 'keywords' 테이블에서 입력한 키워드 조회
         const { data, error } = await _supabase
             .from('gateways')
             .select('*')
@@ -101,23 +116,17 @@ async function checkKeyword() {
             .single();
 
         if (error || !data) {
-            // [실패] 키워드가 DB에 없는 경우
             message.style.color = "#e74c3c";
             message.innerText = "등록되지 않은 키워드입니다.";
-            
-            // 키워드 생성 버튼 노출
             if (createBtn) createBtn.style.display = "inline-block";
             loginBtn.disabled = false;
         } else {
-            // [성공] 키워드 존재 시
             if (createBtn) createBtn.style.display = "none";
             message.style.color = "#27ae60";
             message.innerText = "접속 성공! 잠시 후 이동합니다...";
 
-            // 0.8초 후 페이지 이동 (기존 DB의 target_table 값 활용)
             setTimeout(() => {
                 const targetPath = data.target_table || data.keyword;
-                // gateway-logic.js 내 이동 코드 수정
                 window.location.href = `page1.html?table=${encodeURIComponent(targetPath)}&key=${encodeURIComponent(keyword)}`;
             }, 800);
         }

@@ -1,18 +1,43 @@
 // config.js
 const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // (제공하신 키 유지)
 
 // Supabase 클라이언트 초기화
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// config.js
+// URL 파라미터 분석
 const urlParams = new URLSearchParams(window.location.search);
 window.tableName = urlParams.get('table') || 'default';
 
-// key 파라미터가 있으면 한글로 변환, 없으면 tableName(영문)을 기본값으로 사용
-const projectKeyName = urlParams.get('key') 
+// key 파라미터를 전역 변수로 설정하여 어디서든 쓸 수 있게 함
+window.projectKeyName = urlParams.get('key') 
     ? decodeURIComponent(urlParams.get('key')) 
     : window.tableName;
 
-console.log("프로젝트 키:", window.tableName);
-console.log("표시 이름:", projectKeyName);
+console.log("프로젝트 테이블(영문):", window.tableName);
+console.log("프로젝트 표시명(한글):", window.projectKeyName);
+
+// [보안] wegofair 유저 체크 함수
+window.checkWegoFairUser = async function() {
+    const { data: { user }, error } = await _supabase.auth.getUser();
+
+    // 현재 페이지가 index.html(로그인 페이지)이면 체크 로직을 건너뜀 (무한 루프 방지)
+    if (window.location.pathname.endsWith("index.html") || window.location.pathname === "/") {
+        return;
+    }
+
+    if (user) {
+        const email = user.email || "";
+        // 도메인이 wegofair.com이 아니면 강제 로그아웃
+        if (!email.endsWith("@wegofair.com")) {
+            alert("접근 거부: @wegofair.com 계정만 사용할 수 있습니다.");
+            await _supabase.auth.signOut();
+            window.location.replace("index.html");
+            return;
+        }
+        console.log("인증 완료: wegofair 멤버 (" + email + ")");
+    } else {
+        // 로그인 정보가 아예 없으면 로그인 페이지로 이동
+        window.location.replace("index.html");
+    }
+};

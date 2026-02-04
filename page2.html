@@ -146,19 +146,38 @@
         // 1. 페이지 초기화 (중복 제거 및 통합)
         window.onload = async () => {
             try {
+                // [1] 보안 체크: 최상단에서 실행
+                // config.js의 함수를 호출하거나 직접 Supabase 인증 확인
+                const { data: { user } } = await _supabase.auth.getUser();
+
+                // 로그인 정보가 없거나 도메인이 wegofair.com이 아니면 즉시 퇴출
+                if (!user || !user.email.endsWith('@wegofair.com')) {
+                    alert("접근 권한이 없습니다. 로그인 페이지로 이동합니다.");
+                    window.location.replace("index.html");
+                    return; // 이후 로직 실행 방지
+                }
+
+                // [2] 사이드바 사용자 정보 표시 (UI 추가 시)
+                const userEmailEl = document.getElementById('userEmail');
+                if (userEmailEl) userEmailEl.innerText = user.email;
+
+                // --- 여기서부터 기존 초기화 로직 ---
+
                 // 프로젝트 타이틀 설정
                 const titleElement = document.getElementById('projectTitle');
                 if (titleElement && typeof projectKeyName !== 'undefined') {
                     titleElement.innerText = projectKeyName;
                 }
-    
+
                 // 데이터 관리 표 렌더링
                 if (typeof renderDataTable === 'function') {
                     await renderDataTable();
-                    console.log("관리 페이지 초기화 완료");
+                    console.log("관리 페이지 초기화 완료 - 인증된 사용자: " + user.email);
                 }
+
             } catch (e) {
                 console.error("초기화 오류:", e);
+                // 오류 발생 시 보안을 위해 로그인 페이지로 보내는 것이 안전할 수 있습니다.
             }
         };
     

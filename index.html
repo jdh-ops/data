@@ -21,11 +21,23 @@
 
     <div class="login-container">
         <h1>Wegofair 데이터</h1>
+        
+        <button onclick="signInWithGoogle()" 
+                style="width: 100%; padding: 12px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; margin-bottom: 25px; transition: 0.2s;">
+            <img src="https://www.google.com/favicon.ico" width="18">
+            Wegofair 계정으로 로그인
+        </button>
+    
+        <div style="border-top: 1px solid #eee; margin: 20px 0; position: relative;">
+            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; color: #999; font-size: 12px;">또는 키워드 접속</span>
+        </div>
+    
         <input type="text" id="keywordInput" placeholder="키워드를 입력하세요" onkeypress="if(event.keyCode==13) checkKeyword()">
         <button id="loginBtn" onclick="checkKeyword()">접속하기</button>
-
-        <div style="text-align: center;">
-            <p id="message"></p>
+    
+        <div style="text-align: center; margin-top: 15px;">
+            <p id="message" style="margin-bottom: 5px;"></p>
+            <p id="errorMsg" style="color: red; font-size: 12px; display: none; margin-bottom: 10px;"></p> 
             <button id="create-btn" onclick="openCreateModal()">🛠️ 새 키워드 생성하기</button>
         </div>
     </div>
@@ -59,5 +71,47 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="gateway-logic.js"></script>
+
+    <script>    
+        // 구글 로그인 실행 함수
+        async function signInWithGoogle() {
+            const { data, error } = await _supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    queryParams: {
+                        prompt: 'select_account',
+                        access_type: 'offline'
+                    },
+                    // 로그인 성공 후 이동할 실제 주소를 적으세요.
+                    redirectTo: window.location.origin + '/page1.html'
+                }
+            });
+
+            if (error) {
+                const msg = document.getElementById('errorMsg');
+                msg.innerText = "로그인 오류: " + error.message;
+                msg.style.display = 'block';
+            }
+        }
+
+        // 이미 로그인된 상태인지 확인 (자동 로그인 방지 및 리다이렉트)
+        window.onload = async () => {
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) {
+                if (user.email.endsWith('@wegofair.com')) {
+                    const message = document.getElementById('message');
+                    message.style.color = "#3498db";
+                    message.innerHTML = `✅ 인증 완료: ${user.email.split('@')[0]}님<br>접속할 키워드를 입력해 주세요.`;
+                    // 로그인 버튼 숨기기 (선택 사항)
+                    document.querySelector('button[onclick="signInWithGoogle()"]').style.display = 'none';
+                } else {
+                    // 다른 도메인 로그아웃 처리
+                    await _supabase.auth.signOut();
+                    alert("허가되지 않은 도메인입니다.");
+                }
+            }
+        };
+    </script>
+
 </body>
 </html>

@@ -55,15 +55,35 @@
         let presetCount = 0;
 
         window.onload = async () => {
-            // 1. 페이지 초기화와 데이터 로드를 비동기로 한 번에 처리
-            const success = await initChartPage(); 
-            
-            if (success) { 
-                // 2. 프리셋 로드 (이 안에서 renderPresetButtons가 실행됨)
-                await loadPresets(); 
+            try {
+                // [1] 보안 체크: 데이터를 가져오기 전에 무조건 실행
+                const { data: { user } } = await _supabase.auth.getUser();
+
+                // wegofair 도메인 유저가 아니면 차트 접근 차단
+                if (!user || !user.email.endsWith('@wegofair.com')) {
+                    alert("접근 권한이 없습니다. 관리자 계정으로 로그인해 주세요.");
+                    window.location.replace("index.html");
+                    return; // 이후의 모든 데이터 로드 중단
+                }
+
+                // [2] (선택사항) 사이드바나 헤더에 사용자 정보 표시
+                // if (document.getElementById('userEmail')) { ... }
+
+                // [3] 기존 차트 초기화 및 데이터 로드 로직 실행
+                console.log("인증 확인됨: " + user.email);
                 
-                // 3. 만약 초기 데이터로 바로 리포트를 보여줘야 한다면 여기서 호출 가능
-                console.log("모든 데이터 로드 및 UI 준비 완료");
+                // 1. 페이지 초기화와 데이터 로드를 비동기로 처리
+                const success = await initChartPage(); 
+                
+                if (success) { 
+                    // 2. 프리셋 로드
+                    await loadPresets(); 
+                    console.log("모든 데이터 로드 및 UI 준비 완료");
+                }
+            } catch (e) {
+                console.error("차트 초기화 중 오류 발생:", e);
+                // 에러 발생 시 데이터 노출 방지를 위해 로그인 페이지로 리다이렉트 권장
+                // window.location.replace("index.html");
             }
         };
 

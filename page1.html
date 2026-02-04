@@ -182,6 +182,19 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+
+            if (typeof checkWegoFairUser === 'function') {
+                await checkWegoFairUser();
+            } else {
+                // 만약 config.js 로드가 늦어질 경우를 대비한 직접 체크
+                const { data: { user } } = await _supabase.auth.getUser();
+                if (!user || !user.email.endsWith('@wegofair.com')) {
+                    alert("접근 권한이 없습니다.");
+                    window.location.replace("index.html");
+                    return;
+                }
+            }
+
             // 1. URL 해시(#) 확인을 최우선으로 실행
             const hash = window.location.hash.replace('#', '');
             const targetSection = hash || 'dashboard';
