@@ -116,9 +116,6 @@
                 <button class="btn-select" style="color: red; border-color: #feb2b2;" onclick="deleteSelectedRows()">🗑️ 삭제</button>
                 <button id="editModeToggle" class="btn-select" onclick="toggleEditMode()"
                         style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer;">✏️ 수정하기</button>
-                <button class="btn-select" onclick="openExcelUploadModal()"
-                        style="height: 38px; padding: 0 15px; border-radius: 8px; border: 1px solid #cbd5e0; background: white; cursor: pointer;">📤 엑셀 업로드</button>
-            
             </div>
         </div>
     
@@ -231,6 +228,13 @@
                 <div style="font-size: 30px; margin-bottom: 10px;">📊</div>
                 <p id="excelDropText" style="margin: 0; color: #4a5568;">파일을 클릭하거나 이 곳에 드롭하세요.</p>
                 <input type="file" id="excelFileInput" hidden accept=".xlsx, .xls" onchange="handleExcelSelect(event)">
+            </div>
+
+            <div style="margin-top: 10px; text-align: right;">
+                <a href="javascript:void(0)" onclick="downloadExcelTemplate()" 
+                   style="font-size: 13px; color: #718096; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                    업로드용 템플릿 다운로드
+                </a>
             </div>
 
             <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">

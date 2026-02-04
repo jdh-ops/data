@@ -22,22 +22,29 @@
     <div class="login-container">
         <h1>Wegofair 데이터</h1>
         
-        <button onclick="signInWithGoogle()" 
-                style="width: 100%; padding: 12px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; margin-bottom: 25px; transition: 0.2s;">
-            <img src="https://www.google.com/favicon.ico" width="18">
-            Wegofair 계정으로 로그인
-        </button>
-    
-        <div style="border-top: 1px solid #eee; margin: 20px 0; position: relative;">
-            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; color: #999; font-size: 12px;">또는 키워드 접속</span>
+        <div id="beforeLogin">
+            <button onclick="signInWithGoogle()" 
+                    style="width: 100%; padding: 12px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; margin-bottom: 10px;">
+                <img src="https://www.google.com/favicon.ico" width="18">
+                Wegofair 계정으로 로그인
+            </button>
+            <p style="font-size: 12px; color: #718096;">접속을 위해 회사 계정 로그인이 필요합니다.</p>
         </div>
     
-        <input type="text" id="keywordInput" placeholder="키워드를 입력하세요" onkeypress="if(event.keyCode==13) checkKeyword()">
-        <button id="loginBtn" onclick="checkKeyword()">접속하기</button>
+        <div id="afterLogin" style="display: none;">
+
+            <input type="text" id="keywordInput" placeholder="키워드를 입력하세요" onkeypress="if(event.keyCode==13) checkKeyword()">
+            <button id="loginBtn" onclick="checkKeyword()">접속하기</button>
+
+            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; margin-top: 20px; border: 1px solid #e2e8f0;">
+                <p id="userEmailDisplay" style="margin: 0; font-size: 13px; font-weight: bold; color: #2d3748;"></p>
+                <span style="font-size: 11px; color: #48bb78;">인증 완료</span>
+            </div>
+            
+        </div>
     
-        <div style="text-align: center; margin-top: 15px;">
-            <p id="message" style="margin-bottom: 5px;"></p>
-            <p id="errorMsg" style="color: red; font-size: 12px; display: none; margin-bottom: 10px;"></p> 
+        <div style="text-align: center;">
+            <p id="message"></p>
             <button id="create-btn" onclick="openCreateModal()">🛠️ 새 키워드 생성하기</button>
         </div>
     </div>
@@ -103,35 +110,32 @@
 
         // 이미 로그인된 상태인지 확인 (자동 로그인 방지 및 리다이렉트)
         window.onload = async () => {
-            // 1. Supabase 인증 상태 변화를 실시간으로 감지
+            // 세션 변화를 감지하여 UI를 업데이트합니다.
             _supabase.auth.onAuthStateChange(async (event, session) => {
-                console.log("Auth Event:", event); // 인증 이벤트 확인용
+                const beforeLogin = document.getElementById('beforeLogin');
+                const afterLogin = document.getElementById('afterLogin');
+                const userEmailDisplay = document.getElementById('userEmailDisplay');
 
                 if (session && session.user) {
-                    const user = session.user;
-                    const email = user.email || "";
+                    const email = session.user.email || "";
 
-                    // 2. 도메인 체크 (@wegofair.com)
                     if (email.endsWith("@wegofair.com")) {
-                        const message = document.getElementById('message');
-                        if (message) {
-                            message.style.color = "#27ae60";
-                            message.innerHTML = `${email.split('@')[0]}님<br>키워드를 입력하고 접속하세요.`;
-                        }
-
-                        // 로그인 버튼 숨기기 
-                        const googleBtn = document.querySelector('button[onclick="signInWithGoogle()"]');
-                        if (googleBtn) googleBtn.style.display = 'none';
+                        // 1. 도메인 일치 시 UI 전환
+                        beforeLogin.style.display = 'none';
+                        afterLogin.style.display = 'block';
+                        userEmailDisplay.innerText = email;
                         
-                        // 키워드 입력창 활성화
-                        const keywordInput = document.getElementById('keywordInput');
-                        if (keywordInput) keywordInput.focus();
-                        
+                        console.log("인증 성공:", email);
                     } else {
-                        alert("Wegofair 계정으로만 접속 가능합니다.");
+                        // 2. 도메인 불일치 시 로그아웃
+                        alert("Wegofair 계정만 접근 가능합니다.");
                         await _supabase.auth.signOut();
                         window.location.href = 'index.html';
                     }
+                } else {
+                    // 3. 로그아웃 상태일 때
+                    beforeLogin.style.display = 'block';
+                    afterLogin.style.display = 'none';
                 }
             });
         };

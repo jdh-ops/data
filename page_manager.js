@@ -141,9 +141,15 @@ window.renderDataTable = async function(searchKeyword = "", page = 0) {
             <div>
                 🔍 검색 결과: <span style="color:#3182ce;">${totalAfterFilter.toLocaleString()}</span>건 / 전체: ${count?.toLocaleString() || 0}건
             </div>
-            <button onclick="downloadExcel()" class="btn-select" style="padding: 4px 10px; height: 28px; font-size: 12px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                엑셀 다운로드
-            </button>
+
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button onclick="openExcelUploadModal()" class="btn-select" style="padding: 4px 10px; height: 28px; font-size: 12px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                    엑셀 업로드
+                </button>
+                <button onclick="downloadExcel()" class="btn-select" style="padding: 4px 10px; height: 28px; font-size: 12px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                    엑셀 다운로드
+                </button>
+            </div>
         </div>
     `;
 
