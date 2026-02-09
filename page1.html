@@ -149,29 +149,27 @@
         }
 
         // [3] 섹션 전환 로직
-        function showSection(sectionId) {
-            // 1. 모든 섹션 비활성화 및 메뉴 active 제거
+        async function showSection(sectionId) {
+            // 1. UI 즉시 변경 (사용자 체감 속도 향상)
             document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
             
-            // 2. 선택한 섹션 활성화
             const sec = document.getElementById(sectionId);
             if(sec) sec.classList.add('active');
             
-            // 3. 사이드바 메뉴 활성화 (인덱스 보정)
             const items = document.querySelectorAll('.menu-item');
             const menuIdx = { 'dashboard': 0, 'upload': 2, 'settings': 3 };
             if(items[menuIdx[sectionId]]) items[menuIdx[sectionId]].classList.add('active');
 
-            // [중요 수정] upload-logic.js의 로직 호출 (에러 방지용 체크 추가)
-            if (typeof window.onSectionChange === 'function') {
-                window.onSectionChange(sectionId);
-            } else {
-                // 혹시 아직 로드가 안 된 경우를 대비해 이미지 로드라도 시도
+            // 2. 비동기 데이터 로딩 (화면이 먼저 뜬 후 데이터를 가져옴)
+            setTimeout(async () => {
                 if (sectionId === 'dashboard' && typeof fetchImages === 'function') {
-                    fetchImages();
+                    await fetchImages(); // 대시보드일 때만 이미지 로드
                 }
-            }
+                if (typeof window.onSectionChange === 'function') {
+                    window.onSectionChange(sectionId);
+                }
+            }, 0);
         }
 
         function goToGateway() {
@@ -182,22 +180,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-
+            // 1. 보안 체크 우선
             if (typeof checkWegoFairUser === 'function') {
                 await checkWegoFairUser();
-            } else {
-                // 만약 config.js 로드가 늦어질 경우를 대비한 직접 체크
-                const { data: { user } } = await _supabase.auth.getUser();
-                if (!user || !user.email.endsWith('@wegofair.com')) {
-                    alert("접근 권한이 없습니다.");
-                    window.location.replace("index.html");
-                    return;
-                }
             }
-
-            // 1. URL 해시(#) 확인을 최우선으로 실행
-            const hash = window.location.hash.replace('#', '');
-            const targetSection = hash || 'dashboard';
 
             // 2. 제목 설정
             const titleElement = document.getElementById('projectTitle');
@@ -205,12 +191,15 @@
                 titleElement.innerText = typeof projectKeyName !== 'undefined' ? projectKeyName : (window.tableName || 'PROJECT');
             }
 
-            // 3. 필터 버튼 로드 (비동기 처리)
-            if (typeof loadSavedTerms === 'function') {
+            // 3. URL 확인 후 섹션 이동
+            const hash = window.location.hash.replace('#', '');
+            const targetSection = hash || 'dashboard';
+
+            // 4. [중요] 필터 데이터 로드 후 섹션 표시
+            if (targetSection === 'dashboard' && typeof loadSavedTerms === 'function') {
                 await loadSavedTerms(); 
             }
             
-            // 4. 즉시 섹션 전환 (강조 처리가 여기서 일어남)
             showSection(targetSection);
         });
 
