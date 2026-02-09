@@ -25,12 +25,18 @@
     <div class="builder-container" id="builderView">
         <h2 class="fw-bold mb-4">⚒️ 리포트 프리셋 빌더</h2>
         <div class="saved-presets-bar" id="savedPresetsBar">
-            <span class="small fw-bold">💾 저장된 프리셋:</span>
+            <span class="small fw-bold">💾 공용 프리셋:</span>
             <div id="presetButtons" style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <span style="color: #94a3b8; font-size: 13px;">불러오는 중...</span>
             </div>
         </div>
-        <div class="mb-4" style="display: flex; gap: 10px;">
+        <div class="saved-presets-bar" id="projectPresetsBar" style="margin-top: 12px;">
+            <span class="small fw-bold">📁 이 프로젝트 프리셋:</span>
+            <div id="presetButtonsProject" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span style="color: #94a3b8; font-size: 13px;">불러오는 중...</span>
+            </div>
+        </div>
+        <div class="mb-4" style="display: flex; gap: 10px; margin-bottom: 24px;">
             <button class="btn-select" onclick="addPreset('table')">📋 표(Table) 프리셋 추가</button>
             <button class="btn-select" onclick="addPreset('chart')">📊 그래프(Chart) 프리셋 추가</button>
         </div>
@@ -88,10 +94,10 @@
             }
         };
 
-        window.renderPresetButtons = function(data) {
-            const container = document.getElementById('presetButtons');
+        window.renderPresetButtons = function(data, containerId) {
+            const container = document.getElementById(containerId || 'presetButtons');
             if (!container) return;
-            
+
             if (!data || data.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">저장된 프리셋이 없습니다.</span>';
                 return;
@@ -153,6 +159,7 @@
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
                         <span class="preset-type-badge" style="background:${type === 'table' ? '#4a5568' : '#3498db'}">${type.toUpperCase()}</span>
                         <input type="text" class="p-name form-control" style="flex:1; font-weight:bold;" placeholder="프리셋 이름" value="${savedName}">
+                        <label style="display:flex; align-items:center; gap:4px; font-size:12px; color:#64748b; white-space:nowrap; cursor:pointer;"><input type="checkbox" class="p-save-common"> 공용 저장</label>
                         <button class="btn-select" style="width:80px; background:#ebf8ff; padding:8px;" onclick="saveThisPreset('${id}')">💾 저장</button>
                     </div>
 
@@ -292,7 +299,7 @@
             }
         }
 
-        // 저장 함수 (useMonth 값 추가)
+        // 저장 함수 (useMonth, 공용/프로젝트 저장 구분)
         window.saveThisPreset = function(id) {
             const el = document.getElementById(id);
             const type = el.dataset.type;
@@ -301,7 +308,7 @@
                 filterVal: el.querySelector('.p-filter-val').value,
                 filterOp: el.querySelector(`input[name="op_${id}"]:checked`).value,
                 x: el.querySelector('.p-x').value,
-                useMonth: el.querySelector('.p-use-month').checked, // 체크박스 상태 저장
+                useMonth: el.querySelector('.p-use-month').checked,
                 dateFormat: el.querySelector('.p-date-format').value
             };
             if(type === 'chart') config.chartType = el.querySelector('.p-chart-type').value;
@@ -309,7 +316,8 @@
 
             const name = el.querySelector('.p-name').value;
             if(!name) return alert("이름을 입력하세요.");
-            saveAnalysisPreset(name, config, type);
+            const saveToCommon = el.querySelector('.p-save-common').checked;
+            saveAnalysisPreset(name, config, type, saveToCommon);
         };
 
         // 리포트 생성 함수 (config에 useMonth 전달)

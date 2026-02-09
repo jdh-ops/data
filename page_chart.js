@@ -1,24 +1,85 @@
 // page_chart.js
 
+/** 차트 페이지 전용: data_config에서 열 레이아웃 로드 (page_manager.js 없이 동작) */
+async function loadTableConfigForChart() {
+    var tableKey = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
+    var fallback = Array.from({ length: 20 }, function(_, i) {
+        return { id: i + 1, defaultName: '필드 ' + (i + 1), customName: '필드 ' + (i + 1), isVisible: i < 6, width: 150 };
+    });
+    try {
+        var res = await _supabase.from('data_config').select('id, columns_layout').eq('project_key', tableKey).order('created_at', { ascending: false }).limit(1);
+        var data = res.data && res.data.length > 0 ? res.data[0] : null;
+        var raw = data && data.columns_layout;
+        if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { raw = null; } }
+        if (data && raw && Array.isArray(raw) && raw.length > 0) {
+            window.currentLayout = raw.map(function(c, i) {
+                return {
+                    id: c.id != null ? c.id : i + 1,
+                    defaultName: c.defaultName != null ? c.defaultName : '필드 ' + (i + 1),
+                    customName: c.customName != null ? c.customName : (c.defaultName || '필드 ' + (i + 1)),
+                    isVisible: c.isVisible != null ? c.isVisible : true,
+                    width: c.width != null ? c.width : 150
+                };
+            });
+            window.currentPresetId = data.id;
+            return;
+        }
+        var defaultRes = await _supabase.from('data_config').select('id, columns_layout').eq('project_key', 'test_data').eq('layout_name', '보호원 월말보고').maybeSingle();
+        var defaultRaw = defaultRes.data && defaultRes.data.columns_layout;
+        if (typeof defaultRaw === 'string') { try { defaultRaw = JSON.parse(defaultRaw); } catch (e) { defaultRaw = null; } }
+        if (defaultRes.data && defaultRaw && Array.isArray(defaultRaw) && defaultRaw.length > 0) {
+            window.currentLayout = defaultRaw.map(function(c, i) {
+                return {
+                    id: c.id != null ? c.id : i + 1,
+                    defaultName: c.defaultName != null ? c.defaultName : '필드 ' + (i + 1),
+                    customName: c.customName != null ? c.customName : (c.defaultName || '필드 ' + (i + 1)),
+                    isVisible: c.isVisible != null ? c.isVisible : true,
+                    width: c.width != null ? c.width : 150
+                };
+            });
+            window.currentPresetId = defaultRes.data.id;
+            return;
+        }
+        window.currentLayout = fallback.slice();
+        window.currentPresetId = data ? data.id : null;
+    } catch (e) {
+        console.error(e);
+        window.currentLayout = fallback.slice();
+    }
+}
+
 /**
  * [1] 차트 페이지 데이터 초기화
  * 공통 라이브러리(lib_data.js)를 활용하여 레이아웃과 데이터를 불러옵니다.
  */
 window.initChartPage = async function() {
-    tableName = getTableNameFromUrl();
+    window.tableName = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
+    var tableName = window.tableName;
     if (!tableName) return false;
 
     try {
-        // 열 설정과 로우 데이터를 병렬로 로드하여 속도 개선 (Promise.all 활용 가능)
-        const [configResult, dataResult] = await Promise.all([
-            loadTableConfig(),
+        const [_, dataResult] = await Promise.all([
+            loadTableConfigForChart(),
             _supabase.from('data_rows').select('*').eq('project_key', tableName)
         ]);
 
         if (dataResult.error) throw dataResult.error;
-        
-        rawData = dataResult.data || [];
-        // [수정] 불필요한 리렌더링을 방지하기 위해 로드가 확실히 끝난 뒤 true 반환
+
+        var rows = dataResult.data || [];
+        var urlParams = new URLSearchParams(window.location.search);
+        var searchKeyword = urlParams.get('search');
+        var searchField = urlParams.get('searchField') || 'all';
+        if (searchKeyword != null && String(searchKeyword).trim() !== '') {
+            var kw = String(searchKeyword).trim().toLowerCase();
+            rows = rows.filter(function (row) {
+                if (searchField && searchField !== 'all') {
+                    return String(row[searchField] || '').toLowerCase().includes(kw);
+                }
+                return Object.values(row).join(' ').toLowerCase().includes(kw);
+            });
+        }
+        window.rawData = rows;
+        rawData = window.rawData;
         return true;
     } catch (err) {
         console.error("차트 초기화 중 오류:", err);
@@ -226,17 +287,18 @@ function renderPivotChart(target, rows, cols, pivot, config) {
 
 /**
  * [3] 프리셋 저장 및 로드
+ * saveToCommon: true면 공용(COMMON), false면 현재 프로젝트(project_key)에 저장
  */
-window.saveAnalysisPreset = async function(presetName, config, type) {
-    // project_key를 tableName 대신 'COMMON'으로 고정하여 모든 페이지에서 보이게 함
+window.saveAnalysisPreset = async function(presetName, config, type, saveToCommon) {
+    var projectKey = (saveToCommon === true) ? 'COMMON' : (window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data');
     const { error } = await _supabase.from('analysis_presets').insert([{
-        project_key: 'COMMON', 
+        project_key: projectKey,
         preset_name: presetName,
         type: type,
         config: config
     }]);
     if (!error) {
-        alert("💾 공통 프리셋이 저장되었습니다.");
+        alert(saveToCommon ? "💾 공용 프리셋이 저장되었습니다." : "💾 이 프로젝트 프리셋이 저장되었습니다.");
         loadPresets();
     } else {
         alert("저장 실패: " + error.message);
@@ -244,14 +306,18 @@ window.saveAnalysisPreset = async function(presetName, config, type) {
 };
 
 window.loadPresets = async function() {
-    // .eq 조건을 삭제하여 접속 키워드와 상관없이 전체 프리셋을 로드함
-    const { data, error } = await _supabase
-        .from('analysis_presets')
-        .select('*')
-        .order('created_at', { ascending: false });
-    
-    if (!error) {
-        renderPresetButtons(data || []);
+    var tableKey = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
+    try {
+        const [commonRes, projectRes] = await Promise.all([
+            _supabase.from('analysis_presets').select('*').eq('project_key', 'COMMON').order('created_at', { ascending: false }),
+            _supabase.from('analysis_presets').select('*').eq('project_key', tableKey).order('created_at', { ascending: false })
+        ]);
+        if (typeof renderPresetButtons === 'function') {
+            renderPresetButtons(commonRes.data || [], 'presetButtons');
+            renderPresetButtons(projectRes.data || [], 'presetButtonsProject');
+        }
+    } catch (e) {
+        console.error("프리셋 로드 실패:", e);
     }
 };
 

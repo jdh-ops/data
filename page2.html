@@ -75,10 +75,11 @@
             transform: scale(1.1);
         }
 
-        /* 프리셋 모달 전용 스타일 */
+        /* 프리셋 모달 전용 스타일 (잘리지 않도록 max-height 사용) */
         .column-modal-container {
             display: flex;
-            height: 500px;
+            max-height: calc(100vh - 100px);
+            min-height: 400px;
             background: #fff;
             border-radius: 12px;
             overflow: hidden;
@@ -212,7 +213,14 @@
         </div>
     
         <div class="card shadow-sm" style="background: white; border-radius: 12px; overflow: hidden; border: 1px solid #eee; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <div id="dataManagerContainer" style="max-height: calc(100vh - 250px); overflow-y: auto;"></div>
+            <div class="table-info-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                <span id="dataRowCount" style="font-size: 14px; font-weight: 600; color: #4a5568;">총 0건</span>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-select" onclick="openExcelUploadModal()" style="padding: 6px 14px; font-size: 13px;">📤 엑셀 업로드</button>
+                    <button type="button" class="btn-select" onclick="downloadCurrentExcel()" style="padding: 6px 14px; font-size: 13px;">📥 엑셀 다운로드</button>
+                </div>
+            </div>
+            <div id="dataManagerContainer" style="max-height: calc(100vh - 290px); overflow-y: auto;"></div>
         </div>
     </div>
     
@@ -271,11 +279,18 @@
             document.querySelector('.toggle-btn').innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
         }
     
-        // 차트 분석 새 탭 열기
+        // 차트 분석 새 탭 열기 (현재 검색 조건이 있으면 해당 데이터만 차트에 반영)
         function openChartTab() {
-            const params = window.location.search;
-            if (!params) return alert("프로젝트 정보가 없습니다.");
-            window.open(`chart.html${params}`, '_blank');
+            let params = window.location.search || '';
+            const searchInput = document.getElementById('tableSearchInput');
+            const searchFieldSelect = document.getElementById('searchFieldSelect');
+            const keyword = searchInput && searchInput.value ? searchInput.value.trim() : '';
+            const searchField = (searchFieldSelect && searchFieldSelect.value) ? searchFieldSelect.value : 'all';
+            if (keyword) {
+                params += (params ? '&' : '?') + 'search=' + encodeURIComponent(keyword) + '&searchField=' + encodeURIComponent(searchField);
+            }
+            if (!params || params === '?') return alert("프로젝트 정보가 없습니다.");
+            window.open('chart.html' + params, '_blank');
         }
     
         // 3. 모달 제어 함수
@@ -332,8 +347,9 @@
     </div>
 </div>
 
-<div id="commonModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; width: 500px; max-height: 80vh; overflow-y: auto;"></div>
+<div id="commonModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto;">
+    <div class="modal-content" style="background: white; border-radius: 12px; max-height: calc(100vh - 40px); overflow-y: auto; transition: width 0.3s ease; margin: auto;">
+        </div>
 </div>
 
 <div id="addRowModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
