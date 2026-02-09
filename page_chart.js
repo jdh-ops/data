@@ -167,24 +167,58 @@ function renderPivotChart(target, rows, cols, pivot, config) {
     target.innerHTML = ''; 
     target.appendChild(canvas);
     
-    const chartType = config.chartType || 'bar'; // 사용자가 선택한 타입 적용
+    const chartType = config.chartType || 'bar';
     
     const datasets = cols.map((col, i) => ({
         label: col,
         data: rows.map(row => pivot[row][col] || 0),
-        backgroundColor: chartType === 'pie' || chartType === 'doughnut' 
-            ? rows.map((_, idx) => `hsla(${idx * (360 / rows.length)}, 70%, 60%, 0.7)`) // 파이차트는 항목별 색상 다르게
-            : `hsla(${i * (360 / cols.length)}, 70%, 60%, 0.7)`
+        backgroundColor: (chartType === 'pie' || chartType === 'doughnut') 
+            ? rows.map((_, idx) => `hsla(${idx * (360 / rows.length)}, 70%, 60%, 0.7)`)
+            : `hsla(${i * (360 / cols.length)}, 70%, 60%, 0.7)`,
+        // 막대/선 그래프일 때 숫자가 위로 잘 보이라고 위치 조정
+        datalabels: {
+            anchor: (chartType === 'pie' || chartType === 'doughnut') ? 'center' : 'end',
+            align: (chartType === 'pie' || chartType === 'doughnut') ? 'center' : 'top',
+            offset: 5
+        }
     }));
 
     new Chart(canvas, {
         type: chartType,
+        // [수정] 플러그인 등록: ChartDataLabels 추가
+        plugins: [ChartDataLabels], 
         data: { labels: rows, datasets: datasets },
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
+            // 숫자가 잘리지 않도록 상단 여백 확보
+            layout: {
+                padding: {
+                    top: chartType === 'pie' || chartType === 'doughnut' ? 0 : 25
+                }
+            },
             plugins: { 
-                legend: { position: chartType === 'pie' ? 'right' : 'top' } 
+                legend: { position: chartType === 'pie' ? 'right' : 'top' },
+                // [수정] 데이터 라벨 세부 설정
+                datalabels: {
+                    color: (chartType === 'pie' || chartType === 'doughnut') ? '#fff' : '#444',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: function(value, context) {
+                        // 1. 값이 0이면 표시하지 않음 (지저분함 방지)
+                        if (value === 0) return null;
+
+                        // 2. 파이/도넛 차트는 전체 대비 퍼센트 계산
+                        if (chartType === 'pie' || chartType === 'doughnut') {
+                            const dataset = context.dataset.data;
+                            const total = dataset.reduce((acc, data) => acc + data, 0);
+                            const percentage = ((value / total) * 100).toFixed(1) + '%';
+                            return percentage;
+                        }
+                        
+                        // 3. 막대/선 차트는 천단위 콤마 포함한 숫자 표시
+                        return value.toLocaleString();
+                    }
+                }
             }
         }
     });
