@@ -6,6 +6,7 @@ let currentSortField = 'col1_val';
 let isAscending = true;
 let hotInstance = null;
 let displayRows = [];
+// currentPresetId는 lib_data.js에서 선언
 
 // 리사이징 상태 관리 변수
 let isResizing = false;
@@ -73,6 +74,11 @@ window.renderDataTable = async function(searchKeyword = "", page = 0) {
     tableName = getTableNameFromUrl();
     const container = document.getElementById('dataManagerContainer');
     const select = document.getElementById('searchFieldSelect');
+    
+    // [보완] 레이아웃이 이미 로드되어 있다면 중복 호출 방지
+    if (!currentLayout || currentLayout.length === 0) {
+        await loadTableConfig(); 
+    }
     
     // [추가] 수정 모드일 때만 '열 설정' 버튼을 보여줌
     const columnSettingBtn = document.getElementById('columnSettingBtn'); // HTML에 id="columnSettingBtn" 추가 필요
@@ -322,105 +328,101 @@ window.resetTableFilter = function() {
 };
 
 // [6] 열 설정 모달 및 레이아웃 저장
-window.openColumnManagementModal = function() {
-    const layout = currentLayout;
-    if (!layout || layout.length === 0) return alert("데이터를 로딩 중입니다.");
+window.openColumnManagementModal = async function() {
+    // 1. 현재 키워드에 저장된 모든 레이아웃 프리셋 불러오기
+    const { data: presets } = await _supabase
+        .from('data_config')
+        .select('id, layout_name, columns_layout')
+        .eq('project_key', tableName)
+        .order('created_at', { ascending: true });
 
     const modalHtml = `
-        <style>
-            /* 부모 컨테이너가 무엇이든 이 클래스가 포함된 부모의 너비를 강제 고정 */
-            .modal-content, .modal-dialog, #columnModalWrapper {
-                width: 300px !important; /* 가로길이 조절 포인트 */
-                min-width: 300px !important;
-                padding: 10px !important; /* 외부 여백 조절 포인트 */
-                margin: auto !important;
-            }
-        </style>
-
-        <div id="columnModalWrapper" style="width: 100%; box-sizing: border-box; overflow: hidden;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid #edf2f7;">
-                <h5 style="margin:0; font-size:14px; color:#4a5568; font-weight: 600;">⚙️ 열 설정</h5>
-                <button onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:18px; color:#a0aec0; line-height: 1;">✕</button>
-            </div>
-            
-            <div class="modal-body" style="max-height: 400px; overflow-y: auto; overflow-x: hidden; padding: 0;">
-                <div id="columnSortableList" style="display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
-                    ${layout.map((col) => `
-                        <div class="list-group-item" data-id="${col.id}" 
-                             style="display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); width: 100%; box-sizing: border-box;">
-                            
-                            <span class="drag-handle" style="cursor: grab; color: #cbd5e0; font-size: 14px; flex-shrink: 0; user-select: none;">⋮⋮</span>
-                            <input type="checkbox" style="width: 14px; height: 14px; cursor: pointer; accent-color: #319795; flex-shrink: 0;" 
-                                   ${col.isVisible ? 'checked' : ''} 
-                                   onchange="currentLayout.find(c => c.id === ${col.id}).isVisible = this.checked">
-                            
-                            <div style="flex: 1; min-width: 0;">
-                                <input type="text" style="width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; color: #2d3748; outline: none;" 
-                                       value="${col.customName || col.defaultName}" 
-                                       oninput="currentLayout.find(c => c.id === ${col.id}).customName = this.value">
+        <div class="column-modal-container">
+            <div class="preset-sidebar">
+                <div style="padding: 15px; font-size: 12px; font-weight: bold; color: #94a3b8; border-bottom: 1px solid #edf2f7; display:flex; justify-content:space-between;">
+                    저장된 레이아웃
+                    <span title="추천: 가장 최근 설정이 자동 로드됩니다" style="cursor:help;">💡</span>
+                </div>
+                <div class="preset-list" id="presetListContainer">
+                    ${(presets || []).map(p => `
+                        <div class="preset-item ${currentPresetId === p.id ? 'active' : ''}" 
+                            onclick="loadSelectedPreset('${p.id}')" 
+                            style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                📂 ${p.layout_name || '보호원 월말보고'}
+                            </span>
+                            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                                <button onclick="editPresetName('${p.id}', '${p.layout_name}', event)" 
+                                        title="이름 수정"
+                                        style="border:none; background:none; cursor:pointer; font-size:12px; color:#a0aec0; padding:2px;">✏️</button>
+                                <button onclick="deletePreset('${p.id}', '${p.layout_name}', event)" 
+                                        title="삭제"
+                                        style="border:none; background:none; cursor:pointer; font-size:12px; color:#e53e3e; padding:2px;">🗑️</button>
                             </div>
                         </div>
                     `).join('')}
                 </div>
+                <button onclick="addNewLayoutPreset()" style="padding: 15px; background: #fff; border: none; border-top: 1px solid #edf2f7; color: #3182ce; font-weight: bold; cursor: pointer; text-align: left; font-size: 13px;">
+                    + 새 프리셋 추가
+                </button>
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #edf2f7;">
-                <button class="btn-primary" style="padding:5px 12px; background:#3182ce; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600;" onclick="saveColumnLayout()">설정 저장</button>
-                <button class="btn-select" style="padding:5px 12px; border:1px solid #cbd5e0; border-radius:4px; background:#fff; cursor:pointer; font-size:12px;" onclick="closeModal()">취소</button>
+            <div class="column-setting-main">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h5 style="margin:0; font-size:16px; color:#2d3748; font-weight:bold;">⚙️ 열 상세 설정</h5>
+                    <button onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:20px; color:#a0aec0;">✕</button>
+                </div>
+                
+                <div class="column-scroll-area" id="columnSortableList">
+                    ${currentLayout.map((col) => `
+                        <div class="list-group-item" data-id="${col.id}" 
+                             style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <span class="drag-handle" style="cursor: grab; color: #cbd5e0; font-size: 18px;">⋮⋮</span>
+                            <input type="checkbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: #3182ce;" 
+                                   ${col.isVisible ? 'checked' : ''} 
+                                   onchange="window.updateLocalLayout(${col.id}, 'isVisible', this.checked)">
+                            <input type="text" style="flex:1; padding: 6px 10px; border: 1px solid #edf2f7; border-radius: 6px; font-size: 14px; outline:none;" 
+                                   value="${col.customName || col.defaultName}" 
+                                   oninput="window.updateLocalLayout(${col.id}, 'customName', this.value)">
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px; padding-top:15px; border-top:1px solid #edf2f7;">
+                    <button class="btn-primary" style="padding:10px 20px; background:#48bb78; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600;" onclick="saveColumnLayout()">현재 프리셋에 저장</button>
+                    <button class="btn-select" style="padding:10px 20px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; cursor:pointer;" onclick="closeModal()">취소</button>
+                </div>
             </div>
         </div>
     `;
 
     if (typeof showModal === 'function') {
         showModal(modalHtml);
-        
-        // 부모의 스타일을 강제로 한 번 더 입힘
+    
+        // [수정] 부모 컨테이너(.modal-content)의 스타일을 강제로 확장
         setTimeout(() => {
-            const wrapper = document.getElementById('columnModalWrapper');
-            let parent = wrapper.parentElement;
-            while (parent) {
-                // 프로젝트의 모달 클래스 명칭을 찾아 너비 강제 적용
-                if (parent.classList.contains('modal-content') || parent.classList.contains('modal-dialog')) {
-                    parent.style.setProperty('width', '320px', 'important');
-                    parent.style.setProperty('padding', '10px', 'important');
-                    break;
-                }
-                parent = parent.parentElement;
+            const modalWrapper = document.querySelector('#commonModal .modal-content');
+            if (modalWrapper) {
+                modalWrapper.style.setProperty('width', '800px', 'important'); // 가로 800px로 확장
+                modalWrapper.style.setProperty('max-width', '95vw', 'important');
+                modalWrapper.style.setProperty('padding', '0', 'important'); // 내부 여백 제거 (사이드바 밀착)
+                modalWrapper.style.setProperty('overflow', 'hidden', 'important');
             }
         }, 50);
-
+    
         if (window.Sortable) {
             new Sortable(document.getElementById('columnSortableList'), { 
                 handle: '.drag-handle', 
-                animation: 150
+                animation: 150 
             });
         }
     }
 };
 
-
-window.saveColumnLayout = async function() {
-    const items = document.querySelectorAll('#columnSortableList .list-group-item');
-    const newLayout = Array.from(items).map(item => {
-        const id = parseInt(item.dataset.id);
-        return currentLayout.find(c => c.id === id);
-    });
-    
-    const { error } = await _supabase
-        .from('data_config')
-        .upsert({ 
-            project_key: tableName, 
-            columns_layout: newLayout 
-        }, { onConflict: 'project_key' });
-    
-    if (error) {
-        alert("저장 실패: " + error.message);
-    } else {
-        currentLayout = newLayout;
-        alert("설정이 저장되었습니다.");
-        if (typeof closeModal === 'function') closeModal();
-        renderDataTable(); 
-    }
+// 모달 내 실시간 데이터 동기화 함수
+window.updateLocalLayout = function(id, field, value) {
+    const col = currentLayout.find(c => c.id === id);
+    if (col) col[field] = value;
 };
 
 // [핵심 수정] 열 설정 로드 시 'test' 레이아웃을 기본값으로 활용
@@ -428,17 +430,16 @@ window.loadTableConfig = async function() {
     tableName = getTableNameFromUrl();
     if (!tableName) return;
 
-    // [1] 현재 키워드(예: 코이즈) 설정 조회
     let { data, error } = await _supabase
         .from('data_config')
-        .select('columns_layout')
+        .select('id, columns_layout') // [수정] id도 같이 가져와야 프리셋 업데이트가 가능함
         .eq('project_key', tableName)
-        .maybeSingle(); // 데이터가 없어도 에러를 뱉지 않음
+        .maybeSingle();
 
-    if (data && data.columns_layout && data.columns_layout.length > 0) {
-        // 현재 키워드 전용 설정이 있다면 사용
+    if (data && data.columns_layout) {
         currentLayout = data.columns_layout;
-        console.log(`'${tableName}' 전용 설정을 로드했습니다.`);
+        currentPresetId = data.id; // [추가] 로드된 설정의 ID를 전역 변수에 저장
+        console.log(`'${tableName}' 설정을 로드했습니다. (ID: ${currentPresetId})`);
     } else {
         // [2] 설정이 없다면 'test' 설정을 가져옴
         console.warn(`'${tableName}' 설정이 없어 'test' 설정을 조회합니다.`);
@@ -517,4 +518,110 @@ window.closeAddRowModal = function() {
 window.closeExcelModal = function() {
     const modal = document.getElementById('excelUploadModal');
     if (modal) modal.style.display = 'none';
+};
+
+// [저장] 프리셋 ID 있으면 업데이트, 없으면 project_key 기준 업서트
+window.saveColumnLayout = async function() {
+    const items = document.querySelectorAll('#columnSortableList .list-group-item');
+    const newLayout = Array.from(items).map(item => {
+        const id = parseInt(item.dataset.id);
+        return currentLayout.find(c => c.id === id);
+    });
+
+    let result;
+    if (currentPresetId) {
+        result = await _supabase
+            .from('data_config')
+            .update({ columns_layout: newLayout })
+            .eq('id', currentPresetId);
+    } else {
+        // [수정] 최초 저장 시 기본 프리셋 이름을 '보호원 월말보고'로 설정
+        result = await _supabase
+            .from('data_config')
+            .upsert({ 
+                project_key: tableName, 
+                columns_layout: newLayout, 
+                layout_name: '보호원 월말보고' 
+            }, { onConflict: 'project_key' });
+    }
+
+    if (result.error) {
+        alert("저장 실패: " + result.error.message);
+    } else {
+        currentLayout = newLayout;
+        alert("💾 레이아웃이 성공적으로 저장되었습니다.");
+        if (typeof closeModal === 'function') closeModal();
+        renderDataTable();
+    }
+};
+
+window.loadSelectedPreset = async function(presetId) {
+    const { data } = await _supabase
+        .from('data_config')
+        .select('*')
+        .eq('id', presetId)
+        .single();
+    if (data) {
+        currentPresetId = data.id;
+        currentLayout = data.columns_layout;
+        openColumnManagementModal();
+    }
+};
+
+window.addNewLayoutPreset = async function() {
+    const name = prompt("새 레이아웃 프리셋 이름을 입력하세요:");
+    if (!name) return;
+    const { data, error } = await _supabase
+        .from('data_config')
+        .insert([{ project_key: tableName, layout_name: name, columns_layout: currentLayout }])
+        .select();
+    if (!error) {
+        currentPresetId = data[0].id;
+        alert("✨ 새 프리셋이 생성되었습니다.");
+        openColumnManagementModal();
+    }
+};
+
+// 프리셋 이름 수정 함수
+window.editPresetName = async function(presetId, oldName, event) {
+    if (event) event.stopPropagation(); // 부모 클릭 이벤트(프리셋 선택) 방지
+
+    const newName = prompt("변경할 프리셋 이름을 입력하세요:", oldName);
+    if (!newName || newName === oldName) return;
+
+    const { error } = await _supabase
+        .from('data_config')
+        .update({ layout_name: newName })
+        .eq('id', presetId);
+
+    if (!error) {
+        alert("✅ 이름이 변경되었습니다.");
+        openColumnManagementModal(); // 모달 UI 갱신
+    } else {
+        alert("이름 변경 실패: " + error.message);
+    }
+};
+
+window.deletePreset = async function(presetId, presetName, event) {
+    if (event) event.stopPropagation(); // 프리셋 선택 방지
+
+    if (!confirm(`'${presetName}' 프리셋을 정말로 삭제하시겠습니까?`)) return;
+
+    const { error } = await _supabase
+        .from('data_config')
+        .delete()
+        .eq('id', presetId);
+
+    if (!error) {
+        alert("🗑️ 프리셋이 삭제되었습니다.");
+        
+        // 만약 현재 사용 중인 프리셋을 삭제했다면 변수 초기화
+        if (currentPresetId === presetId) {
+            currentPresetId = null;
+        }
+        
+        openColumnManagementModal(); // 모달 UI 갱신
+    } else {
+        alert("삭제 실패: " + error.message);
+    }
 };

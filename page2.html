@@ -74,6 +74,87 @@
             cursor: pointer;
             transform: scale(1.1);
         }
+
+        /* 프리셋 모달 전용 스타일 */
+        .column-modal-container {
+            display: flex;
+            height: 500px;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* 왼쪽 사이드바 */
+        .preset-sidebar {
+            width: 200px;
+            background: #f8fafc;
+            border-right: 1px solid #edf2f7;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preset-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .preset-item {
+            padding: 12px 15px;
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s;
+            color: #4a5568;
+        }
+
+        .preset-item:hover {
+            background: #edf2f7;
+        }
+
+        .preset-item.active {
+            background: #ebf8ff;
+            color: #3182ce;
+            font-weight: bold;
+            border-left: 4px solid #3182ce;
+        }
+
+        /* 오른쪽 설정 영역 */
+        .column-setting-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .column-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .preset-item {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-left: 4px solid transparent; /* 기본 상태에서도 공간 확보 */
+        }
+
+        /* 스크롤바 디자인 (세련되게) */
+        .column-scroll-area::-webkit-scrollbar, .preset-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .column-scroll-area::-webkit-scrollbar-thumb, .preset-list::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+
+        .preset-item button:hover {
+            color: #2d3748 !important; /* 수정 버튼 호버 */
+        }
+        .preset-item button[onclick*="deletePreset"]:hover {
+            color: #c53030 !important; /* 삭제 버튼 호버 (진한 빨강) */
+        }
+
     </style>
 </head>
 <body>
