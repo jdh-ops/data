@@ -297,3 +297,54 @@ body {
 .column-drag-handle:active {
     cursor: grabbing;
 }
+
+/* --------------------------------------------------------------------------
+   인력 현황 모달 표 (헤더·본문 정렬·여백 동일, 입력 시 레이아웃 유지)
+   -------------------------------------------------------------------------- */
+#personnelDetailModal .personnel-detail-table {
+    table-layout: fixed;
+}
+#personnelDetailModal .personnel-detail-table th,
+#personnelDetailModal .personnel-detail-table td {
+    border: 1px solid #e2e8f0;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+#personnelDetailModal .personnel-detail-table .col-checkbox {
+    width: 10px;
+    padding: 6px 2px !important;
+    text-align: center;
+}
+#personnelDetailModal .personnel-detail-table .col-role {
+    width: 80px;
+    padding: 6px 8px !important;
+    text-align: center;
+}
+#personnelDetailModal .personnel-detail-table .col-name {
+    width: 64px;
+    padding: 6px 8px !important;
+    text-align: center;
+}
+#personnelDetailModal .personnel-detail-table .col-cumulative {
+    width: 64px;
+    padding: 6px 8px !important;
+    text-align: center;
+}
+#personnelDetailModal .personnel-detail-table .col-rest {
+    width: 64px;
+    padding: 6px 8px !important;
+    text-align: center;
+}
+#personnelDetailModal .personnel-detail-table .col-join {
+    width: 200px;
+    padding: 6px 8px !important;
+    text-align: left;
+}
+/* 입력 필드가 셀 안에서만 차지하도록 */
+#personnelDetailModal .personnel-detail-table .col-role select,
+#personnelDetailModal .personnel-detail-table .col-name input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+}

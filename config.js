@@ -2,8 +2,19 @@
 const SUPABASE_URL = 'https://vszejvzjznhmlqddltwt.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemVqdnpqem5obWxxZGRsdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjUzMjQsImV4cCI6MjA4MjIwMTMyNH0.O0uFN0J3nMHvlMu1wS4fbumngFTRog6PkHruK6CWE7w'; // (제공하신 키 유지)
 
-// Supabase 클라이언트 초기화
-const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase 클라이언트 초기화 (전역 사용을 위해 window에 명시적으로 할당)
+// apikey를 global.headers에 명시하여 요청 시 항상 포함되도록 함
+var _supabase = null;
+if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_KEY && SUPABASE_KEY.length > 20) {
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        global: { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } }
+    });
+} else {
+    if (!SUPABASE_KEY || SUPABASE_KEY.length <= 20) {
+        console.error('[config.js] SUPABASE_KEY가 비어 있거나 너무 짧습니다. Supabase 대시보드에서 anon public 키를 확인한 뒤 config.js에 넣어주세요.');
+    }
+}
+window._supabase = _supabase;
 
 // URL 파라미터 분석
 const urlParams = new URLSearchParams(window.location.search);

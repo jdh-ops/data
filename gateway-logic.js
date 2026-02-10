@@ -39,7 +39,7 @@ async function processCreate() {
         const { data: settings } = await _supabase.from('system_settings').select('value').eq('key', 'admin_password').single();
         if (!settings || inputPw !== settings.value) return alert("비밀번호가 일치하지 않습니다.");
 
-        const { error: insertError } = await _supabase.from('gateways').insert([{ keyword, target_table: nickname }]);
+        const { error: insertError } = await _supabase.from('gateways').insert([{ keyword, target_table: nickname, target_page: 'page1' }]);
         if (insertError) throw insertError;
 
         alert(`✨ '${keyword}' 생성 완료!`);
@@ -89,10 +89,11 @@ async function checkKeyword() {
             message.style.color = "#27ae60";
             message.innerText = "접속 성공! 잠시 후 이동합니다...";
 
-            // [중요] URL 파라미터를 인코딩하여 page1으로 안전하게 전달
+            const target = data.target_table || data.keyword;
+            const targetPage = (data.target_page || 'page1').toLowerCase();
+            const pagePath = targetPage === 'page3' ? '/page3.html' : '/page1.html';
             setTimeout(() => {
-                const target = data.target_table || data.keyword;
-                const url = new URL(window.location.origin + '/page1.html');
+                const url = new URL(window.location.origin + pagePath);
                 url.searchParams.set('table', target);
                 url.searchParams.set('key', keyword);
                 window.location.href = url.toString();
