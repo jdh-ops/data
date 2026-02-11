@@ -199,8 +199,8 @@
     </div>
 
     <!-- 추가 모달 -->
-    <div id="addKeywordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 24px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+    <div id="addKeywordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;" onclick="if(event.target===this) closeAddKeywordModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
             <h3 style="margin-top: 0;">키워드 추가</h3>
             <div style="margin-bottom: 12px;">
                 <label style="display: block; font-size: 12px; font-weight: bold; color: #4a5568; margin-bottom: 4px;">접속 키워드</label>
@@ -218,8 +218,8 @@
     </div>
 
     <!-- 기준별 급여 수정 모달 (salary_config: target_table 동일 시 4행 덮어쓰기) -->
-    <div id="roleSalaryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;">
-        <div style="background: white; padding: 24px; border-radius: 12px; width: 900px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;">
+    <div id="roleSalaryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeRoleSalaryModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 900px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
                 <div>
                     <div id="salary_modal_title" style="font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 8px;">—</div>
@@ -244,7 +244,7 @@
                 </div>
             </div>
             <div style="margin-bottom: 16px;">
-                <div style="font-size: 12px; color: #475569; margin-bottom: 6px;">기본 급여 (4개 행에 동일 값 저장)</div>
+                <div style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">기준 급여</div>
                 <table style="border-collapse: collapse; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
                     <thead>
                         <tr style="background: #f8fafc;">
@@ -294,8 +294,8 @@
     </div>
 
     <!-- 인력 현황 자세히 보기 모달 -->
-    <div id="personnelDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;">
-        <div style="background: white; padding: 0; border-radius: 12px; width: 720px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;">
+    <div id="personnelDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closePersonnelDetailModal()">
+        <div style="background: white; padding: 0; border-radius: 12px; width: 720px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
                 <h3 style="margin: 0; font-size: 18px;">인력 현황</h3>
                 <button type="button" onclick="closePersonnelDetailModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
@@ -333,12 +333,12 @@
     </div>
 
     <!-- 협약 추가 모달 -->
-    <div id="addContractModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;">
-        <div style="background: white; padding: 0; border-radius: 12px; width: 800px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;">
+    <div id="addContractModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeAddContractModal()">
+        <div style="background: white; padding: 0; border-radius: 12px; width: 800px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <h3 id="addContractModalTitle" style="margin: 0; font-size: 18px;">협약 추가</h3>
-                    <input type="text" id="addContractNumTag" placeholder="1차" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; width: 120px; font-size: 14px;">
+                    <input type="text" id="addContractNumTag" placeholder="N차" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; width: 40px; font-size: 14px;">
                     <select id="addContractStatus" onchange="toggleAddContractRefNo()" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; min-width: 90px;">
                         <option value="신청">신청</option>
                         <option value="선정">선정</option>
@@ -348,7 +348,10 @@
                         <input type="text" id="addContractRefNo" placeholder="ref_no" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; width: 120px; font-size: 14px;">
                     </span>
                 </div>
-                <button type="button" onclick="closeAddContractModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-select" style="padding: 6px 12px; font-size: 13px;" onclick="toggleLoadContractSearch()">불러오기</button>
+                    <button type="button" onclick="closeAddContractModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+                </div>
             </div>
             <div style="padding: 24px;">
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 20px;">
@@ -382,23 +385,13 @@
                             </tr>
                         </thead>
                         <tbody id="addContractPersonnelBody">
-                            <tr>
-                                <td style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center;"><input type="checkbox" class="add-contract-row-cb"></td>
-                                <td class="add-contract-role-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #f8fafc;"></td>
-                                <td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><select class="add-contract-name" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"><option value="">선택</option></select></td>
-                                <td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-rate" placeholder="%" style="width: 60px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; box-sizing: border-box;"></td>
-                                <td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-period" placeholder="기간" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td>
-                                <td class="add-contract-cost-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: right; background: #f8fafc;"></td>
-                                <td class="add-contract-cumulative-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td>
-                                <td class="add-contract-rest-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td>
-                            </tr>
                         </tbody>
                         <tfoot>
                             <tr style="background: #f8fafc;">
                                 <td colspan="5" style="border: 1px solid #e2e8f0; padding: 4px 10px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <span>
-                                            <button type="button" class="btn-select" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="addContractPersonnelRow()">+ 행 추가</button>
+                                            <button type="button" class="btn-select" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openAddContractSelectPersonnelModal()">인력 선택</button>
                                             <button type="button" class="btn-select" style="padding: 4px 8px; font-size: 11px; border-color: #feb2b2; color: #c53030;" onclick="deleteContractPersonnelRows()">- 삭제</button>
                                         </span>
                                         <span style="font-weight: bold;">소계</span>
@@ -440,9 +433,14 @@
                             <td style="border: 1px solid #e2e8f0; padding: 6px 10px; width: 120px; background: #f8fafc;">기업부담 현금</td>
                             <td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><span id="addContractCompanyCashDisplay"></span></td>
                         </tr>
-                        <tr>
+                        <tr class="no-row-hover">
                             <td style="border: 1px solid #e2e8f0; padding: 6px 10px; background: #f8fafc;">총액</td>
-                            <td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" id="addContractTotalAmount" placeholder="입력" style="width: 100%; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; background: #fff7ed;"></td>
+                            <td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed; text-align: center;">
+                                <input type="text" id="addContractTotalAmount" placeholder="입력" style="width: 100%; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; background: #fff7ed; text-align: center;">
+                            </td>
+                            <td colspan="2" style="border: none; padding: 6px 8px; width: 120px; vertical-align: middle; text-align: left; background: transparent;">
+                                <button type="button" class="btn-select" style="padding: 6px 12px; font-size: 13px;" onclick="setAddContractTotalToMaxGovSupport()">최대</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -454,9 +452,55 @@
         </div>
     </div>
 
+    <!-- 협약 추가용 인력 선택 모달 -->
+    <div id="addContractSelectPersonnelModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeAddContractSelectPersonnelModal()">
+        <div style="background: white; padding: 0; border-radius: 12px; width: 720px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
+                <h3 style="margin: 0; font-size: 18px;">인력 선택</h3>
+                <button type="button" onclick="closeAddContractSelectPersonnelModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="padding: 20px 24px; border: 2px dashed #e2e8f0; border-radius: 0 0 12px 12px; margin: 0 24px 24px 24px;">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
+                    <input type="text" id="addContractSelectPersonnelSearch" placeholder="검색 (이름, 참여 협약)" style="flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;" onkeydown="if(event.key==='Enter'){ event.preventDefault(); filterAddContractSelectPersonnelTable(); }">
+                    <button type="button" class="btn-select" style="padding: 8px 16px;" onclick="filterAddContractSelectPersonnelTable()">검색</button>
+                    <button type="button" class="btn-select" style="padding: 8px 16px; background: #3182ce; color: white; border: none; font-weight: bold;" onclick="confirmAddContractSelectPersonnel()">완료</button>
+                </div>
+                <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <thead id="addContractSelectPersonnelTableHead">
+                        <tr style="background: #f8fafc;">
+                            <th style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; width: 36px;"></th>
+                            <th class="col-role" style="border: 1px solid #e2e8f0; padding: 6px 8px; width: 72px;">구분</th>
+                            <th class="col-name" style="border: 1px solid #e2e8f0; padding: 6px 8px; width: 72px;">이름</th>
+                            <th class="col-cumulative" style="border: 1px solid #e2e8f0; padding: 6px 8px; width: 48px;">누적</th>
+                            <th class="col-rest" style="border: 1px solid #e2e8f0; padding: 6px 8px; width: 48px;">잉여</th>
+                            <th class="col-join" style="border: 1px solid #e2e8f0; padding: 6px 8px;">참여 협약</th>
+                        </tr>
+                    </thead>
+                    <tbody id="addContractSelectPersonnelTableBody">
+                        <tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 협약 불러오기 작은 팝업 -->
+    <div id="loadContractPopup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.35); z-index: 1002; align-items: center; justify-content: center;" onclick="if(event.target===this) closeLoadContractPopup()">
+        <div style="background: white; padding: 16px 20px; border-radius: 10px; width: 400px; max-width: 92vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.15);" onclick="event.stopPropagation();">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-size: 15px; font-weight: bold; color: #1e293b;">협약 불러오기</span>
+                <button type="button" onclick="closeLoadContractPopup()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <input type="text" id="loadContractSearchInput" placeholder="키워드, 기업명, 브랜드명 검색..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; margin-bottom: 10px; font-size: 14px; box-sizing: border-box;">
+            <div id="loadContractList" style="max-height: 280px; overflow-y: auto; font-size: 13px; min-height: 60px;">
+                <p style="margin: 0; color: #94a3b8;">불러오기 목록을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- 계약 기간 수정 팝업 -->
-    <div id="contractPeriodEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; align-items: center; justify-content: center; flex-direction: row;">
-        <div style="background: white; padding: 24px; border-radius: 12px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation();">
+    <div id="contractPeriodEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; align-items: center; justify-content: center; flex-direction: row;" onclick="if(event.target===this) closeContractPeriodEditModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0; font-size: 18px;">계약 기간 수정</h3>
                 <button type="button" onclick="closeContractPeriodEditModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
@@ -478,8 +522,8 @@
     </div>
 
     <!-- 삭제 비밀번호 확인 모달 -->
-    <div id="deleteKeywordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 24px; border-radius: 12px; width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+    <div id="deleteKeywordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;" onclick="if(event.target===this) closeDeleteKeywordModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
             <h3 style="margin-top: 0;">삭제 확인</h3>
             <p style="font-size: 13px; color: #4a5568; margin-bottom: 12px;">관문에서 키워드 추가할 때 사용하는 관리자 비밀번호를 입력하세요.</p>
             <input type="password" id="deletePasswordInput" placeholder="관리자 비밀번호" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; margin-bottom: 16px;">

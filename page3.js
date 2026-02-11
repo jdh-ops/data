@@ -419,6 +419,21 @@ function loadContractDetailList() {
             byNumTag[tag].push(r);
         });
         var tagOrder = Object.keys(byNumTag).sort();
+        tagOrder.forEach(function (tag) {
+            byNumTag[tag].sort(function (a, b) {
+                var sa = (a.status || '').trim();
+                var sb = (b.status || '').trim();
+                if (sa === '선정' && sb === '선정') {
+                    var ra = (a.ref_no || '').toString().trim();
+                    var rb = (b.ref_no || '').toString().trim();
+                    var cmp = ra.localeCompare(rb, 'ko-KR', { numeric: true });
+                    return cmp !== 0 ? cmp : ((a.id || 0) - (b.id || 0));
+                }
+                if (sa === '선정') return -1;
+                if (sb === '선정') return 1;
+                return ((a.id || 0) - (b.id || 0));
+            });
+        });
         function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
         function fmtNum(n) { var x = Number(n); return isNaN(x) ? '0' : x.toLocaleString('ko-KR'); }
         function cardHtml(c) {
@@ -474,6 +489,35 @@ var personnelDetailListCache = [];
 var personnelDetailEditMode = false;
 var personnelDetailOriginalIds = [];
 var PERSONNEL_DETAIL_ROLES = ['책임연구원', '연구원', '연구보조원'];
+var PERSONNEL_ROLE_ORDER = { '책임연구원': 0, '연구원': 1, '연구보조원': 2 };
+
+var _personnelNameCollator = null;
+function getPersonnelNameCollator() {
+    if (_personnelNameCollator) return _personnelNameCollator;
+    try {
+        _personnelNameCollator = new Intl.Collator('ko-KR', { sensitivity: 'base' });
+    } catch (e) {
+        _personnelNameCollator = { compare: function (a, b) { return (a || '').localeCompare(b || '', 'ko-KR'); } };
+    }
+    return _personnelNameCollator;
+}
+
+function sortPersonnelByRoleThenName(list) {
+    if (!list || !list.length) return list;
+    var nameCompare = getPersonnelNameCollator().compare;
+    return list.slice().sort(function (a, b) {
+        var posA = (a.position || '').trim();
+        var posB = (b.position || '').trim();
+        var orderA = PERSONNEL_ROLE_ORDER[posA];
+        var orderB = PERSONNEL_ROLE_ORDER[posB];
+        if (orderA != null && orderB != null && orderA !== orderB) return orderA - orderB;
+        if (orderA != null && orderB == null) return -1;
+        if (orderA == null && orderB != null) return 1;
+        var nameA = (a.name || '').trim();
+        var nameB = (b.name || '').trim();
+        return nameCompare(nameA, nameB);
+    });
+}
 
 function joinContractSearchText(joinContract) {
     if (joinContract == null) return '';
@@ -487,7 +531,7 @@ function joinContractSearchText(joinContract) {
 function formatJoinContractTags(joinContract) {
     if (joinContract == null) return '';
     var arr = Array.isArray(joinContract) ? joinContract : [];
-    return arr.map(function (item) {
+    var spans = arr.map(function (item) {
         var company = '', brand = '', rate = '';
         if (Array.isArray(item)) {
             company = (item[0] != null) ? String(item[0]) : '';
@@ -499,9 +543,13 @@ function formatJoinContractTags(joinContract) {
             rate = item.rate != null ? String(item.rate) : (item.참여율 != null ? String(item.참여율) : '');
         }
         if (!company && !brand && !rate) return '';
-        var label = company + (brand ? '(' + brand + ')' : '') + (rate ? ' : ' + rate : '');
-        return '<span style="display: inline-block; margin: 2px 4px 2px 0; padding: 4px 8px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 12px;">' + (label.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span>';
-    }).filter(Boolean).join('');
+        var rateStr = (rate || '').trim();
+        if (rateStr && rateStr.indexOf('%') === -1) rateStr += '%';
+        var label = company + (brand ? '(' + brand + ')' : '') + (rateStr ? ' : ' + rateStr : '');
+        return '<span style="display: inline-block; margin: 2px 4px 2px 0; padding: 4px 8px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 12px;">' + (label.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')) + '</span>';
+    }).filter(Boolean);
+    if (spans.length === 0) return '';
+    return '<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">' + spans.join('') + '</span>';
 }
 
 function loadPersonnelDetailTable() {
@@ -518,6 +566,7 @@ function loadPersonnelDetailTable() {
         var partRes = results[1];
         var contractsRes = results[2];
         var list = (personnelRes && personnelRes.data) ? personnelRes.data : [];
+        list = sortPersonnelByRoleThenName(list);
         var partList = (partRes && partRes.data) ? partRes.data : [];
         var contracts = (contractsRes && contractsRes.data) ? contractsRes.data : [];
         var partMap = {};
@@ -542,6 +591,7 @@ function loadPersonnelDetailTable() {
             _supabase.from('contract_registry').select('id, status').eq('target_table', projectKey)
         ]).then(function (results) {
             var list = (results[0] && results[0].data) ? results[0].data : [];
+            list = sortPersonnelByRoleThenName(list);
             var partList = (results[1] && results[1].data) ? results[1].data : [];
             var contracts = (results[2] && results[2].data) ? results[2].data : [];
             var partMap = {};
@@ -734,7 +784,120 @@ function closePersonnelDetailModal() {
 
 var addContractPersonnelList = [];
 var addContractSalaryByCorpKey = {};
+var addContractMaxGovSupport = 0;
 var _addContractEditingId = null;
+var _loadContractFullList = [];
+
+function toggleLoadContractSearch() {
+    var popup = document.getElementById('loadContractPopup');
+    var listEl = document.getElementById('loadContractList');
+    if (!popup) return;
+    if (popup.style.display === 'none' || !popup.style.display) {
+        popup.style.display = 'flex';
+        if (_loadContractFullList.length === 0) {
+            if (listEl) listEl.innerHTML = '<p style="margin:0; color:#94a3b8;">불러오기 목록을 불러오는 중...</p>';
+            loadAllContractsForSearch();
+        } else {
+            renderLoadContractList((document.getElementById('loadContractSearchInput') || {}).value || '');
+        }
+        var inp = document.getElementById('loadContractSearchInput');
+        if (inp) {
+            inp.value = '';
+            inp.removeEventListener('input', onLoadContractSearchInput);
+            inp.addEventListener('input', onLoadContractSearchInput);
+        }
+    } else {
+        closeLoadContractPopup();
+    }
+}
+
+function closeLoadContractPopup() {
+    var popup = document.getElementById('loadContractPopup');
+    var inp = document.getElementById('loadContractSearchInput');
+    if (popup) popup.style.display = 'none';
+    if (inp) inp.value = '';
+}
+
+function onLoadContractSearchInput() {
+    var inp = document.getElementById('loadContractSearchInput');
+    renderLoadContractList(inp ? inp.value : '');
+}
+
+function loadAllContractsForSearch() {
+    var listEl = document.getElementById('loadContractList');
+    _supabase.from('gateways').select('keyword, target_table').eq('target_page', 'page3').then(function (gwRes) {
+        var gateways = (gwRes.data || []).filter(function (r) {
+            var kw = (r.keyword || '').trim();
+            return (r.target_table || '').trim() && kw !== '보호원';
+        });
+        var keywordByTable = {};
+        gateways.forEach(function (r) { keywordByTable[r.target_table] = (r.keyword || r.target_table || '').trim(); });
+        var tables = gateways.map(function (r) { return r.target_table; }).filter(function (t, i, arr) { return arr.indexOf(t) === i; });
+        if (tables.length === 0) {
+            _loadContractFullList = [];
+            if (listEl) listEl.innerHTML = '<p style="margin:0; color:#94a3b8;">협약이 없습니다.</p>';
+            return;
+        }
+        var promises = tables.map(function (t) {
+            return _supabase.from('contract_registry').select('id, target_table, company_name, brand_name').eq('target_table', t);
+        });
+        Promise.all(promises).then(function (results) {
+            var combined = [];
+            results.forEach(function (res) {
+                var rows = res.data || [];
+                rows.forEach(function (row) {
+                    var kw = keywordByTable[row.target_table] || row.target_table || '';
+                    if (kw === '보호원') return;
+                    combined.push({
+                        id: row.id,
+                        target_table: row.target_table,
+                        company_name: (row.company_name || '').trim(),
+                        brand_name: (row.brand_name || '').trim(),
+                        keyword: kw
+                    });
+                });
+            });
+            _loadContractFullList = combined;
+            renderLoadContractList((document.getElementById('loadContractSearchInput') || {}).value || '');
+        }).catch(function (err) {
+            console.error('협약 목록 로드 실패:', err);
+            if (listEl) listEl.innerHTML = '<p style="margin:0; color:#e53e3e;">목록을 불러오지 못했습니다.</p>';
+        });
+    });
+}
+
+function renderLoadContractList(filter) {
+    var listEl = document.getElementById('loadContractList');
+    if (!listEl) return;
+    var q = (filter || '').trim().toLowerCase();
+    var items = _loadContractFullList;
+    if (q) {
+        items = items.filter(function (x) {
+            var kw = (x.keyword || '').toLowerCase();
+            var company = (x.company_name || '').toLowerCase();
+            var brand = (x.brand_name || '').toLowerCase();
+            return kw.indexOf(q) !== -1 || company.indexOf(q) !== -1 || brand.indexOf(q) !== -1;
+        });
+    }
+    if (items.length === 0) {
+        listEl.innerHTML = '<p style="margin:0; color:#94a3b8;">' + (q ? '검색 결과가 없습니다.' : '협약이 없습니다.') + '</p>';
+        return;
+    }
+    var html = items.map(function (x) {
+        var label = x.keyword + '-' + x.company_name + (x.brand_name ? '(' + x.brand_name + ')' : '');
+        var safe = (label || '').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return '<div class="load-contract-item" data-id="' + x.id + '" style="padding:8px 10px; border-bottom:1px solid #e2e8f0; cursor:pointer; border-radius:4px;" onmouseover="this.style.background=\'#edf2f7\'" onmouseout="this.style.background=\'transparent\'">' + safe + '</div>';
+    }).join('');
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('.load-contract-item').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var id = parseInt(el.getAttribute('data-id'), 10);
+            closeLoadContractPopup();
+            openAddContractModal(id);
+        });
+    });
+}
+
 function getRefNoDefault() {
     var key = (window.tableName || window.projectKeyName || '').toString().trim();
     var year = new Date().getFullYear();
@@ -751,6 +914,7 @@ var CORP_KEY_TO_LABEL = { small: '소기업', mid: '중기업', midlarge: '중�
 var YEARS_LABEL_TO_KEY = { '3년미만': 'under_3y', '3년차': 'year_3', '5년차': 'year_5', '7년 이상': 'over_7y' };
 var ROLE_SALARY_KEYS = { '책임연구원': 'salary_senior', '연구원': 'salary_researcher', '보조연구원': 'salary_assistant' };
 var YEARS_TO_RATIO_KEYS = { '3년미만': { cash: 'cash_under_3y', kind: 'kind_under_3y' }, '3년차': { cash: 'cash_year_3', kind: 'kind_year_3' }, '5년차': { cash: 'cash_year_5', kind: 'kind_year_5' }, '7년 이상': { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
+var YEARS_VALUE_TO_KEYS = { under_3y: { cash: 'cash_under_3y', kind: 'kind_under_3y' }, year_3: { cash: 'cash_year_3', kind: 'kind_year_3' }, year_5: { cash: 'cash_year_5', kind: 'kind_year_5' }, over_7y: { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
 
 function openAddContractModal(contractId) {
     var modal = document.getElementById('addContractModal');
@@ -777,17 +941,16 @@ function openAddContractModal(contractId) {
         totalAmountEl.addEventListener('blur', formatAddContractTotalAmountInput);
     }
     var projectKey = getProjectKey();
-    function applyPersonnelAndSalary(nameOptions, participationRows) {
+    function applyPersonnelAndSalary(participationRows) {
         var personnelTbody = document.getElementById('addContractPersonnelBody');
         if (!personnelTbody) return;
-        var rowsToCreate = participationRows && participationRows.length ? participationRows : [{ personnel_id: null, rate: '' }];
-        var rowHtml = '<tr><td style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;"><input type="checkbox" class="add-contract-row-cb"></td><td class="add-contract-role-cell" style="border:1px solid #e2e8f0;padding:6px 8px;background:#f8fafc;"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;"><select class="add-contract-name" style="width:100%;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;box-sizing:border-box;">' + nameOptions + '</select></td><td style="border:1px solid #e2e8f0;padding:6px 8px;background:#fff7ed;"><input type="text" class="add-contract-rate" placeholder="%" style="width:60px;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;text-align:center;box-sizing:border-box;"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;background:#fff7ed;"><input type="text" class="add-contract-period" placeholder="기간" style="width:100%;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;box-sizing:border-box;"></td><td class="add-contract-cost-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:right;background:#f8fafc;"></td><td class="add-contract-cumulative-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;background:#f8fafc;"></td><td class="add-contract-rest-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;background:#f8fafc;"></td></tr>';
-        personnelTbody.innerHTML = rowsToCreate.map(function () { return rowHtml; }).join('');
+        var rowsToCreate = participationRows && participationRows.length ? participationRows : [];
+        var rowTemplate = '<tr><td style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;"><input type="checkbox" class="add-contract-row-cb"></td><td class="add-contract-role-cell" style="border:1px solid #e2e8f0;padding:6px 8px;background:#f8fafc;"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;"><span class="add-contract-name-display"></span><input type="hidden" class="add-contract-personnel-id" value=""></td><td style="border:1px solid #e2e8f0;padding:6px 8px;background:#fff7ed;"><input type="text" class="add-contract-rate" placeholder="%" style="width:60px;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;text-align:center;box-sizing:border-box;"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;background:#fff7ed;"><input type="text" class="add-contract-period" placeholder="기간" style="width:100%;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;box-sizing:border-box;"></td><td class="add-contract-cost-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:right;background:#f8fafc;"></td><td class="add-contract-cumulative-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;background:#f8fafc;"></td><td class="add-contract-rest-cell" style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;background:#f8fafc;"></td></tr>';
+        personnelTbody.innerHTML = rowsToCreate.map(function () { return rowTemplate; }).join('');
         personnelTbody.querySelectorAll('tr').forEach(function (tr, i) {
             var pr = rowsToCreate[i];
             if (pr) {
-                var sel = tr.querySelector('.add-contract-name');
-                if (sel) sel.value = pr.personnel_id != null ? pr.personnel_id : '';
+                setAddContractRowPersonnel(tr, pr.personnel_id != null ? pr.personnel_id : '');
                 var rateInp = tr.querySelector('.add-contract-rate');
                 if (rateInp) rateInp.value = (pr.rate != null && pr.rate !== '') ? String(pr.rate) : '';
                 var periodInp = tr.querySelector('.add-contract-period');
@@ -825,7 +988,7 @@ function openAddContractModal(contractId) {
     }
     var promises = [
         _supabase.from('personnel_master').select('id, position, name, total_rate, rest_rate').eq('target_table', projectKey),
-        _supabase.from('salary_config').select('corp_size, salary_senior, salary_researcher, salary_assistant, cash_under_3y, kind_under_3y, cash_year_3, kind_year_3, cash_year_5, kind_year_5, cash_over_7y, kind_over_7y').eq('target_table', projectKey),
+        _supabase.from('salary_config').select('corp_size, max_support_amount, salary_senior, salary_researcher, salary_assistant, cash_under_3y, kind_under_3y, cash_year_3, kind_year_3, cash_year_5, kind_year_5, cash_over_7y, kind_over_7y').eq('target_table', projectKey),
         _addContractEditingId ? _supabase.from('page3_participation').select('personnel_id, rate').eq('contract_id', _addContractEditingId) : Promise.resolve({ data: [] }),
         _addContractEditingId ? _supabase.from('contract_registry').select('*').eq('id', _addContractEditingId).single() : Promise.resolve({ data: null })
     ];
@@ -837,20 +1000,19 @@ function openAddContractModal(contractId) {
         if (personnelRes && personnelRes.error) console.warn('personnel_master 조회 오류:', personnelRes.error);
         addContractPersonnelList = (personnelRes && !personnelRes.error && personnelRes.data) ? personnelRes.data : [];
         addContractSalaryByCorpKey = {};
-        (salaryRes && !salaryRes.error && salaryRes.data || []).forEach(function (r) {
+        var salaryRows = salaryRes && !salaryRes.error && salaryRes.data ? salaryRes.data : [];
+        var enToKor = { small: '소기업', mid: '중기업', midlarge: '중견기업', large: '대기업' };
+        var korToKey = { '소기업': 'small', '중기업': 'mid', '중견기업': 'midlarge', '대기업': 'large' };
+        salaryRows.forEach(function (r) {
             var k = r.corp_size;
             if (!k) return;
             var rowData = { salary_senior: Number(r.salary_senior) || 0, salary_researcher: Number(r.salary_researcher) || 0, salary_assistant: Number(r.salary_assistant) || 0, cash_under_3y: Number(r.cash_under_3y) || 0, kind_under_3y: Number(r.kind_under_3y) || 0, cash_year_3: Number(r.cash_year_3) || 0, kind_year_3: Number(r.kind_year_3) || 0, cash_year_5: Number(r.cash_year_5) || 0, kind_year_5: Number(r.kind_year_5) || 0, cash_over_7y: Number(r.cash_over_7y) || 0, kind_over_7y: Number(r.kind_over_7y) || 0 };
             addContractSalaryByCorpKey[k] = rowData;
-            var enToKor = { small: '소기업', mid: '중기업', midlarge: '중견기업', large: '대기업' };
-            var korToKey = { '소기업': 'small', '중기업': 'mid', '중견기업': 'midlarge', '대기업': 'large' };
             if (enToKor[k]) addContractSalaryByCorpKey[enToKor[k]] = rowData;
             if (korToKey[k]) addContractSalaryByCorpKey[korToKey[k]] = rowData;
         });
-        var nameOptions = '<option value="">선택</option>' + addContractPersonnelList.map(function (p) {
-            var name = (p.name || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-            return '<option value="' + (p.id || '') + '">' + name + '</option>';
-        }).join('');
+        var maxSupportFromRows = salaryRows.map(function (r) { return parseInt(String(r.max_support_amount || '0').replace(/,/g, ''), 10) || 0; });
+        addContractMaxGovSupport = maxSupportFromRows.length ? Math.max.apply(null, maxSupportFromRows) : 0;
         var partRows = (partRes && partRes.data) ? partRes.data : [];
         var contract = (contractRes && contractRes.data) ? contractRes.data : null;
         var prArray = contract && Array.isArray(contract.participation_rate) ? contract.participation_rate : [];
@@ -863,19 +1025,40 @@ function openAddContractModal(contractId) {
         } else if (partRows.length) {
             partRows = partRows.map(function (pr) { return { personnel_id: pr.personnel_id, rate: pr.rate, period: '' }; });
         }
-        applyPersonnelAndSalary(nameOptions, partRows.length ? partRows : null);
+        applyPersonnelAndSalary(partRows.length ? partRows : null);
         fillContractForm(contract);
     }).catch(function (err) {
         console.error('협약 추가 모달 로드 실패:', err);
     });
 }
-function buildAddContractRowHtml(nameOptions) {
-    return '<tr><td style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center;"><input type="checkbox" class="add-contract-row-cb"></td><td class="add-contract-role-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #f8fafc;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><select class="add-contract-name" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;">' + nameOptions + '</select></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-rate" placeholder="%" style="width: 60px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; box-sizing: border-box;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-period" placeholder="기간" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td class="add-contract-cost-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: right; background: #f8fafc;"></td><td class="add-contract-cumulative-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td><td class="add-contract-rest-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td></tr>';
+function setAddContractRowPersonnel(tr, personnelId) {
+    var idInput = tr && tr.querySelector('.add-contract-personnel-id');
+    var nameSpan = tr && tr.querySelector('.add-contract-name-display');
+    if (idInput) idInput.value = personnelId != null ? String(personnelId) : '';
+    if (nameSpan) {
+        if (!personnelId) { nameSpan.textContent = ''; return; }
+        var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(personnelId); })[0];
+        nameSpan.textContent = p ? (p.name || '').trim() : '';
+    }
+}
+
+function getAddContractSelectedPersonnelIds() {
+    var tbody = document.getElementById('addContractPersonnelBody');
+    if (!tbody) return [];
+    var ids = [];
+    tbody.querySelectorAll('.add-contract-personnel-id').forEach(function (inp) {
+        var v = (inp.value || '').trim();
+        if (v) ids.push(v);
+    });
+    return ids;
+}
+
+function buildAddContractRowHtml() {
+    return '<tr><td style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center;"><input type="checkbox" class="add-contract-row-cb"></td><td class="add-contract-role-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #f8fafc;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><span class="add-contract-name-display"></span><input type="hidden" class="add-contract-personnel-id" value=""></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-rate" placeholder="%" style="width: 60px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; box-sizing: border-box;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-period" placeholder="기간" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td class="add-contract-cost-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: right; background: #f8fafc;"></td><td class="add-contract-cumulative-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td><td class="add-contract-rest-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; background: #f8fafc;"></td></tr>';
 }
 function bindAddContractRowEvents(tr) {
     if (tr.getAttribute('data-add-contract-bound') === '1') return;
     tr.setAttribute('data-add-contract-bound', '1');
-    var nameSel = tr.querySelector('.add-contract-name');
     var rateInp = tr.querySelector('.add-contract-rate');
     var periodInp = tr.querySelector('.add-contract-period');
     function onUpdate() {
@@ -884,16 +1067,15 @@ function bindAddContractRowEvents(tr) {
         updateAddContractSubtotal();
         updateAddContractFinancialTable();
     }
-    if (nameSel) nameSel.addEventListener('change', onUpdate);
     if (rateInp) { rateInp.addEventListener('input', onUpdate); rateInp.addEventListener('change', onUpdate); }
     if (periodInp) { periodInp.addEventListener('input', onUpdate); periodInp.addEventListener('change', onUpdate); }
 }
 function onAddContractNameChange(tr) {
-    var nameSel = tr.querySelector('.add-contract-name');
+    var idInput = tr.querySelector('.add-contract-personnel-id');
     var roleCell = tr.querySelector('.add-contract-role-cell');
     var cumCell = tr.querySelector('.add-contract-cumulative-cell');
     var restCell = tr.querySelector('.add-contract-rest-cell');
-    var id = nameSel && nameSel.value ? nameSel.value : '';
+    var id = idInput && idInput.value ? idInput.value : '';
     var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(id); })[0];
     if (!roleCell) return;
     if (!p) {
@@ -908,8 +1090,8 @@ function onAddContractNameChange(tr) {
 }
 function getAddContractSalaryForRole(role) {
     var corpEl = document.getElementById('addContractCompanyType');
-    var corpLabel = corpEl && corpEl.value ? corpEl.value : '중기업';
-    var corpKey = CORP_LABEL_TO_KEY[corpLabel] || 'mid';
+    var rawVal = corpEl && corpEl.value ? corpEl.value : 'mid';
+    var corpKey = CORP_LABEL_TO_KEY[rawVal] || rawVal;
     var row = addContractSalaryByCorpKey[corpKey];
     if (!row) return 0;
     var key = ROLE_SALARY_KEYS[role];
@@ -949,10 +1131,9 @@ function updateAddContractFinancialTable() {
     var yearsEl = document.getElementById('addContractYears');
     var totalAmount = parseAddContractNumber(totalAmountEl && totalAmountEl.value ? totalAmountEl.value : 0);
     var personnelSum = parseAddContractNumber(subtotalEl && subtotalEl.value ? subtotalEl.value : 0);
-    var corpKey = corpEl && corpEl.value ? (CORP_LABEL_TO_KEY[corpEl.value] || 'mid') : 'mid';
-    var yearsVal = yearsEl && yearsEl.value ? yearsEl.value : '7년 이상';
-    var YEARS_TO_KEYS = { '3년미만': { cash: 'cash_under_3y', kind: 'kind_under_3y' }, '3년차': { cash: 'cash_year_3', kind: 'kind_year_3' }, '5년차': { cash: 'cash_year_5', kind: 'kind_year_5' }, '7년 이상': { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
-    var keys = YEARS_TO_KEYS[yearsVal] || YEARS_TO_KEYS['7년 이상'];
+    var corpKey = corpEl && corpEl.value ? (CORP_LABEL_TO_KEY[corpEl.value] || corpEl.value) : 'mid';
+    var yearsVal = yearsEl && yearsEl.value ? yearsEl.value : 'over_7y';
+    var keys = YEARS_VALUE_TO_KEYS[yearsVal] || YEARS_VALUE_TO_KEYS.over_7y;
     var row = addContractSalaryByCorpKey[corpKey] || (corpEl && corpEl.value ? addContractSalaryByCorpKey[corpEl.value] : null);
     var cashVal = (row && keys && row[keys.cash] != null) ? (Number(row[keys.cash]) || 0) : 0;
     var kindVal = (row && keys && row[keys.kind] != null) ? (Number(row[keys.kind]) || 0) : 0;
@@ -977,6 +1158,16 @@ function updateAddContractFinancialTable() {
     setAddContractDisplay('addContractVatDisplay', vat);
     setAddContractDisplay('addContractProjectExpenseDisplay', projectExpense);
     setAddContractDisplay('addContractGovSupportDisplay', govSupport);
+    var govSupportEl = document.getElementById('addContractGovSupportDisplay');
+    if (govSupportEl) {
+        if (addContractMaxGovSupport > 0 && govSupport > addContractMaxGovSupport) {
+            govSupportEl.style.color = '#c53030';
+            govSupportEl.style.fontWeight = 'bold';
+        } else {
+            govSupportEl.style.color = '';
+            govSupportEl.style.fontWeight = '';
+        }
+    }
     setAddContractDisplay('addContractCompanyInKindDisplay', kindAmount);
     setAddContractDisplay('addContractCompanyCashDisplay', cashAmount);
 }
@@ -985,6 +1176,42 @@ function formatAddContractTotalAmountInput() {
     if (!el) return;
     var n = parseAddContractNumber(el.value);
     el.value = n ? n.toLocaleString('ko-KR') : '';
+}
+
+function setAddContractTotalToMaxGovSupport() {
+    if (!addContractMaxGovSupport || addContractMaxGovSupport <= 0) {
+        alert('최대 정부지원금이 설정되지 않았습니다. 기준 급여 및 비율에서 최대 정부지원금을 먼저 설정하세요.');
+        return;
+    }
+    var corpEl = document.getElementById('addContractCompanyType');
+    var yearsEl = document.getElementById('addContractYears');
+    var corpKey = corpEl && corpEl.value ? (CORP_LABEL_TO_KEY[corpEl.value] || corpEl.value) : 'mid';
+    var yearsVal = yearsEl && yearsEl.value ? yearsEl.value : 'over_7y';
+    var keys = YEARS_VALUE_TO_KEYS[yearsVal] || YEARS_VALUE_TO_KEYS.over_7y;
+    var row = addContractSalaryByCorpKey[corpKey] || (corpEl && corpEl.value ? addContractSalaryByCorpKey[corpEl.value] : null);
+    var cashVal = (row && keys && row[keys.cash] != null) ? (Number(row[keys.cash]) || 0) : 0;
+    var kindVal = (row && keys && row[keys.kind] != null) ? (Number(row[keys.kind]) || 0) : 0;
+    var cashRatioPct = (cashVal > 0 && cashVal <= 1) ? cashVal * 100 : cashVal;
+    var kindRatioPct = (kindVal > 0 && kindVal <= 1) ? kindVal * 100 : kindVal;
+    var govRatio = 1 - (kindRatioPct / 100) - (cashRatioPct / 100);
+    if (govRatio <= 0) {
+        alert('현재 기업 규모·연차 비율로는 정부지원금 비율을 계산할 수 없습니다.');
+        return;
+    }
+    var totalAmount = Math.round(addContractMaxGovSupport / govRatio);
+    function derivedGovSupport(t) {
+        var kindAmt = Math.floor(t * (kindRatioPct / 100));
+        var cashAmt = Math.floor(t * (cashRatioPct / 100));
+        return t - kindAmt - cashAmt;
+    }
+    while (totalAmount > 0 && derivedGovSupport(totalAmount) > addContractMaxGovSupport) {
+        totalAmount -= 1;
+    }
+    var totalAmountEl = document.getElementById('addContractTotalAmount');
+    if (totalAmountEl) {
+        totalAmountEl.value = totalAmount ? totalAmount.toLocaleString('ko-KR') : '';
+        updateAddContractFinancialTable();
+    }
 }
 function parseAddContractNumber(v) {
     if (typeof v === 'number' && !isNaN(v)) return v;
@@ -1009,6 +1236,7 @@ function closeAddContractModal() {
     if (titleEl) titleEl.textContent = '협약 추가';
     var deleteBtn = document.getElementById('addContractDeleteBtn');
     if (deleteBtn) deleteBtn.style.display = 'none';
+    closeLoadContractPopup();
     document.getElementById('addContractModal').style.display = 'none';
 }
 function deleteAddContract() {
@@ -1034,23 +1262,132 @@ function deleteAddContract() {
         });
     });
     function done() {
+        _loadContractFullList = [];
+        personnelDetailListCache = [];
         closeAddContractModal();
         loadStatusSummary();
         loadPersonnelTable();
         if (typeof loadContractDetailApplicationTable === 'function') loadContractDetailApplicationTable();
         if (typeof loadContractDetailAmountTable === 'function') loadContractDetailAmountTable();
         if (typeof loadContractDetailList === 'function') loadContractDetailList();
+        var personnelModal = document.getElementById('personnelDetailModal');
+        if (personnelModal && personnelModal.style.display === 'flex') {
+            loadPersonnelDetailTable();
+        }
     }
 }
+var addContractSelectPersonnelListCache = [];
+
+function openAddContractSelectPersonnelModal() {
+    var modal = document.getElementById('addContractSelectPersonnelModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    var searchInp = document.getElementById('addContractSelectPersonnelSearch');
+    if (searchInp) searchInp.value = '';
+    loadAddContractSelectPersonnelTable();
+}
+
+function closeAddContractSelectPersonnelModal() {
+    var modal = document.getElementById('addContractSelectPersonnelModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function loadAddContractSelectPersonnelTable() {
+    var tbody = document.getElementById('addContractSelectPersonnelTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>';
+    var projectKey = getProjectKey();
+    var alreadySelected = getAddContractSelectedPersonnelIds();
+    Promise.all([
+        _supabase.from('personnel_master').select('id, position, name, total_rate, rest_rate, join_contract').eq('target_table', projectKey),
+        _supabase.from('page3_participation').select('personnel_id, contract_id, rate'),
+        _supabase.from('contract_registry').select('id, status').eq('target_table', projectKey)
+    ]).then(function (results) {
+        var personnelRes = results[0];
+        var partRes = results[1];
+        var contractsRes = results[2];
+        var list = (personnelRes && personnelRes.data) ? personnelRes.data : [];
+        list = sortPersonnelByRoleThenName(list);
+        list = list.filter(function (p) { return alreadySelected.indexOf(String(p.id)) === -1; });
+        var partList = (partRes && partRes.data) ? partRes.data : [];
+        var contracts = (contractsRes && contractsRes.data) ? contractsRes.data : [];
+        var partMap = {};
+        partList.forEach(function (p) { partMap[p.personnel_id + '_' + p.contract_id] = Number(p.rate) || 0; });
+        list.forEach(function (p) {
+            var cum = 0;
+            contracts.forEach(function (c) {
+                if (c.status === '신청' || c.status === '선정') cum += partMap[p.id + '_' + c.id] || 0;
+            });
+            p._cumulative = (p.total_rate != null && p.total_rate !== '') ? Number(p.total_rate) : cum;
+            p._rest = (p.rest_rate != null && p.rest_rate !== '') ? Number(p.rest_rate) : null;
+        });
+        addContractSelectPersonnelListCache = list;
+        renderAddContractSelectPersonnelTable(list);
+    }).catch(function () {
+        addContractSelectPersonnelListCache = [];
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+    });
+}
+
+function renderAddContractSelectPersonnelTable(list) {
+    var tbody = document.getElementById('addContractSelectPersonnelTableBody');
+    var q = (document.getElementById('addContractSelectPersonnelSearch') || {}).value.trim().toLowerCase();
+    if (q) list = list.filter(function (p) {
+        var nameMatch = (p.position || '').toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q);
+        var joinMatch = joinContractSearchText(p.join_contract).toLowerCase().includes(q);
+        return nameMatch || joinMatch;
+    });
+    if (!tbody) return;
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">선택 가능한 인력이 없습니다.</td></tr>';
+        return;
+    }
+    var html = list.map(function (p) {
+        var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
+        var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
+        var tags = formatJoinContractTags(p.join_contract) || '—';
+        var posSafe = (p.position || '').replace(/</g, '&lt;');
+        var nameSafe = (p.name || '').replace(/</g, '&lt;');
+        return '<tr data-personnel-id="' + (p.id != null ? p.id : '') + '"><td style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;width:36px;"><input type="checkbox" class="add-contract-select-personnel-cb"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + posSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + nameSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + cumStr + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + restStr + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;">' + tags + '</td></tr>';
+    }).join('');
+    tbody.innerHTML = html;
+}
+
+function filterAddContractSelectPersonnelTable() {
+    renderAddContractSelectPersonnelTable(addContractSelectPersonnelListCache);
+}
+
+function confirmAddContractSelectPersonnel() {
+    var tbody = document.getElementById('addContractSelectPersonnelTableBody');
+    var addTbody = document.getElementById('addContractPersonnelBody');
+    if (!tbody || !addTbody) return;
+    var ids = [];
+    tbody.querySelectorAll('tr').forEach(function (tr) {
+        var cb = tr.querySelector('.add-contract-select-personnel-cb');
+        if (cb && cb.checked) {
+            var id = tr.getAttribute('data-personnel-id');
+            if (id) ids.push(id);
+        }
+    });
+    ids.forEach(function (personnelId) {
+        var tr = document.createElement('tr');
+        var rowHtml = buildAddContractRowHtml();
+        tr.innerHTML = rowHtml.replace(/^<tr>/, '').replace(/<\/tr>$/, '');
+        addTbody.appendChild(tr);
+        setAddContractRowPersonnel(tr, personnelId);
+        bindAddContractRowEvents(tr);
+        onAddContractNameChange(tr);
+    });
+    closeAddContractSelectPersonnelModal();
+    updateAddContractSubtotal();
+    if (typeof updateAddContractFinancialTable === 'function') updateAddContractFinancialTable();
+}
+
 function addContractPersonnelRow() {
     var tbody = document.getElementById('addContractPersonnelBody');
     if (!tbody) return;
-    var nameOptions = '<option value="">선택</option>' + addContractPersonnelList.map(function (p) {
-        var name = (p.name || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        return '<option value="' + (p.id || '') + '">' + name + '</option>';
-    }).join('');
     var tr = document.createElement('tr');
-    var rowHtml = buildAddContractRowHtml(nameOptions);
+    var rowHtml = buildAddContractRowHtml();
     tr.innerHTML = rowHtml.replace(/^<tr>/, '').replace(/<\/tr>$/, '');
     tbody.appendChild(tr);
     bindAddContractRowEvents(tr);
@@ -1111,10 +1448,10 @@ function saveAddContract() {
     var participationRows = [];
     if (tbody) {
         tbody.querySelectorAll('tr').forEach(function (tr) {
-            var nameSel = tr.querySelector('.add-contract-name');
+            var idInput = tr.querySelector('.add-contract-personnel-id');
             var rateInp = tr.querySelector('.add-contract-rate');
             var periodInp = tr.querySelector('.add-contract-period');
-            var pid = nameSel && nameSel.value ? nameSel.value : '';
+            var pid = idInput && idInput.value ? idInput.value : '';
             var rate = parseAddContractNumber(rateInp && rateInp.value ? rateInp.value : 0);
             var period = (periodInp && periodInp.value ? periodInp.value : '').trim();
             if (!pid) return;
@@ -1230,9 +1567,14 @@ function updatePersonnelMasterRates(projectKey, personnelIds) {
             byPersonnel[p.personnel_id].total += Number(p.rate) || 0;
             byPersonnel[p.personnel_id].join.push([c.company_name || '', c.brand_name || '', Number(p.rate) || 0]);
         });
-        var updates = Object.keys(byPersonnel).map(function (pid) {
+        var updates = [];
+        personnelIds.forEach(function (pid) {
+            var id = parseInt(pid, 10);
+            if (isNaN(id)) return;
             var o = byPersonnel[pid];
-            return _supabase.from('personnel_master').update({ total_rate: o.total, join_contract: o.join }).eq('id', parseInt(pid, 10)).eq('target_table', projectKey);
+            var total = o ? o.total : 0;
+            var join = o && o.join && o.join.length ? o.join : null;
+            updates.push(_supabase.from('personnel_master').update({ total_rate: total, join_contract: join }).eq('id', id).eq('target_table', projectKey));
         });
         return updates.length > 0 ? Promise.all(updates) : Promise.resolve();
     });

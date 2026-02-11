@@ -202,6 +202,10 @@ body {
     background: #f1f5f9; 
 }
 
+.manager-table tbody tr.no-row-hover:hover, .data-table tbody tr.no-row-hover:hover { 
+    background: transparent !important; 
+}
+
 /* 6-1. 수정 모드 활성화 효과 (Edit Mode) */
 .manager-table.edit-active { 
     outline: 3px solid var(--primary-color) !important; 
