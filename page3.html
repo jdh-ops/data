@@ -534,7 +534,18 @@
         </div>
     </div>
 
-    <script src="./config.js"></script>
-    <script src="./page3.js"></script>
+    <script>
+        (function () {
+            var base = document.location.href.replace(/[#?].*$/, '').replace(/[^/]+$/, '');
+            function loadScript(src, next) {
+                var s = document.createElement('script');
+                s.src = base + src;
+                s.onload = next;
+                s.onerror = function () { console.error('Failed to load: ' + s.src); if (next) next(); };
+                document.head.appendChild(s);
+            }
+            loadScript('config.js', function () { loadScript('page3.js'); });
+        })();
+    </script>
 </body>
 </html>
