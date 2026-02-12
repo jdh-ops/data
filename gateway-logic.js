@@ -91,9 +91,10 @@ async function checkKeyword() {
 
             const target = data.target_table || data.keyword;
             const targetPage = (data.target_page || 'page1').toLowerCase();
-            const pagePath = targetPage === 'page3' ? '/page3.html' : '/page1.html';
+            var basePath = window.location.pathname.replace(/[#?].*$/, '').replace(/[^/]+$/, '') || '/';
+            var pageFile = targetPage === 'page3' ? 'page3.html' : 'page1.html';
             setTimeout(() => {
-                const url = new URL(window.location.origin + pagePath);
+                const url = new URL(window.location.origin + basePath + pageFile);
                 url.searchParams.set('table', target);
                 url.searchParams.set('key', keyword);
                 window.location.href = url.toString();
