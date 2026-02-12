@@ -2,6 +2,10 @@ var page3KeywordList = [];
 var page3KeywordListFiltered = [];
 var _supabase = window._supabase;
 
+window.page3Ready = function () {
+    if (document.body) document.body.style.visibility = 'visible';
+};
+
 function getProjectKey() {
     return (window.tableName || new URLSearchParams(window.location.search).get('table') || '').trim() || 'default';
 }
@@ -356,11 +360,11 @@ function loadContractDetailAmountTable() {
     var tbody = document.getElementById('contractDetailAmountBody');
     if (!tbody) return;
     if (!_supabase) {
-        tbody.innerHTML = '<tr><td colspan="5" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">연결 불가.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">연결 불가.</td></tr>';
         return;
     }
     var projectKey = getProjectKey();
-    tbody.innerHTML = '<tr><td colspan="5" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>';
     _supabase.from('contract_registry').select('num_tag, status, total_budget, gov_contribution, corp_cash, corp_kind').eq('target_table', projectKey).order('num_tag').then(function (res) {
         var rows = (res.data || []).filter(function (r) {
             var st = (r.status || '').trim();
@@ -379,7 +383,7 @@ function loadContractDetailAmountTable() {
         var fmt = function (n) { var x = Number(n); return isNaN(x) ? '0' : x.toLocaleString('ko-KR'); };
         var escapeTag = function (t) { return (t || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
         if (groups.length === 0) {
-            tbody.innerHTML = '<tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td></tr>';
+            tbody.innerHTML = '<tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right;">—</td></tr>';
             return;
         }
         var sumTotal = 0, sumGov = 0, sumCash = 0, sumKind = 0;
@@ -392,10 +396,11 @@ function loadContractDetailAmountTable() {
         var numCellStyle = 'border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right; white-space: nowrap;';
         tbody.innerHTML = groups.map(function (g) {
             var tagEsc = escapeTag(g.num_tag);
-            return '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 6px;">' + tagEsc + '</td><td style="' + numCellStyle + '">' + fmt(g.total_budget) + '</td><td style="' + numCellStyle + '">' + fmt(g.gov_contribution) + '</td><td style="' + numCellStyle + '">' + fmt(g.corp_cash) + '</td><td style="' + numCellStyle + '">' + fmt(g.corp_kind) + '</td></tr>';
-        }).join('') + '<tr style="background: #f8fafc; font-weight: 600;"><td style="border: 1px solid #e2e8f0; padding: 8px 6px;">합계</td><td style="' + numCellStyle + '">' + fmt(sumTotal) + '</td><td style="' + numCellStyle + '">' + fmt(sumGov) + '</td><td style="' + numCellStyle + '">' + fmt(sumCash) + '</td><td style="' + numCellStyle + '">' + fmt(sumKind) + '</td></tr>';
+            var cashSum = (Number(g.gov_contribution) || 0) + (Number(g.corp_cash) || 0);
+            return '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 6px;">' + tagEsc + '</td><td style="' + numCellStyle + '">' + fmt(g.total_budget) + '</td><td style="' + numCellStyle + '">' + fmt(cashSum) + '</td><td style="' + numCellStyle + '">' + fmt(g.gov_contribution) + '</td><td style="' + numCellStyle + '">' + fmt(g.corp_cash) + '</td><td style="' + numCellStyle + '">' + fmt(g.corp_kind) + '</td></tr>';
+        }).join('') + '<tr style="background: #f8fafc; font-weight: 600;"><td style="border: 1px solid #e2e8f0; padding: 8px 6px;">합계</td><td style="' + numCellStyle + '">' + fmt(sumTotal) + '</td><td style="' + numCellStyle + '">' + fmt(sumGov + sumCash) + '</td><td style="' + numCellStyle + '">' + fmt(sumGov) + '</td><td style="' + numCellStyle + '">' + fmt(sumCash) + '</td><td style="' + numCellStyle + '">' + fmt(sumKind) + '</td></tr>';
     }).catch(function () {
-        tbody.innerHTML = '<tr><td colspan="5" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
     });
 }
 
@@ -523,14 +528,20 @@ function joinContractSearchText(joinContract) {
     if (joinContract == null) return '';
     var arr = Array.isArray(joinContract) ? joinContract : [];
     return arr.map(function (item) {
-        if (Array.isArray(item)) return [(item[0] != null) ? String(item[0]) : '', (item[1] != null) ? String(item[1]) : '', (item[2] != null) ? String(item[2]) : ''].join(' ');
-        if (item && typeof item === 'object') return [item.company || item.회사명 || '', item.brand || item.브랜드명 || '', item.rate != null ? String(item.rate) : (item.참여율 != null ? String(item.참여율) : '')].join(' ');
-        return '';
+        return joinContractItemSearchText(item);
     }).filter(Boolean).join(' ');
 }
-function formatJoinContractTags(joinContract) {
+function joinContractItemSearchText(item) {
+    if (item == null) return '';
+    if (Array.isArray(item)) return [(item[0] != null) ? String(item[0]) : '', (item[1] != null) ? String(item[1]) : '', (item[2] != null) ? String(item[2]) : ''].join(' ');
+    if (item && typeof item === 'object') return [item.company || item.회사명 || '', item.brand || item.브랜드명 || '', item.rate != null ? String(item.rate) : (item.참여율 != null ? String(item.참여율) : '')].join(' ');
+    return '';
+}
+function formatJoinContractTags(joinContract, searchQuery) {
     if (joinContract == null) return '';
     var arr = Array.isArray(joinContract) ? joinContract : [];
+    var q = (searchQuery && typeof searchQuery === 'string') ? searchQuery.trim().toLowerCase() : '';
+    if (q) arr = arr.filter(function (item) { return joinContractItemSearchText(item).toLowerCase().includes(q); });
     var spans = arr.map(function (item) {
         var company = '', brand = '', rate = '';
         if (Array.isArray(item)) {
@@ -549,7 +560,31 @@ function formatJoinContractTags(joinContract) {
         return '<span style="display: inline-block; margin: 2px 4px 2px 0; padding: 4px 8px; background: #e0f2fe; color: #0369a1; border-radius: 4px; font-size: 12px;">' + (label.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')) + '</span>';
     }).filter(Boolean);
     if (spans.length === 0) return '';
-    return '<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">' + spans.join('') + '</span>';
+    return '<span class="join-contract-tags-wrap">' + spans.join('') + '</span>';
+}
+
+function joinContractTooltipText(joinContract, searchQuery) {
+    if (joinContract == null) return '';
+    var arr = Array.isArray(joinContract) ? joinContract : [];
+    var q = (searchQuery && typeof searchQuery === 'string') ? searchQuery.trim().toLowerCase() : '';
+    if (q) arr = arr.filter(function (item) { return joinContractItemSearchText(item).toLowerCase().includes(q); });
+    var lines = arr.map(function (item) {
+        var company = '', brand = '', rate = '';
+        if (Array.isArray(item)) {
+            company = (item[0] != null) ? String(item[0]) : '';
+            brand = (item[1] != null) ? String(item[1]) : '';
+            rate = (item[2] != null) ? String(item[2]) : '';
+        } else if (item && typeof item === 'object') {
+            company = item.company || item.회사명 || '';
+            brand = item.brand || item.브랜드명 || '';
+            rate = item.rate != null ? String(item.rate) : (item.참여율 != null ? String(item.참여율) : '');
+        }
+        if (!company && !brand && !rate) return '';
+        var rateStr = (rate || '').trim();
+        if (rateStr && rateStr.indexOf('%') === -1) rateStr += '%';
+        return company + (brand ? '(' + brand + ')' : '') + (rateStr ? ' : ' + rateStr : '');
+    }).filter(Boolean);
+    return lines.join('||');
 }
 
 function loadPersonnelDetailTable() {
@@ -653,15 +688,19 @@ function renderPersonnelDetailRows(list, editMode) {
             }).join('');
             var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
             var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
-            var tags = formatJoinContractTags(p.join_contract) || '—';
-            return '<tr data-id="' + (p.id != null ? p.id : '') + '" data-new="' + (p.id == null ? '1' : '0') + '"><td class="col-checkbox"><input type="checkbox" class="personnel-detail-row-cb"></td><td class="col-role"><select class="personnel-detail-position" style="border: 1px solid #cbd5e0; border-radius: 4px;">' + opts + '</select></td><td class="col-name"><input type="text" class="personnel-detail-name" value="' + nameVal + '" placeholder="이름" style="border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td class="col-cumulative">' + cumStr + '</td><td class="col-rest">' + restStr + '</td><td class="col-join">' + tags + '</td></tr>';
+            var tags = formatJoinContractTags(p.join_contract, q) || '—';
+            var tooltipRaw = joinContractTooltipText(p.join_contract, q);
+            var tooltipAttr = tooltipRaw ? tooltipRaw.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+            return '<tr data-id="' + (p.id != null ? p.id : '') + '" data-new="' + (p.id == null ? '1' : '0') + '"><td class="col-checkbox"><input type="checkbox" class="personnel-detail-row-cb"></td><td class="col-role"><select class="personnel-detail-position" style="border: 1px solid #cbd5e0; border-radius: 4px;">' + opts + '</select></td><td class="col-name"><input type="text" class="personnel-detail-name" value="' + nameVal + '" placeholder="이름" style="border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td class="col-cumulative">' + cumStr + '</td><td class="col-rest">' + restStr + '</td><td class="col-join"' + (tooltipAttr ? ' data-join-tooltip="' + tooltipAttr + '"' : '') + '>' + tags + '</td></tr>';
         }).join('');
     } else {
         tbody.innerHTML = list.map(function (p) {
             var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
             var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
-            var tags = formatJoinContractTags(p.join_contract) || '—';
-            return '<tr><td class="col-role">' + (p.position || '').replace(/</g, '&lt;') + '</td><td class="col-name">' + (p.name || '').replace(/</g, '&lt;') + '</td><td class="col-cumulative">' + cumStr + '</td><td class="col-rest">' + restStr + '</td><td class="col-join">' + tags + '</td></tr>';
+            var tags = formatJoinContractTags(p.join_contract, q) || '—';
+            var tooltipRaw = joinContractTooltipText(p.join_contract, q);
+            var tooltipAttr = tooltipRaw ? tooltipRaw.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+            return '<tr><td class="col-role">' + (p.position || '').replace(/</g, '&lt;') + '</td><td class="col-name">' + (p.name || '').replace(/</g, '&lt;') + '</td><td class="col-cumulative">' + cumStr + '</td><td class="col-rest">' + restStr + '</td><td class="col-join"' + (tooltipAttr ? ' data-join-tooltip="' + tooltipAttr + '"' : '') + '>' + tags + '</td></tr>';
         }).join('');
     }
 }
@@ -783,6 +822,7 @@ function closePersonnelDetailModal() {
 }
 
 var addContractPersonnelList = [];
+var addContractLoadedPersonnelById = {};
 var addContractSalaryByCorpKey = {};
 var addContractMaxGovSupport = 0;
 var _addContractEditingId = null;
@@ -893,7 +933,9 @@ function renderLoadContractList(filter) {
         el.addEventListener('click', function () {
             var id = parseInt(el.getAttribute('data-id'), 10);
             closeLoadContractPopup();
-            openAddContractModal(id);
+            var modal = document.getElementById('addContractModal');
+            var isAddMode = modal && modal.style.display === 'flex' && _addContractEditingId == null;
+            openAddContractModal(id, isAddMode ? { loadDataOnly: true } : undefined);
         });
     });
 }
@@ -916,13 +958,16 @@ var ROLE_SALARY_KEYS = { '책임연구원': 'salary_senior', '연구원': 'salar
 var YEARS_TO_RATIO_KEYS = { '3년미만': { cash: 'cash_under_3y', kind: 'kind_under_3y' }, '3년차': { cash: 'cash_year_3', kind: 'kind_year_3' }, '5년차': { cash: 'cash_year_5', kind: 'kind_year_5' }, '7년 이상': { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
 var YEARS_VALUE_TO_KEYS = { under_3y: { cash: 'cash_under_3y', kind: 'kind_under_3y' }, year_3: { cash: 'cash_year_3', kind: 'kind_year_3' }, year_5: { cash: 'cash_year_5', kind: 'kind_year_5' }, over_7y: { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
 
-function openAddContractModal(contractId) {
+function openAddContractModal(contractId, options) {
     var modal = document.getElementById('addContractModal');
     var titleEl = document.getElementById('addContractModalTitle');
     var tbody = document.getElementById('addContractPersonnelBody');
     if (!modal) return;
+    var loadDataOnly = options && options.loadDataOnly === true;
+    var fetchId = contractId || null;
+    _addContractEditingId = loadDataOnly ? null : fetchId;
+    addContractLoadedPersonnelById = {};
     modal.style.display = 'flex';
-    _addContractEditingId = contractId || null;
     if (titleEl) titleEl.textContent = _addContractEditingId ? '협약 수정' : '협약 추가';
     var deleteBtn = document.getElementById('addContractDeleteBtn');
     if (deleteBtn) deleteBtn.style.display = _addContractEditingId ? 'inline-block' : 'none';
@@ -989,8 +1034,8 @@ function openAddContractModal(contractId) {
     var promises = [
         _supabase.from('personnel_master').select('id, position, name, total_rate, rest_rate').eq('target_table', projectKey),
         _supabase.from('salary_config').select('corp_size, max_support_amount, salary_senior, salary_researcher, salary_assistant, cash_under_3y, kind_under_3y, cash_year_3, kind_year_3, cash_year_5, kind_year_5, cash_over_7y, kind_over_7y').eq('target_table', projectKey),
-        _addContractEditingId ? _supabase.from('page3_participation').select('personnel_id, rate').eq('contract_id', _addContractEditingId) : Promise.resolve({ data: [] }),
-        _addContractEditingId ? _supabase.from('contract_registry').select('*').eq('id', _addContractEditingId).single() : Promise.resolve({ data: null })
+        fetchId ? _supabase.from('page3_participation').select('personnel_id, rate').eq('contract_id', fetchId) : Promise.resolve({ data: [] }),
+        fetchId ? _supabase.from('contract_registry').select('*').eq('id', fetchId).single() : Promise.resolve({ data: null })
     ];
     Promise.all(promises).then(function (results) {
         var personnelRes = results[0];
@@ -1025,8 +1070,57 @@ function openAddContractModal(contractId) {
         } else if (partRows.length) {
             partRows = partRows.map(function (pr) { return { personnel_id: pr.personnel_id, rate: pr.rate, period: '' }; });
         }
-        applyPersonnelAndSalary(partRows.length ? partRows : null);
-        fillContractForm(contract);
+        function doApplyAndFill() {
+            applyPersonnelAndSalary(partRows.length ? partRows : null);
+            fillContractForm(contract);
+            var inKindTbody = document.getElementById('addContractInKindPersonnelBody');
+            if (inKindTbody) {
+                inKindTbody.innerHTML = '';
+                if (contract && Array.isArray(contract.in_kind_personnel) && contract.in_kind_personnel.length > 0) {
+                    contract.in_kind_personnel.forEach(function (row) {
+                        var tr = document.createElement('tr');
+                        tr.innerHTML = buildAddContractInKindRowHtml().replace(/^<tr>|<\/tr>$/g, '');
+                        inKindTbody.appendChild(tr);
+                        var roleSel = tr.querySelector('.add-contract-inkind-role');
+                        var nameInp = tr.querySelector('.add-contract-inkind-name');
+                        var rateInp = tr.querySelector('.add-contract-inkind-rate');
+                        var periodInp = tr.querySelector('.add-contract-inkind-period');
+                        if (roleSel && (row.position || row.구분)) roleSel.value = (row.position || row.구분 || '').trim() || roleSel.value;
+                        if (nameInp) nameInp.value = (row.name || row.이름 || '').trim();
+                        if (rateInp) rateInp.value = (row.rate != null || row.참여율 != null) ? String(row.rate != null ? row.rate : row.참여율) : '';
+                        if (periodInp) periodInp.value = (row.period || row.기간 || '').trim();
+                        bindAddContractInKindRowEvents(tr);
+                        calcAddContractInKindRowCost(tr);
+                    });
+                } else {
+                    addAddContractInKindRow();
+                    var firstTr = inKindTbody.querySelector('tr');
+                    if (firstTr) {
+                        var roleSel = firstTr.querySelector('.add-contract-inkind-role');
+                        if (roleSel) roleSel.value = '연구보조원';
+                    }
+                }
+                updateAddContractInKindSubtotal();
+            }
+        }
+        if (contract && (contract.target_table || '').trim() && partRows.length > 0) {
+            var contractTable = (contract.target_table || '').trim();
+            _supabase.from('personnel_master').select('id, position, name, total_rate, rest_rate').eq('target_table', contractTable).then(function (r) {
+                var list = (r && !r.error && r.data) ? r.data : [];
+                addContractLoadedPersonnelById = {};
+                list.forEach(function (p) {
+                    if (p.id != null) {
+                        addContractLoadedPersonnelById[p.id] = p;
+                        addContractLoadedPersonnelById[String(p.id)] = p;
+                    }
+                });
+                doApplyAndFill();
+            }).catch(function () {
+                doApplyAndFill();
+            });
+        } else {
+            doApplyAndFill();
+        }
     }).catch(function (err) {
         console.error('협약 추가 모달 로드 실패:', err);
     });
@@ -1036,9 +1130,38 @@ function setAddContractRowPersonnel(tr, personnelId) {
     var nameSpan = tr && tr.querySelector('.add-contract-name-display');
     if (idInput) idInput.value = personnelId != null ? String(personnelId) : '';
     if (nameSpan) {
-        if (!personnelId) { nameSpan.textContent = ''; return; }
-        var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(personnelId); })[0];
-        nameSpan.textContent = p ? (p.name || '').trim() : '';
+        if (!personnelId) { nameSpan.textContent = ''; nameSpan.innerHTML = ''; return; }
+        var pFromCurrent = addContractPersonnelList.filter(function (x) { return String(x.id) === String(personnelId); })[0];
+        var pFromLoaded = addContractLoadedPersonnelById[personnelId] || addContractLoadedPersonnelById[String(personnelId)];
+        var p = pFromCurrent || pFromLoaded;
+        var inCurrent = !!pFromCurrent;
+        if (!inCurrent && pFromLoaded) {
+            var wantPos = String(pFromLoaded.position || '').trim();
+            var wantName = String(pFromLoaded.name || '').trim();
+            var sameNamePosition = addContractPersonnelList.filter(function (x) {
+                return String(x.position || '').trim() === wantPos && String(x.name || '').trim() === wantName;
+            })[0];
+            if (sameNamePosition) {
+                if (idInput) idInput.value = String(sameNamePosition.id);
+                p = sameNamePosition;
+                inCurrent = true;
+            }
+        }
+        var name = p ? (p.name || '').trim() : '';
+        if (!name) {
+            nameSpan.textContent = '';
+            nameSpan.innerHTML = '';
+            return;
+        }
+        if (inCurrent) {
+            nameSpan.textContent = name;
+            nameSpan.removeAttribute('title');
+            if (tr) tr.removeAttribute('data-not-current-personnel');
+        } else {
+            nameSpan.innerHTML = '<span style="text-decoration: line-through;">' + name.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') + '</span>';
+            nameSpan.title = '현재 키워드에 등록되지 않은 인력입니다.';
+            if (tr) tr.setAttribute('data-not-current-personnel', '1');
+        }
     }
 }
 
@@ -1076,7 +1199,7 @@ function onAddContractNameChange(tr) {
     var cumCell = tr.querySelector('.add-contract-cumulative-cell');
     var restCell = tr.querySelector('.add-contract-rest-cell');
     var id = idInput && idInput.value ? idInput.value : '';
-    var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(id); })[0];
+    var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(id); })[0] || addContractLoadedPersonnelById[id] || addContractLoadedPersonnelById[String(id)];
     if (!roleCell) return;
     if (!p) {
         roleCell.textContent = '';
@@ -1107,7 +1230,7 @@ function calcAddContractRowCost(tr) {
     var salary = getAddContractSalaryForRole(role);
     var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
     var period = parseFloat(periodInp && periodInp.value ? periodInp.value.replace(/,/g, '') : 0) || 0;
-    var cost = Math.floor(salary * (rate / 100) * period);
+    var cost = Math.round(salary * (rate / 100) * period);
     costCell.textContent = cost ? cost.toLocaleString('ko-KR') : '';
     return cost;
 }
@@ -1219,17 +1342,148 @@ function parseAddContractNumber(v) {
     var n = parseInt(s, 10);
     return isNaN(n) ? 0 : n;
 }
+function parseAddContractRate(v) {
+    if (typeof v === 'number' && !isNaN(v)) return v;
+    var s = String(v || '').replace(/,/g, '').replace(/\s/g, '').replace(/%/g, '');
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+}
 function setAddContractDisplay(id, num) {
     var el = document.getElementById(id);
     if (el) el.textContent = (num != null && num !== '') ? (num === 0 ? '0' : num.toLocaleString('ko-KR')) : '';
 }
 function recalcAddContractCosts() {
     var tbody = document.getElementById('addContractPersonnelBody');
-    if (!tbody) return;
-    tbody.querySelectorAll('tr').forEach(function (tr) { calcAddContractRowCost(tr); });
+    if (tbody) tbody.querySelectorAll('tr').forEach(function (tr) { calcAddContractRowCost(tr); });
     updateAddContractSubtotal();
+    var inKindTbody = document.getElementById('addContractInKindPersonnelBody');
+    if (inKindTbody) inKindTbody.querySelectorAll('tr').forEach(function (tr) { calcAddContractInKindRowCost(tr); });
+    updateAddContractInKindSubtotal();
     if (typeof updateAddContractFinancialTable === 'function') updateAddContractFinancialTable();
 }
+
+function buildAddContractInKindRowHtml() {
+    var opts = PERSONNEL_DETAIL_ROLES.map(function (r) {
+        return '<option value="' + r.replace(/"/g, '&quot;') + '">' + r + '</option>';
+    }).join('');
+    return '<tr><td style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center;"><button type="button" class="btn-select add-contract-inkind-delete" style="padding: 4px 8px; font-size: 11px; border-color: #feb2b2; color: #c53030;">-</button></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #f8fafc;"><select class="add-contract-inkind-role" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; background: white; font-size: 13px; box-sizing: border-box;">' + opts + '</select></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><input type="text" class="add-contract-inkind-name" placeholder="이름" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-inkind-rate" placeholder="%" style="width: 60px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; box-sizing: border-box;"></td><td style="border: 1px solid #e2e8f0; padding: 6px 8px; background: #fff7ed;"><input type="text" class="add-contract-inkind-period" placeholder="기간" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td><td class="add-contract-inkind-cost-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: right; background: #f8fafc;"></td><td class="add-contract-inkind-remark-cell" style="border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; background: #f8fafc; width: 80px;"><div style="display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;"><button type="button" class="btn-select add-contract-inkind-calc-btn" style="padding: 4px 10px; font-size: 12px; flex-shrink: 0;">계산</button><span class="add-contract-inkind-remark-warn" style="font-size: 12px; color: #c53030;"></span></div></td></tr>';
+}
+
+function addAddContractInKindRow() {
+    var tbody = document.getElementById('addContractInKindPersonnelBody');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML = buildAddContractInKindRowHtml().replace(/^<tr>|<\/tr>$/g, '');
+    tbody.appendChild(tr);
+    bindAddContractInKindRowEvents(tr);
+}
+
+function removeAddContractInKindRow(tr) {
+    if (!tr || !tr.parentNode) return;
+    tr.remove();
+    updateAddContractInKindSubtotal();
+    updateAddContractInKindWarnings();
+}
+
+function bindAddContractInKindRowEvents(tr) {
+    if (tr.getAttribute('data-inkind-bound') === '1') return;
+    tr.setAttribute('data-inkind-bound', '1');
+    var roleSel = tr.querySelector('.add-contract-inkind-role');
+    var rateInp = tr.querySelector('.add-contract-inkind-rate');
+    var periodInp = tr.querySelector('.add-contract-inkind-period');
+    var nameInp = tr.querySelector('.add-contract-inkind-name');
+    function onUpdate() {
+        calcAddContractInKindRowCost(tr);
+        updateAddContractInKindSubtotal();
+        updateAddContractInKindWarnings();
+    }
+    if (roleSel) roleSel.addEventListener('change', onUpdate);
+    if (rateInp) { rateInp.addEventListener('input', onUpdate); rateInp.addEventListener('change', onUpdate); }
+    if (periodInp) { periodInp.addEventListener('input', onUpdate); periodInp.addEventListener('change', onUpdate); }
+    if (nameInp) { nameInp.addEventListener('input', updateAddContractInKindWarnings); nameInp.addEventListener('change', updateAddContractInKindWarnings); }
+    var delBtn = tr.querySelector('.add-contract-inkind-delete');
+    if (delBtn) delBtn.addEventListener('click', function () { removeAddContractInKindRow(tr); });
+    var calcBtn = tr.querySelector('.add-contract-inkind-calc-btn');
+    if (calcBtn) calcBtn.addEventListener('click', function () { calcInKindRateFromCompanyCash(tr); });
+}
+
+function calcAddContractInKindRowCost(tr) {
+    var roleSel = tr.querySelector('.add-contract-inkind-role');
+    var rateInp = tr.querySelector('.add-contract-inkind-rate');
+    var periodInp = tr.querySelector('.add-contract-inkind-period');
+    var costCell = tr.querySelector('.add-contract-inkind-cost-cell');
+    if (!costCell) return 0;
+    var role = roleSel && roleSel.value ? roleSel.value.trim() : '';
+    var salary = getAddContractSalaryForRole(role);
+    var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
+    var period = parseFloat(periodInp && periodInp.value ? periodInp.value.replace(/,/g, '') : 0) || 0;
+    var cost = Math.round(salary * (rate / 100) * period);
+    costCell.textContent = cost ? cost.toLocaleString('ko-KR') : '';
+    return cost;
+}
+
+function updateAddContractInKindSubtotal() {
+    var tbody = document.getElementById('addContractInKindPersonnelBody');
+    var displayEl = document.getElementById('addContractInKindSubtotalDisplay');
+    if (!tbody || !displayEl) return;
+    var sum = 0;
+    tbody.querySelectorAll('.add-contract-inkind-cost-cell').forEach(function (td) {
+        var t = (td.textContent || '').replace(/,/g, '').replace(/\s/g, '');
+        var n = parseInt(t, 10);
+        if (!isNaN(n)) sum += n;
+    });
+    displayEl.value = sum ? sum.toLocaleString('ko-KR') : '';
+}
+
+function calcInKindRateFromCompanyCash(tr) {
+    var roleSel = tr.querySelector('.add-contract-inkind-role');
+    var periodInp = tr.querySelector('.add-contract-inkind-period');
+    var rateInp = tr.querySelector('.add-contract-inkind-rate');
+    if (!rateInp) return;
+    var role = roleSel && roleSel.value ? roleSel.value.trim() : '';
+    var period = parseFloat(periodInp && periodInp.value ? periodInp.value.replace(/,/g, '') : 0) || 0;
+    var kindEl = document.getElementById('addContractCompanyInKindDisplay');
+    var companyKind = parseAddContractNumber(kindEl && kindEl.textContent ? kindEl.textContent : 0);
+    var salary = getAddContractSalaryForRole(role);
+    if (!salary || !period || period <= 0) {
+        return;
+    }
+    var rate = (companyKind * 100) / (salary * period);
+    if (!isFinite(rate) || rate < 0) return;
+    rate = Math.ceil(rate * 1000) / 1000;
+    rateInp.value = rate.toFixed(3);
+    calcAddContractInKindRowCost(tr);
+    updateAddContractInKindSubtotal();
+    updateAddContractInKindWarnings();
+}
+
+function updateAddContractInKindWarnings() {
+    var tbody = document.getElementById('addContractInKindPersonnelBody');
+    if (!tbody) return;
+    var companyName = (document.getElementById('addContractCompanyName') && document.getElementById('addContractCompanyName').value || '').trim();
+    var byKey = {};
+    tbody.querySelectorAll('tr').forEach(function (row) {
+        var nameInp = row.querySelector('.add-contract-inkind-name');
+        var rateInp = row.querySelector('.add-contract-inkind-rate');
+        var name = (nameInp && nameInp.value ? nameInp.value : '').trim();
+        var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
+        var key = companyName + '\t' + name;
+        if (!byKey[key]) byKey[key] = [];
+        byKey[key].push({ row: row, rate: rate });
+    });
+    var over100 = {};
+    Object.keys(byKey).forEach(function (key) {
+        var items = byKey[key];
+        var sum = items.reduce(function (a, b) { return a + b.rate; }, 0);
+        if (sum > 100) items.forEach(function (x) { over100[x.row] = true; });
+    });
+    tbody.querySelectorAll('tr').forEach(function (row) {
+        var warnEl = row.querySelector('.add-contract-inkind-remark-warn');
+        if (!warnEl) return;
+        warnEl.textContent = over100[row] ? '⚠ 동일 기업·이름 참여율 합 100% 초과' : '';
+    });
+}
+
 function closeAddContractModal() {
     _addContractEditingId = null;
     var titleEl = document.getElementById('addContractModalTitle');
@@ -1278,9 +1532,23 @@ function deleteAddContract() {
 }
 var addContractSelectPersonnelListCache = [];
 
+var _addContractSelectPersonnelRowClickBound;
 function openAddContractSelectPersonnelModal() {
     var modal = document.getElementById('addContractSelectPersonnelModal');
     if (!modal) return;
+    if (!_addContractSelectPersonnelRowClickBound) {
+        _addContractSelectPersonnelRowClickBound = true;
+        var tbody = document.getElementById('addContractSelectPersonnelTableBody');
+        if (tbody && tbody.parentNode) {
+            tbody.parentNode.addEventListener('click', function (e) {
+                var tr = e.target.closest('tbody tr[data-personnel-id]');
+                if (!tr) return;
+                if (e.target.closest('input.add-contract-select-personnel-cb')) return;
+                var cb = tr.querySelector('.add-contract-select-personnel-cb');
+                if (cb) cb.checked = !cb.checked;
+            });
+        }
+    }
     modal.style.display = 'flex';
     var searchInp = document.getElementById('addContractSelectPersonnelSearch');
     if (searchInp) searchInp.value = '';
@@ -1345,10 +1613,12 @@ function renderAddContractSelectPersonnelTable(list) {
     var html = list.map(function (p) {
         var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
         var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
-        var tags = formatJoinContractTags(p.join_contract) || '—';
+        var tags = formatJoinContractTags(p.join_contract, q) || '—';
+        var tooltipRaw = joinContractTooltipText(p.join_contract, q);
+        var tooltipAttr = tooltipRaw ? tooltipRaw.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
         var posSafe = (p.position || '').replace(/</g, '&lt;');
         var nameSafe = (p.name || '').replace(/</g, '&lt;');
-        return '<tr data-personnel-id="' + (p.id != null ? p.id : '') + '"><td style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;width:36px;"><input type="checkbox" class="add-contract-select-personnel-cb"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + posSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + nameSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + cumStr + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + restStr + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;">' + tags + '</td></tr>';
+        return '<tr data-personnel-id="' + (p.id != null ? p.id : '') + '"><td style="border:1px solid #e2e8f0;padding:6px 8px;text-align:center;width:36px;"><input type="checkbox" class="add-contract-select-personnel-cb"></td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + posSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:72px;">' + nameSafe + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + cumStr + '</td><td style="border:1px solid #e2e8f0;padding:6px 8px;width:48px;">' + restStr + '</td><td class="col-join" style="border:1px solid #e2e8f0;padding:6px 8px;"' + (tooltipAttr ? ' data-join-tooltip="' + tooltipAttr + '"' : '') + '>' + tags + '</td></tr>';
     }).join('');
     tbody.innerHTML = html;
 }
@@ -1416,6 +1686,11 @@ function saveAddContract() {
         alert('저장 실패: 프로젝트(target_table)를 선택한 뒤 다시 시도하세요.');
         return;
     }
+    var tbodyCheck = document.getElementById('addContractPersonnelBody');
+    if (tbodyCheck && tbodyCheck.querySelector('tr[data-not-current-personnel="1"]')) {
+        alert('현재 키워드에 등록되지 않은 인력(취소선)이 포함되어 있습니다. 해당 인력을 제거하거나, 현재 프로젝트에 동일한 이름·구분으로 등록한 뒤 저장하세요.');
+        return;
+    }
     updateAddContractFinancialTable();
 
     var numTag = (document.getElementById('addContractNumTag') && document.getElementById('addContractNumTag').value || '').trim();
@@ -1452,13 +1727,29 @@ function saveAddContract() {
             var rateInp = tr.querySelector('.add-contract-rate');
             var periodInp = tr.querySelector('.add-contract-period');
             var pid = idInput && idInput.value ? idInput.value : '';
-            var rate = parseAddContractNumber(rateInp && rateInp.value ? rateInp.value : 0);
+            var rate = parseAddContractRate(rateInp && rateInp.value ? rateInp.value : 0);
             var period = (periodInp && periodInp.value ? periodInp.value : '').trim();
             if (!pid) return;
             var p = addContractPersonnelList.filter(function (x) { return String(x.id) === String(pid); })[0];
             var name = p ? (p.name || '').trim() : '';
             participationRate.push({ name: name, rate: rate, period: period });
             participationRows.push({ personnel_id: parseInt(pid, 10), rate: rate });
+        });
+    }
+
+    var inKindPersonnel = [];
+    var inKindTbody = document.getElementById('addContractInKindPersonnelBody');
+    if (inKindTbody) {
+        inKindTbody.querySelectorAll('tr').forEach(function (tr) {
+            var roleSel = tr.querySelector('.add-contract-inkind-role');
+            var nameInp = tr.querySelector('.add-contract-inkind-name');
+            var rateInp = tr.querySelector('.add-contract-inkind-rate');
+            var periodInp = tr.querySelector('.add-contract-inkind-period');
+            var position = (roleSel && roleSel.value ? roleSel.value : '').trim();
+            var name = (nameInp && nameInp.value ? nameInp.value : '').trim();
+            var rate = parseAddContractRate(rateInp && rateInp.value ? rateInp.value : 0);
+            var period = (periodInp && periodInp.value ? periodInp.value : '').trim();
+            inKindPersonnel.push({ position: position, name: name, rate: rate, period: period });
         });
     }
 
@@ -1478,7 +1769,8 @@ function saveAddContract() {
         gov_contribution: govSupport,
         corp_kind: corpKind,
         corp_cash: corpCash,
-        participation_rate: participationRate.length ? participationRate : null
+        participation_rate: participationRate.length ? participationRate : null,
+        in_kind_personnel: inKindPersonnel.length ? inKindPersonnel : null
     };
     if (totalBudget > 0) {
         row.cash_ratio = corpCash / totalBudget;
@@ -1733,17 +2025,78 @@ function saveRoleSalary() {
 }
 
 window.onload = function () {
+    if (window.page3Ready) window.page3Ready();
     var titleEl = document.getElementById('projectTitle');
-    if (titleEl && typeof window.projectKeyName !== 'undefined') titleEl.innerText = window.projectKeyName;
+    if (titleEl) titleEl.innerText = (window.projectKeyName || window.tableName || '').trim() || '—';
     var keyDisplay = document.getElementById('currentKeyDisplay');
-    if (keyDisplay) keyDisplay.textContent = window.projectKeyName || window.tableName || '-';
+    if (keyDisplay) keyDisplay.textContent = (window.projectKeyName || window.tableName || '').trim() || '-';
     loadPage3Keywords();
     loadStatusSummary();
     loadPersonnelTable();
     loadContractDetailApplicationTable();
     loadContractDetailAmountTable();
     loadContractDetailList();
+    bindJoinContractCellTooltip();
 };
+
+function bindJoinContractCellTooltip() {
+    var tooltip = document.getElementById('joinContractFullTooltip');
+    if (!tooltip) return;
+    var activeCell = null;
+    var offsetX = 14;
+    var offsetY = 8;
+
+    function showTooltip(cell, x, y) {
+        var raw = cell.getAttribute('data-join-tooltip');
+        var fullText = raw ? raw.replace(/\|\|/g, '\n') : '';
+        if (!fullText || fullText === '—') return;
+        tooltip.textContent = fullText;
+        tooltip.classList.add('is-visible');
+        positionTooltip(x, y);
+        activeCell = cell;
+    }
+
+    function positionTooltip(x, y) {
+        var w = tooltip.offsetWidth || 200;
+        var h = tooltip.offsetHeight || 100;
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var left = x + offsetX;
+        var top = y + offsetY;
+        if (left + w > vw) left = x - w - offsetX;
+        if (top + h > vh) top = vh - h - 8;
+        if (left < 8) left = 8;
+        if (top < 8) top = 8;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    }
+
+    function hideTooltip() {
+        tooltip.classList.remove('is-visible');
+        tooltip.textContent = '';
+        activeCell = null;
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        var cell = e.target.closest('.col-join');
+        if (!cell) return;
+        if (!cell.closest('#personnelDetailModal') && !cell.closest('#addContractSelectPersonnelModal')) return;
+        showTooltip(cell, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        var cell = e.target.closest('.col-join');
+        var to = e.relatedTarget;
+        if (cell && (!to || !cell.contains(to))) {
+            if (activeCell === cell) hideTooltip();
+        }
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (!activeCell || !tooltip.classList.contains('is-visible')) return;
+        positionTooltip(e.clientX, e.clientY);
+    });
+}
 
 function showSection(sectionId) {
     document.querySelectorAll('.content-section').forEach(function (el) { el.classList.remove('active'); });

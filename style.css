@@ -341,8 +341,21 @@ body {
 }
 #personnelDetailModal .personnel-detail-table .col-join {
     width: 200px;
+    max-width: 200px;
     padding: 6px 8px !important;
     text-align: left;
+    overflow: hidden;
+}
+/* 참여 협약 내용 한 줄 말줄임 (인력 관리 모달) */
+#personnelDetailModal .personnel-detail-table .col-join .join-contract-tags-wrap {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#personnelDetailModal .personnel-detail-table .col-join .join-contract-tags-wrap span {
+    white-space: nowrap;
 }
 /* 입력 필드가 셀 안에서만 차지하도록 */
 #personnelDetailModal .personnel-detail-table .col-role select,
@@ -351,4 +364,47 @@ body {
     max-width: 100%;
     box-sizing: border-box;
     padding: 4px 6px;
+}
+
+/* 인력 선택 모달: 참여 협약 열 말줄임 */
+#addContractSelectPersonnelModal .col-join {
+    max-width: 180px;
+    overflow: hidden;
+}
+#addContractSelectPersonnelModal .col-join .join-contract-tags-wrap {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#addContractSelectPersonnelModal .col-join .join-contract-tags-wrap span {
+    white-space: nowrap;
+}
+#addContractSelectPersonnelModal table.manager-table {
+    table-layout: fixed;
+}
+
+/* 참여 협약 셀 호버 툴팁 (전체 내용) */
+.join-contract-full-tooltip {
+    display: none;
+    position: fixed;
+    z-index: 10010;
+    max-width: 320px;
+    max-height: 240px;
+    overflow: auto;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #1e293b;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    pointer-events: none;
+    white-space: pre-line;
+    word-break: break-word;
+}
+.join-contract-full-tooltip.is-visible {
+    display: block;
 }

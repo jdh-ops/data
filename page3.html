@@ -2,14 +2,44 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>관리 시스템 - 기능</title>
+    <title>관리 시스템 - 보호원</title>
     <link rel="stylesheet" href="./style.css">
     <style>
         .contract-list-card:hover { background: #eff6ff !important; border-color: #3182ce !important; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        (function () {
+            var base;
+            if (document.location.protocol === 'file:' || !document.location.origin || document.location.origin === 'null') {
+                base = document.location.href.replace(/[#?].*$/, '').replace(/[^/]+$/, '');
+            } else {
+                var path = document.location.pathname || '';
+                var lastSlash = path.lastIndexOf('/');
+                var basePath = (lastSlash >= 0 ? path.substring(0, lastSlash + 1) : '');
+                base = document.location.origin + basePath;
+            }
+            if (!base) base = './';
+            window._page3Base = base;
+            function loadScript(src, next) {
+                var s = document.createElement('script');
+                s.src = base + src;
+                s.onload = next;
+                s.onerror = function () { console.error('Failed to load: ' + s.src); if (next) next(); };
+                document.head.appendChild(s);
+            }
+            loadScript('config.js', function () {
+                var q = new URLSearchParams(window.location.search);
+                if (typeof window.tableName === 'undefined') window.tableName = (q.get('table') || '').trim() || 'default';
+                if (typeof window.projectKeyName === 'undefined') window.projectKeyName = q.get('key') ? decodeURIComponent(q.get('key')) : window.tableName;
+                loadScript('page3.js', function () {
+                    if (window.page3Ready) window.page3Ready();
+                });
+            });
+        })();
+    </script>
 </head>
-<body>
+<body style="visibility: hidden;">
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
@@ -112,25 +142,27 @@
                     <div style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 20px; background: #fff; min-width: 0;">
                         <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">금액 현황</div>
                         <div style="overflow-x: auto;">
-                        <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; table-layout: fixed; min-width: 480px;">
+                        <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; table-layout: fixed; min-width: 640px;">
                             <colgroup>
-                                <col style="width: 14%;">
-                                <col style="width: 22%;">
-                                <col style="width: 22%;">
-                                <col style="width: 21%;">
-                                <col style="width: 21%;">
+                                <col style="width: 10%;">
+                                <col style="width: 18%;">
+                                <col style="width: 18%;">
+                                <col style="width: 18%;">
+                                <col style="width: 18%;">
+                                <col style="width: 18%;">
                             </colgroup>
                             <thead>
                                 <tr style="background: #f8fafc;">
                                     <th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>
                                     <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">총액</th>
+                                    <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">현금 합계</th>
                                     <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">정부지원금</th>
                                     <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">기업현금</th>
                                     <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">기업현물</th>
                                 </tr>
                             </thead>
                             <tbody id="contractDetailAmountBody">
-                                <tr><td colspan="5" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>
+                                <tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터를 불러오는 중...</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -444,6 +476,39 @@
                         </tr>
                     </tbody>
                 </table>
+                <div style="margin-bottom: 20px; overflow-x: auto;">
+                    <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 20px;"></th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 60px;">구분</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 50px;">이름</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 40px;">참여율</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 30px;">기간</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 120px;">인건비</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; width: 80px;">비고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="addContractInKindPersonnelBody">
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f8fafc;">
+                                <td colspan="5" style="border: 1px solid #e2e8f0; padding: 4px 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span>
+                                            <button type="button" class="btn-select" style="padding: 4px 8px; font-size: 11px;" onclick="addAddContractInKindRow()">+ 행 추가</button>
+                                        </span>
+                                        <span style="font-weight: bold;">소계</span>
+                                    </div>
+                                </td>
+                                <td style="border: 1px solid #e2e8f0; padding: 4px 8px;">
+                                    <input type="text" id="addContractInKindSubtotalDisplay" readonly style="width: 100%; padding: 6px 8px; border: none; text-align: right; background: transparent; font-weight: bold; outline: none;">
+                                </td>
+                                <td style="border: 1px solid #e2e8f0; background: #f8fafc;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button type="button" id="addContractDeleteBtn" onclick="deleteAddContract()" style="display: none; padding: 10px 20px; background: #e53e3e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">삭제</button>
                     <button type="button" onclick="saveAddContract()" style="padding: 10px 20px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">저장</button>
@@ -534,18 +599,8 @@
         </div>
     </div>
 
-    <script>
-        (function () {
-            var base = document.location.href.replace(/[#?].*$/, '').replace(/[^/]+$/, '');
-            function loadScript(src, next) {
-                var s = document.createElement('script');
-                s.src = base + src;
-                s.onload = next;
-                s.onerror = function () { console.error('Failed to load: ' + s.src); if (next) next(); };
-                document.head.appendChild(s);
-            }
-            loadScript('config.js', function () { loadScript('page3.js'); });
-        })();
-    </script>
+    <!-- 참여 협약 셀 호버 시 전체 내용 툴팁 -->
+    <div id="joinContractFullTooltip" class="join-contract-full-tooltip" aria-hidden="true"></div>
+
 </body>
 </html>
