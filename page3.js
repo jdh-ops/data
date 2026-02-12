@@ -912,7 +912,7 @@ function toggleAddContractRefNo() {
 var CORP_LABEL_TO_KEY = { '소기업': 'small', '중기업': 'mid', '중견기업': 'midlarge', '대기업': 'large' };
 var CORP_KEY_TO_LABEL = { small: '소기업', mid: '중기업', midlarge: '중견기업', large: '대기업' };
 var YEARS_LABEL_TO_KEY = { '3년미만': 'under_3y', '3년차': 'year_3', '5년차': 'year_5', '7년 이상': 'over_7y' };
-var ROLE_SALARY_KEYS = { '책임연구원': 'salary_senior', '연구원': 'salary_researcher', '보조연구원': 'salary_assistant' };
+var ROLE_SALARY_KEYS = { '책임연구원': 'salary_senior', '연구원': 'salary_researcher', '보조연구원': 'salary_assistant', '연구보조원': 'salary_assistant' };
 var YEARS_TO_RATIO_KEYS = { '3년미만': { cash: 'cash_under_3y', kind: 'kind_under_3y' }, '3년차': { cash: 'cash_year_3', kind: 'kind_year_3' }, '5년차': { cash: 'cash_year_5', kind: 'kind_year_5' }, '7년 이상': { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
 var YEARS_VALUE_TO_KEYS = { under_3y: { cash: 'cash_under_3y', kind: 'kind_under_3y' }, year_3: { cash: 'cash_year_3', kind: 'kind_year_3' }, year_5: { cash: 'cash_year_5', kind: 'kind_year_5' }, over_7y: { cash: 'cash_over_7y', kind: 'kind_over_7y' } };
 
