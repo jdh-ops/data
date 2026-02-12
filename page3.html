@@ -45,7 +45,7 @@
         <div class="sidebar-header" id="projectTitle">PROJECT</div>
         <div class="sidebar-menu">
             <div class="menu-item" onclick="showSection('feature1')"><i>📌</i> <span>신청 및 인력</span></div>
-            <div class="menu-item" onclick="showSection('feature2')"><i>📝</i> <span>목표 관리</span></div>
+            <div class="menu-item" onclick="showSection('feature2')"><i>📝</i> <span>협약 관리</span></div>
             <div class="menu-item" onclick="showSection('feature3')"><i>📌</i> <span>기능3</span></div>
             <div class="menu-item" onclick="showSection('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
@@ -189,8 +189,14 @@
         </div>
 
         <div id="feature2" class="content-section">
-            <h2 class="fw-bold mb-4">목표 관리</h2>
-            <p>기능2 영역입니다.</p>
+            <h2 class="fw-bold mb-4">협약 관리</h2>
+            <div style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 20px; background: #fff; min-width: 0;">
+                <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">협약 리스트</div>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0 0 16px 0;">
+                <div id="agreementListArea" style="min-height: 120px; color: #64748b; font-size: 13px;">
+                    데이터를 불러오는 중...
+                </div>
+            </div>
         </div>
 
         <div id="feature3" class="content-section">

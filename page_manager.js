@@ -64,7 +64,16 @@
         window.currentPage = page;
         const tableKey = getTableKey();
         const container = document.getElementById('dataManagerContainer');
-        if (!container || !tableKey) return;
+        if (!container) return;
+        if (!tableKey) {
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:#e53e3e;">프로젝트 키가 없습니다. URL에 ?table=프로젝트명 을 넣어 접속해 주세요.</div>';
+            return;
+        }
+
+        if (!_supabase) {
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:#e53e3e;">Supabase 연결이 없습니다. config.js와 Supabase 스크립트 로드 순서를 확인해 주세요.</div>';
+            return;
+        }
 
         container.innerHTML = '<div class="loading-spinner" style="padding:20px;text-align:center;">데이터를 불러오는 중입니다...</div>';
         if (!isInitialLoaded) {
@@ -77,13 +86,35 @@
         }
 
         if (!isInitialLoaded || searchKeyword === "FORCE_REFRESH") {
-            console.log("🌐 서버에서 데이터를 새로 가져옵니다...");
+            console.log("🌐 data_rows에서 데이터 가져오는 중... project_key=" + tableKey);
             const { data, error } = await _supabase
                 .from('data_rows')
                 .select('*')
                 .eq('project_key', tableKey)
                 .order('id', { ascending: true });
-            if (error) return console.error(error);
+            if (error) {
+                console.error('data_rows 조회 오류:', error);
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#e53e3e;">데이터 조회 실패 (data_rows): ' + (error.message || JSON.stringify(error)) + '<br><br>사용 중: project_key = <strong>' + tableKey + '</strong></div>';
+                return;
+            }
+            if (!data || data.length === 0) {
+                var hint = '';
+                var check = await _supabase.from('data_rows').select('project_key').limit(5);
+                if (check.data && check.data.length > 0) {
+                    var sampleKeys = check.data.map(function (r) { return (r && r.project_key != null) ? String(r.project_key) : '(null)'; });
+                    hint = ' DB에 저장된 project_key 예: ' + sampleKeys.join(', ') + '. URL에 ?table=해당값 을 넣어 보세요.';
+                } else if (check.error) {
+                    hint = ' RLS 등 권한 문제일 수 있습니다. data_rows 테이블에 anon/authenticated 역할로 SELECT 정책을 추가해 주세요.';
+                } else {
+                    hint = ' RLS로 인해 행이 보이지 않을 수 있습니다. data_rows 테이블 RLS 정책을 확인해 주세요.';
+                }
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#c05621;max-width:560px;margin:0 auto;">' +
+                    'project_key=<strong>' + tableKey + '</strong>인 행이 없습니다.' + hint +
+                    '<br><br><button type="button" class="btn-select" onclick="window.renderDataTable(\'FORCE_REFRESH\')" style="margin-top:8px;">다시 시도</button></div>';
+                window.cachedRawData = [];
+                isInitialLoaded = true;
+                return;
+            }
             window.cachedRawData = data || [];
             isInitialLoaded = true;
         }
@@ -193,10 +224,12 @@
         if (countEl) {
             var total = (window.cachedRawData || []).length;
             var hasSearch = searchKeyword && searchKeyword !== "FORCE_REFRESH";
+            var tableKey = getTableKey();
+            var suffix = (total === 0 && tableKey) ? ' (data_rows · project_key=' + tableKey + ')' : '';
             if (hasSearch) {
-                countEl.textContent = '검색 결과: ' + displayRows.length + '건 / 전체: ' + total.toLocaleString() + '건';
+                countEl.textContent = '검색 결과: ' + displayRows.length + '건 / 전체: ' + total.toLocaleString() + '건' + suffix;
             } else {
-                countEl.textContent = '총 ' + total.toLocaleString() + '건';
+                countEl.textContent = '총 ' + total.toLocaleString() + '건' + suffix;
             }
         }
     }
@@ -649,4 +682,109 @@
         var d = new Date();
         var yymmdd = d.getFullYear().toString().slice(-2) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
         XLSX.writeFile(wb, keyword + '_' + yymmdd + '.xlsx');
+    };
+
+   /* 엑셀 업로드 모달: 선택 파일 보관 및 드래그/선택 핸들러 */
+   window._excelSelectedFile = null;
+
+   window.handleExcelDragOver = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var zone = document.getElementById('excelDropZone');
+        if (zone) zone.style.background = '#edf2f7';
+    };
+   window.handleExcelDragLeave = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var zone = document.getElementById('excelDropZone');
+        if (zone) zone.style.background = '#f8fafc';
+    };
+   window.handleExcelDrop = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var zone = document.getElementById('excelDropZone');
+        if (zone) zone.style.background = '#f8fafc';
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length > 0) {
+            window._excelSelectedFile = files[0];
+            var nameEl = document.getElementById('excelFileName');
+            if (nameEl) nameEl.textContent = files[0].name;
+            var btn = document.getElementById('startExcelUploadBtn');
+            if (btn) btn.disabled = false;
+        }
+    };
+   window.handleExcelSelect = function(e) {
+        var files = e.target && e.target.files;
+        if (files && files.length > 0) {
+            window._excelSelectedFile = files[0];
+            var nameEl = document.getElementById('excelFileName');
+            if (nameEl) nameEl.textContent = files[0].name;
+            var btn = document.getElementById('startExcelUploadBtn');
+            if (btn) btn.disabled = false;
+        }
+    };
+
+   window.downloadExcelTemplate = function() {
+        var XLSX = window.XLSX || window.xlsx;
+        if (!XLSX) { alert('엑셀 라이브러리를 불러올 수 없습니다.'); return; }
+        var layout = Array.isArray(window.currentLayout) ? window.currentLayout : [];
+        var visibleCols = layout.filter(function (c) { return c && c.isVisible !== false; });
+        if (visibleCols.length === 0) { alert('표시 중인 열이 없습니다. 열 설정에서 열을 추가해 주세요.'); return; }
+        var headers = visibleCols.map(function (c) { return c.customName || c.defaultName || '필드' + c.id; });
+        var ws = XLSX.utils.aoa_to_sheet([headers]);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '데이터');
+        XLSX.writeFile(wb, 'upload_template.xlsx');
+    };
+
+   window.processExcelUpload = async function() {
+        var file = window._excelSelectedFile;
+        if (!file) { alert('파일을 선택해 주세요.'); return; }
+        var XLSX = window.XLSX || window.xlsx;
+        if (!XLSX) { alert('엑셀 라이브러리를 불러올 수 없습니다.'); return; }
+        var layout = Array.isArray(window.currentLayout) ? window.currentLayout : [];
+        var visibleCols = layout.filter(function (c) { return c && c.isVisible !== false; });
+        if (visibleCols.length === 0) { alert('표시 중인 열이 없습니다.'); return; }
+        var modeRadio = document.querySelector('input[name="uploadMode"]:checked');
+        var isOverwrite = modeRadio && modeRadio.value === 'overwrite';
+        var tableKey = getTableKey();
+
+        var arrayBuffer = await new Promise(function(resolve, reject) {
+            var r = new FileReader();
+            r.onload = function() { resolve(r.result); };
+            r.onerror = reject;
+            r.readAsArrayBuffer(file);
+        });
+        var wb = XLSX.read(arrayBuffer, { type: 'array' });
+        var firstSheet = wb.SheetNames && wb.SheetNames[0] ? wb.Sheets[wb.SheetNames[0]] : null;
+        if (!firstSheet) { alert('시트를 읽을 수 없습니다.'); return; }
+        var aoa = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+        if (!aoa || aoa.length < 2) { alert('데이터 행이 없습니다.'); return; }
+        var dataRows = aoa.slice(1).filter(function(row) { return row && row.some(function(cell) { return cell !== '' && cell != null; }); });
+        var toInsert = dataRows.map(function(row) {
+            var obj = { project_key: tableKey };
+            visibleCols.forEach(function (col, idx) {
+                var val = row[idx];
+                obj['col' + col.id + '_val'] = val !== undefined && val !== null && val !== '' ? val : null;
+            });
+            return obj;
+        });
+        if (toInsert.length === 0) { alert('삽입할 데이터가 없습니다.'); return; }
+        if (isOverwrite) {
+            var del = await _supabase.from('data_rows').delete().eq('project_key', tableKey);
+            if (del.error) { alert('기존 데이터 삭제 실패: ' + (del.error.message || '')); return; }
+        }
+        var chunk = 100;
+        for (var i = 0; i < toInsert.length; i += chunk) {
+            var slice = toInsert.slice(i, i + chunk);
+            var res = await _supabase.from('data_rows').insert(slice);
+            if (res.error) { alert('저장 실패: ' + (res.error.message || '')); return; }
+        }
+        window._excelSelectedFile = null;
+        document.getElementById('excelFileName').textContent = '';
+        document.getElementById('startExcelUploadBtn').disabled = true;
+        if (document.getElementById('excelFileInput')) document.getElementById('excelFileInput').value = '';
+        closeExcelModal();
+        window.renderDataTable('FORCE_REFRESH');
+        alert('업로드 완료: ' + toInsert.length + '건');
     };

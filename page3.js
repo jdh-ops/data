@@ -490,6 +490,82 @@ function loadContractDetailList() {
     });
 }
 
+function loadAgreementList() {
+    var area = document.getElementById('agreementListArea');
+    if (!area) return;
+    if (!_supabase) {
+        area.innerHTML = '<p style="color: #e53e3e;">연결 불가.</p>';
+        return;
+    }
+    var projectKey = getProjectKey();
+    area.innerHTML = '<p style="color: #94a3b8;">데이터를 불러오는 중...</p>';
+    _supabase.from('contract_registry').select('id, num_tag, company_name, brand_name, status, ref_no').eq('target_table', projectKey).eq('status', '선정').order('num_tag').order('id', { ascending: true }).then(function (res) {
+        var rows = res.data || [];
+        var byNumTag = {};
+        rows.forEach(function (r) {
+            var tag = (r.num_tag || '').trim() || '(미지정)';
+            if (!byNumTag[tag]) byNumTag[tag] = [];
+            byNumTag[tag].push(r);
+        });
+        var tagOrder = Object.keys(byNumTag).sort();
+        tagOrder.forEach(function (tag) {
+            byNumTag[tag].sort(function (a, b) {
+                var ra = (a.ref_no != null && a.ref_no !== '') ? String(a.ref_no).trim() : '';
+                var rb = (b.ref_no != null && b.ref_no !== '') ? String(b.ref_no).trim() : '';
+                return ra.localeCompare(rb, 'ko-KR', { numeric: true });
+            });
+        });
+        function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        if (tagOrder.length === 0) {
+            area.innerHTML = '<p style="color: #94a3b8;">선정된 협약이 없습니다.</p>';
+            return;
+        }
+        var html = '';
+        tagOrder.forEach(function (tag, idx) {
+            if (idx > 0) html += '<hr style="border: none; border-top: 2px solid #cbd5e0; margin: 20px 0 16px 0;">';
+            var tagEsc = escapeHtml(tag);
+            var groupId = 'agreement-group-' + idx;
+            var tableId = 'agreement-table-' + idx;
+            html += '<div class="agreement-group" data-agreement-group-id="' + groupId + '">';
+            html += '<div class="agreement-group-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; font-weight: 600; font-size: 13px; color: #475569;" data-expanded="false">';
+            html += '<button type="button" class="agreement-toggle-btn" style="width: 24px; height: 24px; padding: 0; border: none; background: transparent; font-size: 12px; color: #64748b; cursor: pointer; flex-shrink: 0;" aria-label="펼치기">▶</button>';
+            html += '<span>' + tagEsc + '</span>';
+            html += '</div>';
+            html += '<div class="agreement-group-table-wrap" id="' + tableId + '" style="display: none; overflow-x: auto; margin-bottom: 8px;">';
+            html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
+            html += '<colgroup><col style="width: 100px;"><col style="width: 140px;"><col style="width: auto;"></colgroup>';
+            html += '<thead><tr style="background: #f8fafc;"><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;"></th><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;">기업명(브랜드명)</th><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;"></th></tr></thead><tbody>';
+            byNumTag[tag].forEach(function (r) {
+                var refNo = escapeHtml((r.ref_no != null && r.ref_no !== '') ? String(r.ref_no).trim() : '');
+                var company = escapeHtml(r.company_name || '');
+                var brand = escapeHtml(r.brand_name || '');
+                var cell2 = company + (brand ? ' (' + brand + ')' : '') || '—';
+                html += '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">' + refNo + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">' + cell2 + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>';
+            });
+            html += '</tbody></table></div></div>';
+        });
+        area.innerHTML = html;
+        area.querySelectorAll('.agreement-group').forEach(function (group) {
+            var header = group.querySelector('.agreement-group-header');
+            var wrap = group.querySelector('.agreement-group-table-wrap');
+            var btn = group.querySelector('.agreement-toggle-btn');
+            if (!header || !wrap || !btn) return;
+            function toggle() {
+                var expanded = header.getAttribute('data-expanded') === 'true';
+                expanded = !expanded;
+                header.setAttribute('data-expanded', expanded ? 'true' : 'false');
+                wrap.style.display = expanded ? 'block' : 'none';
+                btn.textContent = expanded ? '▼' : '▶';
+                btn.setAttribute('aria-label', expanded ? '접기' : '펼치기');
+            }
+            header.addEventListener('click', function (e) { if (e.target !== btn) toggle(); });
+            btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
+        });
+    }).catch(function () {
+        area.innerHTML = '<p style="color: #e53e3e;">로드 실패.</p>';
+    });
+}
+
 var personnelDetailListCache = [];
 var personnelDetailEditMode = false;
 var personnelDetailOriginalIds = [];
@@ -2113,6 +2189,7 @@ function showSection(sectionId) {
         loadContractDetailAmountTable();
         loadContractDetailList();
     }
+    if (sectionId === 'feature2') loadAgreementList();
 }
 
 function goToGateway() {

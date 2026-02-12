@@ -7,7 +7,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 var _supabase = null;
 if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_KEY && SUPABASE_KEY.length > 20) {
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-        global: { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } }
+        global: { headers: { apikey: SUPABASE_KEY } }
     });
 } else {
     if (!SUPABASE_KEY || SUPABASE_KEY.length <= 20) {
@@ -30,6 +30,13 @@ console.log("프로젝트 표시명(한글):", window.projectKeyName);
 
 // [보안] wegofair 유저 체크 함수
 window.checkWegoFairUser = async function() {
+    if (!_supabase || typeof _supabase.auth === 'undefined') {
+        console.error('[config.js] Supabase 클라이언트가 없습니다. Supabase 스크립트가 config.js보다 먼저 로드되는지 확인하세요.');
+        if (window.location.pathname && !window.location.pathname.endsWith('index.html') && window.location.pathname !== '/') {
+            window.location.replace('index.html');
+        }
+        return;
+    }
     const { data: { user }, error } = await _supabase.auth.getUser();
 
     // 현재 페이지가 index.html(로그인 페이지)이면 체크 로직을 건너뜀 (무한 루프 방지)
