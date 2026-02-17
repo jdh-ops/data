@@ -4,6 +4,11 @@ var _supabase = window._supabase;
 
 window.page3Ready = function () {
     if (document.body) document.body.style.visibility = 'visible';
+    try {
+        var key = PAGE3_SECTION_STORAGE_KEY + (getProjectKey() ? '_' + getProjectKey() : '');
+        var saved = sessionStorage.getItem(key);
+        if (saved && PAGE3_SECTION_IDS.indexOf(saved) !== -1) showSection(saved);
+    } catch (e) {}
 };
 
 function getProjectKey() {
@@ -490,6 +495,78 @@ function loadContractDetailList() {
     });
 }
 
+function renderAgreementListFromData() {
+    var area = document.getElementById('agreementListArea');
+    var data = window._agreementListData;
+    if (!area || !data) return;
+    var inputEl = document.getElementById('agreementSearchInput');
+    var term = (inputEl && inputEl.value) ? inputEl.value.trim().toLowerCase() : '';
+    var rows = data.rows;
+    var filtered = term ? rows.filter(function (r) {
+        var ref = (r.ref_no != null && r.ref_no !== '') ? String(r.ref_no).trim() : '';
+        var company = (r.company_name || '').trim();
+        var brand = (r.brand_name || '').trim();
+        var numTag = (r.num_tag || '').trim();
+        var combined = (ref + ' ' + company + ' ' + brand + ' ' + numTag).toLowerCase();
+        return combined.indexOf(term) !== -1;
+    }) : rows;
+    if (filtered.length === 0) {
+        area.innerHTML = term ? '<p style="color: #94a3b8;">검색 결과가 없습니다.</p>' : '<p style="color: #94a3b8;">선정된 협약이 없습니다.</p>';
+        return;
+    }
+    var titleByContractId = data.titleByContractId;
+    var rateByContractId = data.rateByContractId;
+    filtered.sort(function (a, b) {
+        var ta = (a.num_tag || '').trim();
+        var tb = (b.num_tag || '').trim();
+        var c = ta.localeCompare(tb, 'ko-KR', { numeric: true });
+        if (c !== 0) return c;
+        var ra = (a.ref_no != null && a.ref_no !== '') ? String(a.ref_no).trim() : '';
+        var rb = (b.ref_no != null && b.ref_no !== '') ? String(b.ref_no).trim() : '';
+        return ra.localeCompare(rb, 'ko-KR', { numeric: true });
+    });
+    function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    var chartContractIds = (filtered.length > 0 && filtered.length < rows.length) ? filtered.map(function (r) { return r.id; }) : null;
+    var chartFullHref = getChartUrlForProject(chartContractIds).replace(/"/g, '&quot;');
+    var html = '<div style="overflow-x: auto;">';
+    html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
+    html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 110px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 105px;"><col style="width: 90px;"><col style="width: auto;"></colgroup>';
+    html += '<thead><tr style="background: #f8fafc;">';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">차수</th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">과제번호</th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">브랜드명(기업명)</th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"><a href="' + chartFullHref + '" target="_blank" rel="noopener" class="btn-select" style="padding: 6px 8px; font-size: 12px; display: inline-block; text-decoration: none; color: inherit; border: 1px solid #cbd5e0; border-radius: 6px; background: #f8fafc;">전체 분석</a></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th></tr></thead><tbody>';
+    filtered.forEach(function (r) {
+        var numTag = escapeHtml((r.num_tag || '').trim() || '(미지정)');
+        var refNo = escapeHtml((r.ref_no != null && r.ref_no !== '') ? String(r.ref_no).trim() : '');
+        var company = escapeHtml(r.company_name || '');
+        var brand = escapeHtml(r.brand_name || '');
+        var cell2 = (brand || company) ? ('<span style="font-weight: bold; color: #1a202c;">' + brand + '</span>' + (company ? ' <span style="color: #64748b;">(' + company + ')</span>' : '')) : '—';
+        var monthLabel = (titleByContractId[r.id] || '--').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var chartHref = getChartUrlForContract(r.id).replace(/"/g, '&quot;');
+        var cellStyle = 'border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;';
+        html += '<tr>';
+        html += '<td style="' + cellStyle + '">' + numTag + '</td>';
+        html += '<td style="' + cellStyle + '">' + refNo + '</td>';
+        html += '<td style="' + cellStyle + '">' + cell2 + '</td>';
+        var kpiRate = (rateByContractId[r.id] || '-%').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openKpiModal(' + r.id + ')">KPI : ' + kpiRate + '</button></td>';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openOutputStatementModal(' + r.id + ')">산출내역서</button></td>';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openInKindModal(' + r.id + ')">현물출자</button></td>';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select month-report-btn" data-contract-id="' + r.id + '" style="padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openMonthReportModal(' + r.id + ')">월말 엑셀 : ' + monthLabel + '</button></td>';
+        html += '<td style="' + cellStyle + '"><a href="' + chartHref + '" target="_blank" rel="noopener" class="btn-select" style="padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box; text-decoration: none; color: inherit; display: block; text-align: center;">데이터 분석</a></td>';
+        html += '<td style="' + cellStyle + '"></td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    area.innerHTML = html;
+}
+
 function loadAgreementList() {
     var area = document.getElementById('agreementListArea');
     if (!area) return;
@@ -499,70 +576,1213 @@ function loadAgreementList() {
     }
     var projectKey = getProjectKey();
     area.innerHTML = '<p style="color: #94a3b8;">데이터를 불러오는 중...</p>';
-    _supabase.from('contract_registry').select('id, num_tag, company_name, brand_name, status, ref_no').eq('target_table', projectKey).eq('status', '선정').order('num_tag').order('id', { ascending: true }).then(function (res) {
+    _supabase.from('contract_registry').select('id, num_tag, company_name, brand_name, status, ref_no, block_target').eq('target_table', projectKey).eq('status', '선정').order('num_tag').order('id', { ascending: true }).then(function (res) {
         var rows = res.data || [];
-        var byNumTag = {};
-        rows.forEach(function (r) {
-            var tag = (r.num_tag || '').trim() || '(미지정)';
-            if (!byNumTag[tag]) byNumTag[tag] = [];
-            byNumTag[tag].push(r);
-        });
-        var tagOrder = Object.keys(byNumTag).sort();
-        tagOrder.forEach(function (tag) {
-            byNumTag[tag].sort(function (a, b) {
-                var ra = (a.ref_no != null && a.ref_no !== '') ? String(a.ref_no).trim() : '';
-                var rb = (b.ref_no != null && b.ref_no !== '') ? String(b.ref_no).trim() : '';
-                return ra.localeCompare(rb, 'ko-KR', { numeric: true });
-            });
-        });
-        function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-        if (tagOrder.length === 0) {
+        if (rows.length === 0) {
             area.innerHTML = '<p style="color: #94a3b8;">선정된 협약이 없습니다.</p>';
             return;
         }
-        var html = '';
-        tagOrder.forEach(function (tag, idx) {
-            if (idx > 0) html += '<hr style="border: none; border-top: 2px solid #cbd5e0; margin: 20px 0 16px 0;">';
-            var tagEsc = escapeHtml(tag);
-            var groupId = 'agreement-group-' + idx;
-            var tableId = 'agreement-table-' + idx;
-            html += '<div class="agreement-group" data-agreement-group-id="' + groupId + '">';
-            html += '<div class="agreement-group-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; font-weight: 600; font-size: 13px; color: #475569;" data-expanded="false">';
-            html += '<button type="button" class="agreement-toggle-btn" style="width: 24px; height: 24px; padding: 0; border: none; background: transparent; font-size: 12px; color: #64748b; cursor: pointer; flex-shrink: 0;" aria-label="펼치기">▶</button>';
-            html += '<span>' + tagEsc + '</span>';
-            html += '</div>';
-            html += '<div class="agreement-group-table-wrap" id="' + tableId + '" style="display: none; overflow-x: auto; margin-bottom: 8px;">';
-            html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
-            html += '<colgroup><col style="width: 100px;"><col style="width: 140px;"><col style="width: auto;"></colgroup>';
-            html += '<thead><tr style="background: #f8fafc;"><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;"></th><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;">기업명(브랜드명)</th><th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;"></th></tr></thead><tbody>';
-            byNumTag[tag].forEach(function (r) {
-                var refNo = escapeHtml((r.ref_no != null && r.ref_no !== '') ? String(r.ref_no).trim() : '');
-                var company = escapeHtml(r.company_name || '');
-                var brand = escapeHtml(r.brand_name || '');
-                var cell2 = company + (brand ? ' (' + brand + ')' : '') || '—';
-                html += '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">' + refNo + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">' + cell2 + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>';
+        var contractIds = rows.map(function (r) { return r.id; });
+        Promise.all([
+            _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
+            _supabase.from('data_rows').select('contract_id').in('contract_id', contractIds)
+        ]).then(function (results) {
+            var reportRes = results[0];
+            var dataRowsRes = results[1];
+            return { reportRes: reportRes, dataRowsRes: dataRowsRes };
+        }).catch(function () { return { reportRes: { data: [] }, dataRowsRes: { data: [] } }; }).then(function (payload) {
+            var reportRows = (payload.reportRes && payload.reportRes.data) ? payload.reportRes.data : [];
+            var dataRows = (payload.dataRowsRes && payload.dataRowsRes.data) ? payload.dataRowsRes.data : [];
+            var titleByContractId = {};
+            reportRows.forEach(function (row) {
+                var fid = row.contract_id;
+                var fn = row.file_name || row.fileName || '';
+                titleByContractId[fid] = typeof monthReportDeriveTitle === 'function' ? monthReportDeriveTitle(fn) : (fn ? fn.replace(/\.[^/.]+$/, '').split('_').pop() || '—' : '—');
             });
-            html += '</tbody></table></div></div>';
-        });
-        area.innerHTML = html;
-        area.querySelectorAll('.agreement-group').forEach(function (group) {
-            var header = group.querySelector('.agreement-group-header');
-            var wrap = group.querySelector('.agreement-group-table-wrap');
-            var btn = group.querySelector('.agreement-toggle-btn');
-            if (!header || !wrap || !btn) return;
-            function toggle() {
-                var expanded = header.getAttribute('data-expanded') === 'true';
-                expanded = !expanded;
-                header.setAttribute('data-expanded', expanded ? 'true' : 'false');
-                wrap.style.display = expanded ? 'block' : 'none';
-                btn.textContent = expanded ? '▼' : '▶';
-                btn.setAttribute('aria-label', expanded ? '접기' : '펼치기');
+            var countByContractId = {};
+            dataRows.forEach(function (row) {
+                var cid = row.contract_id;
+                countByContractId[cid] = (countByContractId[cid] || 0) + 1;
+            });
+            var rateByContractId = {};
+            rows.forEach(function (r) {
+                var n = (r.block_target != null && r.block_target !== '') ? parseInt(r.block_target, 10) : 0;
+                if (isNaN(n)) n = 0;
+                var m = countByContractId[r.id] || 0;
+                rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '-%';
+            });
+            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId };
+            renderAgreementListFromData();
+            if (!window._agreementSearchListenerAttached) {
+                window._agreementSearchListenerAttached = true;
+                var searchInput = document.getElementById('agreementSearchInput');
+                if (searchInput) searchInput.addEventListener('input', function () { renderAgreementListFromData(); });
             }
-            header.addEventListener('click', function (e) { if (e.target !== btn) toggle(); });
-            btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
         });
     }).catch(function () {
         area.innerHTML = '<p style="color: #e53e3e;">로드 실패.</p>';
+    });
+}
+
+/* ---------- KPI 모달 (contract_registry.block_target + contract_kpi_target) ---------- */
+var _kpiStore = {};
+
+function openKpiModal(contractId) {
+    window._kpiCurrentContractId = contractId;
+    var targetEl = document.getElementById('kpiViewTargetCount');
+    var tbody = document.getElementById('kpiViewTableBody');
+    var modal = document.getElementById('kpiViewModal');
+
+    function renderKpiView(data) {
+        var targetCountRaw = (data && data.targetCount !== '' && data.targetCount != null) ? String(data.targetCount) : '';
+        var targetCountDisplay = targetCountRaw === '' ? '—' : (function () {
+            var num = Number(targetCountRaw);
+            return (isNaN(num) ? targetCountRaw : num.toLocaleString('ko-KR')) + ' 건';
+        })();
+        var rows = (data && data.rows) ? data.rows : [];
+        if (targetEl) targetEl.textContent = targetCountDisplay;
+
+        var uniqueCountries = {};
+        var uniquePlatforms = {};
+        rows.forEach(function (r) {
+            var c = (r.country || '').trim();
+            if (c) uniqueCountries[c] = true;
+            var platformStr = (r.platform || '').trim();
+            if (platformStr) {
+                platformStr.split(',').forEach(function (part) {
+                    var p = part.trim();
+                    if (p) uniquePlatforms[p] = true;
+                });
+            }
+        });
+        var countryCount = Object.keys(uniqueCountries).length;
+        var platformCount = Object.keys(uniquePlatforms).length;
+        var countryHeader = document.getElementById('kpiViewCountryHeader');
+        var platformHeader = document.getElementById('kpiViewPlatformHeader');
+        if (countryHeader) countryHeader.textContent = '국가 (' + countryCount + '개)';
+        if (platformHeader) platformHeader.textContent = '플랫폼 (' + platformCount + '개)';
+
+        if (tbody) {
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터 없음</td></tr>';
+            } else {
+                tbody.innerHTML = rows.map(function (r) {
+                    var c = (r.country || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    var p = (r.platform || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 12px;">' + c + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 12px;">' + p + '</td></tr>';
+                }).join('');
+            }
+        }
+        if (modal) modal.style.display = 'flex';
+    }
+
+    if (_supabase) {
+        if (targetEl) targetEl.textContent = '…';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>';
+        if (modal) modal.style.display = 'flex';
+        Promise.all([
+            _supabase.from('contract_registry').select('block_target').eq('id', contractId).single(),
+            _supabase.from('contract_kpi_target').select('country, platform, sort_order').eq('contract_id', contractId).order('sort_order', { ascending: true })
+        ]).then(function (results) {
+            var reg = (results[0] && results[0].data) ? results[0].data : null;
+            var kpiRes = results[1];
+            var targetCount = (reg && reg.block_target != null && reg.block_target !== '') ? String(reg.block_target) : '';
+            var kpiRows = (kpiRes && kpiRes.data) ? kpiRes.data : [];
+            var rows = kpiRows.map(function (r) { return { country: r.country || '', platform: r.platform || '' }; });
+            _kpiStore[contractId] = { targetCount: targetCount, rows: rows };
+            renderKpiView(_kpiStore[contractId]);
+        }).catch(function () {
+            var data = _kpiStore[contractId] || { targetCount: '', rows: [] };
+            renderKpiView(data);
+        });
+    } else {
+        var data = _kpiStore[contractId] || { targetCount: '', rows: [] };
+        renderKpiView(data);
+    }
+}
+
+function closeKpiViewModal() {
+    var modal = document.getElementById('kpiViewModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 산출내역서(총괄표) 모달 ---------- */
+function openOutputStatementModal(contractId) {
+    var modal = document.getElementById('outputStatementModal');
+    var personnelBody = document.getElementById('outputStatementPersonnelBody');
+    if (!modal || !personnelBody) return;
+    personnelBody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>';
+    modal.style.display = 'flex';
+
+    if (!_supabase) {
+        personnelBody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #e53e3e;">DB 연결 불가.</td></tr>';
+        return;
+    }
+    var projectKey = getProjectKey();
+    Promise.all([
+        _supabase.from('contract_registry').select('target_table, corp_size, total_budget, total_cash, vat, sum_p, gov_contribution, corp_kind, corp_cash, participation_rate').eq('id', contractId).single(),
+        _supabase.from('page3_participation').select('personnel_id, rate').eq('contract_id', contractId).order('personnel_id'),
+        _supabase.from('salary_config').select('target_table, corp_size, salary_senior, salary_researcher, salary_assistant').or('target_table.eq.' + projectKey + ',target_table.eq.default')
+    ]).then(function (results) {
+        var contractRes = results[0];
+        var partRes = results[1];
+        var salaryRes = results[2];
+        if (contractRes.error || !contractRes.data) {
+            personnelBody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #e53e3e;">협약 데이터를 불러올 수 없습니다.</td></tr>';
+            return;
+        }
+        var contract = contractRes.data;
+        var partRows = (partRes && partRes.data) ? partRes.data : [];
+        var personnelIds = partRows.map(function (r) { return r.personnel_id; });
+        if (personnelIds.length === 0) {
+            renderOutputStatementPersonnel([], contract, personnelBody);
+            fillOutputStatementSummary(contract, 0);
+            return;
+        }
+        _supabase.from('personnel_master').select('id, position, name').in('id', personnelIds).then(function (personRes) {
+            var personnelList = (personRes && personRes.data) ? personRes.data : [];
+            var personnelById = {};
+            personnelList.forEach(function (p) {
+                personnelById[p.id] = p;
+                personnelById[String(p.id)] = p;
+            });
+            var salaryRows = (salaryRes && salaryRes.data) ? salaryRes.data : [];
+            var salaryByCorp = {};
+            var corpSize = (contract.corp_size || '').trim() || '중기업';
+            var corpKey = CORP_LABEL_TO_KEY[corpSize] || corpSize;
+            salaryRows.forEach(function (r) {
+                var c = (r.corp_size || '').trim();
+                if (!c) return;
+                var rowData = {
+                    salary_senior: Number(r.salary_senior) || 0,
+                    salary_researcher: Number(r.salary_researcher) || 0,
+                    salary_assistant: Number(r.salary_assistant) || 0
+                };
+                var t = (r.target_table || '').trim();
+                function setSalary(key) {
+                    if (t === projectKey) salaryByCorp[key] = rowData;
+                    else if (!salaryByCorp[key]) salaryByCorp[key] = rowData;
+                }
+                setSalary(c);
+                if (CORP_KEY_TO_LABEL[c]) setSalary(CORP_KEY_TO_LABEL[c]);
+                if (CORP_LABEL_TO_KEY[c]) setSalary(CORP_LABEL_TO_KEY[c]);
+            });
+            var prArray = Array.isArray(contract.participation_rate) ? contract.participation_rate : [];
+            var personnelRows = [];
+            var personnelSubtotal = 0;
+            partRows.forEach(function (pr, idx) {
+                var p = personnelById[pr.personnel_id] || personnelById[String(pr.personnel_id)];
+                var position = (p && (p.position || '').trim()) ? p.position.trim() : '';
+                var name = (p && (p.name || '').trim()) ? p.name.trim() : '';
+                var rate = Number(pr.rate) || 0;
+                var period = 0;
+                var prItem = prArray[idx];
+                if (prItem && (prItem.period != null || prItem.기간 != null)) {
+                    var periodVal = prItem.period != null ? prItem.period : prItem.기간;
+                    period = parseFloat(String(periodVal).replace(/,/g, '')) || 0;
+                } else {
+                    var byName = prArray.filter(function (x) { return (x.name || '').trim() === name; });
+                    if (byName.length && (byName[0].period != null || byName[0].기간 != null)) {
+                        var pv = byName[0].period != null ? byName[0].period : byName[0].기간;
+                        period = parseFloat(String(pv).replace(/,/g, '')) || 0;
+                    }
+                }
+                var salaryMap = salaryByCorp[corpSize] || salaryByCorp[corpKey] || salaryByCorp['중기업'] || salaryByCorp['mid'] || {};
+                var key = ROLE_SALARY_KEYS[position];
+                var monthlySalary = key ? (salaryMap[key] || 0) : 0;
+                var cost = Math.round(monthlySalary * (rate / 100) * period);
+                personnelSubtotal += cost;
+                personnelRows.push({
+                    position: position,
+                    name: name,
+                    amount: cost,
+                    monthlySalary: monthlySalary,
+                    rate: rate,
+                    period: period
+                });
+            });
+            renderOutputStatementPersonnel(personnelRows, contract, personnelBody);
+            fillOutputStatementSummary(contract, personnelSubtotal);
+        });
+    }).catch(function () {
+        var personnelBody = document.getElementById('outputStatementPersonnelBody');
+        if (personnelBody) personnelBody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+    });
+}
+
+function renderOutputStatementPersonnel(rows, contract, personnelBody) {
+    if (!personnelBody) return;
+    var escapeHtml = function (s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var fmtNum = function (n) { return (n != null && n !== '') ? Number(n).toLocaleString('ko-KR') : ''; };
+    if (rows.length === 0) {
+        personnelBody.innerHTML = '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px; color: #94a3b8;">인력 없음</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>' +
+            '<tr style="background: #f1f5f9;"><td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600;">①소계</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">0원</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>';
+        return;
+    }
+    var subTotal = 0;
+    var trs = rows.map(function (r) {
+        subTotal += r.amount;
+        var roleName = (r.position ? r.position + ' (' + r.name + ')' : r.name) || '—';
+        return '<tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">' + escapeHtml(roleName) + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">' + fmtNum(r.amount) + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">' + fmtNum(r.monthlySalary) + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">' + (r.rate != null ? r.rate : '') + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">' + (r.period != null ? r.period : '') + '</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>';
+    });
+    var subRow = '<tr style="background: #f1f5f9;"><td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600;">①소계</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">' + fmtNum(subTotal) + '원</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td><td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>';
+    personnelBody.innerHTML = trs.join('') + subRow;
+}
+
+function fillOutputStatementSummary(contract, personnelSubtotal) {
+    var expenseSubtotal = 0;
+    var totalCash = Number(contract.total_cash) || 0;
+    var vat = Number(contract.vat) || 0;
+    var sumP = Number(contract.sum_p) || 0;
+    var corpKind = Number(contract.corp_kind) || 0;
+    var totalBudget = Number(contract.total_budget) || 0;
+    var generalAdmin = totalCash - personnelSubtotal - expenseSubtotal;
+    var fmt = function (n) { return (n != null && n !== '' && !isNaN(n)) ? Number(n).toLocaleString('ko-KR') : ''; };
+    var setCell = function (id, val) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+    setCell('osExp1', '');
+    setCell('osExp2', '');
+    setCell('osExp3', '');
+    setCell('osExp4', '');
+    setCell('osExpSubtotal', fmt(expenseSubtotal) ? fmt(expenseSubtotal) + '원' : '');
+    setCell('osGeneralAdmin', fmt(generalAdmin) ? fmt(generalAdmin) + '원' : '');
+    setCell('osTotalCost', fmt(totalCash) ? fmt(totalCash) + '원' : '');
+    setCell('osVat', fmt(vat) ? fmt(vat) + '원' : '');
+    setCell('osProjectExpense', fmt(sumP) ? fmt(sumP) + '원' : '');
+    setCell('osCorpKind', fmt(corpKind) ? fmt(corpKind) + '원' : '');
+    setCell('osTotalBudget', fmt(totalBudget) ? fmt(totalBudget) + '원' : '');
+}
+
+function closeOutputStatementModal() {
+    var modal = document.getElementById('outputStatementModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 현물출자 모달 ---------- */
+function openInKindModal(contractId) {
+    var modal = document.getElementById('inKindModal');
+    var personnelBody = document.getElementById('inKindPersonnelBody');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    var refEl = document.getElementById('inKindRefNo');
+    var companyEl = document.getElementById('inKindCompanyName');
+    var bizNoEl = document.getElementById('inKindBizNo');
+    var bizNoInp = document.getElementById('inKindBizNoInput');
+    var periodEl = document.getElementById('inKindPeriod');
+    var totalEl = document.getElementById('inKindTotalBudget');
+    var inKindAmountEl = document.getElementById('inKindInKindAmount');
+    var totalCell = document.getElementById('inKindPersonnelTotal');
+    inKindModalSetViewMode();
+    if (refEl) refEl.textContent = '—';
+    if (companyEl) companyEl.textContent = '—';
+    if (bizNoEl) bizNoEl.textContent = '';
+    var bizNoInp = document.getElementById('inKindBizNoInput');
+    if (bizNoInp) bizNoInp.value = '';
+    if (periodEl) periodEl.textContent = '—';
+    if (totalEl) totalEl.textContent = '—';
+    if (inKindAmountEl) inKindAmountEl.textContent = '';
+    if (totalCell) totalCell.textContent = '';
+    if (personnelBody) personnelBody.innerHTML = '<tr><td colspan="8" style="padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>';
+
+    if (!_supabase) {
+        if (personnelBody) personnelBody.innerHTML = '<tr><td colspan="8" style="padding: 16px; text-align: center; color: #e53e3e;">DB 연결 불가.</td></tr>';
+        return;
+    }
+    var projectKey = getProjectKey();
+    Promise.all([
+        _supabase.from('contract_registry').select('ref_no, company_name, total_budget, start_date, end_date, corp_kind, corp_size, in_kind_personnel, biz_no').eq('id', contractId).single(),
+        _supabase.from('salary_config').select('target_table, corp_size, salary_senior, salary_researcher, salary_assistant').or('target_table.eq.' + projectKey + ',target_table.eq.default')
+    ]).then(function (results) {
+        var contractRes = results[0];
+        var salaryRes = results[1];
+        if (contractRes.error || !contractRes.data) {
+            if (personnelBody) personnelBody.innerHTML = '<tr><td colspan="8" style="padding: 16px; text-align: center; color: #e53e3e;">협약 데이터를 불러올 수 없습니다.</td></tr>';
+            return;
+        }
+        var c = contractRes.data;
+        var refNo = (c.ref_no != null && c.ref_no !== '') ? String(c.ref_no).trim() : '—';
+        var company = (c.company_name != null && c.company_name !== '') ? String(c.company_name).trim() : '—';
+        var totalBudget = c.total_budget != null && c.total_budget !== '' ? Number(c.total_budget) : NaN;
+        var totalStr = isNaN(totalBudget) ? '—' : totalBudget.toLocaleString('ko-KR') + '원';
+        var corpKind = c.corp_kind != null && c.corp_kind !== '' ? Number(c.corp_kind) : NaN;
+        var corpKindStr = isNaN(corpKind) ? '' : corpKind.toLocaleString('ko-KR') + '원';
+        var s = formatContractDate(c.start_date);
+        var e = formatContractDate(c.end_date);
+        var periodStr = (s === '—' && e === '—') ? '—' : s + ' ~ ' + e;
+        if (refEl) refEl.textContent = refNo;
+        if (companyEl) companyEl.textContent = company;
+        var bizNoVal = (c.biz_no != null && c.biz_no !== '') ? String(c.biz_no).trim() : '';
+        if (bizNoEl) bizNoEl.textContent = bizNoVal;
+        if (bizNoInp) bizNoInp.value = bizNoVal;
+        if (periodEl) periodEl.textContent = periodStr;
+        if (totalEl) totalEl.textContent = totalStr;
+        if (inKindAmountEl) inKindAmountEl.textContent = corpKindStr;
+
+        var inKindList = Array.isArray(c.in_kind_personnel) ? c.in_kind_personnel : [];
+        var salaryRows = (salaryRes && salaryRes.data) ? salaryRes.data : [];
+        var salaryByCorp = {};
+        var corpSize = (c.corp_size || '').trim() || '중기업';
+        var corpKey = CORP_LABEL_TO_KEY[corpSize] || corpSize;
+        salaryRows.forEach(function (r) {
+            var corp = (r.corp_size || '').trim();
+            if (!corp) return;
+            var rowData = {
+                salary_senior: Number(r.salary_senior) || 0,
+                salary_researcher: Number(r.salary_researcher) || 0,
+                salary_assistant: Number(r.salary_assistant) || 0
+            };
+            var t = (r.target_table || '').trim();
+            function setSalary(key) {
+                if (t === projectKey) salaryByCorp[key] = rowData;
+                else if (!salaryByCorp[key]) salaryByCorp[key] = rowData;
+            }
+            setSalary(corp);
+            if (CORP_KEY_TO_LABEL[corp]) setSalary(CORP_KEY_TO_LABEL[corp]);
+            if (CORP_LABEL_TO_KEY[corp]) setSalary(CORP_LABEL_TO_KEY[corp]);
+        });
+        var salaryMap = salaryByCorp[corpSize] || salaryByCorp[corpKey] || salaryByCorp['중기업'] || salaryByCorp['mid'] || {};
+        var personnelRows = [];
+        inKindList.forEach(function (row) {
+            var position = (row.position || row.구분 || '').trim();
+            var name = (row.name || row.이름 || '').trim();
+            var role_title = (row.role_title || row.직책 || '').trim();
+            var rate = Number(row.rate != null ? row.rate : row.참여율) || 0;
+            var period = parseFloat(String(row.period != null ? row.period : row.기간 || '').replace(/,/g, '')) || 0;
+            var remark = (row.remark || row.비고 || '').trim();
+            var key = ROLE_SALARY_KEYS[position];
+            var monthlySalary = key ? (salaryMap[key] || 0) : 0;
+            var cost = Math.round(monthlySalary * (rate / 100) * period);
+            personnelRows.push({
+                position: position,
+                name: name,
+                role_title: role_title,
+                amount: cost,
+                monthlySalary: monthlySalary,
+                rate: rate,
+                period: period,
+                remark: remark
+            });
+        });
+        window._inKindModalContractId = contractId;
+        window._inKindModalContract = c;
+        window._inKindModalSalaryByCorp = salaryByCorp;
+        window._inKindModalCorpKey = corpKey;
+        renderInKindPersonnel(personnelRows, personnelBody, totalCell);
+    }).catch(function () {
+        if (personnelBody) personnelBody.innerHTML = '<tr><td colspan="8" style="padding: 16px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+    });
+}
+
+function inKindModalSetViewMode() {
+    var viewWrap = document.getElementById('inKindPersonnelViewWrap');
+    var editWrap = document.getElementById('inKindPersonnelEditWrap');
+    var viewModeBtns = document.getElementById('inKindViewModeBtns');
+    var editModeBtns = document.getElementById('inKindEditModeBtns');
+    var bizNoSpan = document.getElementById('inKindBizNo');
+    var bizNoInput = document.getElementById('inKindBizNoInput');
+    if (viewWrap) viewWrap.style.display = '';
+    if (editWrap) editWrap.style.display = 'none';
+    if (viewModeBtns) viewModeBtns.style.display = '';
+    if (editModeBtns) editModeBtns.style.display = 'none';
+    if (bizNoSpan) bizNoSpan.style.display = '';
+    if (bizNoInput) bizNoInput.style.display = 'none';
+}
+
+function inKindModalSetEditMode() {
+    var viewWrap = document.getElementById('inKindPersonnelViewWrap');
+    var editWrap = document.getElementById('inKindPersonnelEditWrap');
+    var viewModeBtns = document.getElementById('inKindViewModeBtns');
+    var editModeBtns = document.getElementById('inKindEditModeBtns');
+    var bizNoSpan = document.getElementById('inKindBizNo');
+    var bizNoInput = document.getElementById('inKindBizNoInput');
+    if (viewWrap) viewWrap.style.display = 'none';
+    if (editWrap) editWrap.style.display = 'block';
+    if (viewModeBtns) viewModeBtns.style.display = 'none';
+    if (editModeBtns) editModeBtns.style.display = 'flex';
+    if (bizNoSpan) bizNoSpan.style.display = 'none';
+    if (bizNoInput) { bizNoInput.style.display = 'block'; bizNoInput.value = (bizNoSpan && bizNoSpan.textContent) ? bizNoSpan.textContent : ''; }
+}
+
+function getInKindModalSalaryForRole(role) {
+    var map = window._inKindModalSalaryByCorp;
+    var key = window._inKindModalCorpKey;
+    if (!map || !key) return 0;
+    var row = map[key] || map['중기업'] || map['mid'];
+    if (!row) return 0;
+    var k = ROLE_SALARY_KEYS[role];
+    return k ? (row[k] || 0) : 0;
+}
+
+function buildInKindModalEditRowHtml() {
+    var opts = PERSONNEL_DETAIL_ROLES.map(function (r) {
+        return '<option value="' + r.replace(/"/g, '&quot;') + '">' + r + '</option>';
+    }).join('');
+    var cell = 'border: 1px solid #e2e8f0; padding: 6px 8px;';
+    return '<tr><td style="' + cell + ' text-align: center;"><button type="button" class="btn-select inkind-edit-delete" style="padding: 4px 8px; font-size: 11px; border-color: #feb2b2; color: #c53030;">-</button></td>' +
+        '<td style="' + cell + ' background: #f8fafc;"><select class="inkind-edit-role" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; background: white; font-size: 13px; box-sizing: border-box;">' + opts + '</select></td>' +
+        '<td style="' + cell + '"><input type="text" class="inkind-edit-name" placeholder="성명" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td>' +
+        '<td style="' + cell + '"><input type="text" class="inkind-edit-role-title" placeholder="직책" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td>' +
+        '<td class="inkind-edit-monthly" style="' + cell + ' text-align: right; background: #f8fafc;"></td>' +
+        '<td style="' + cell + '"><input type="text" class="inkind-edit-rate" placeholder="%" style="width: 60px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; box-sizing: border-box;"></td>' +
+        '<td style="' + cell + '"><input type="text" class="inkind-edit-period" placeholder="기간" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td>' +
+        '<td class="inkind-edit-cost" style="' + cell + ' text-align: right; background: #f8fafc;"></td>' +
+        '<td style="' + cell + '"><input type="text" class="inkind-edit-remark" placeholder="비고" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;"></td></tr>';
+}
+
+function calcInKindModalEditRowCost(tr) {
+    var roleSel = tr.querySelector('.inkind-edit-role');
+    var rateInp = tr.querySelector('.inkind-edit-rate');
+    var periodInp = tr.querySelector('.inkind-edit-period');
+    var monthlyCell = tr.querySelector('.inkind-edit-monthly');
+    var costCell = tr.querySelector('.inkind-edit-cost');
+    var role = roleSel && roleSel.value ? roleSel.value.trim() : '';
+    var salary = getInKindModalSalaryForRole(role);
+    var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
+    var period = parseFloat(periodInp && periodInp.value ? periodInp.value.replace(/,/g, '') : 0) || 0;
+    var cost = Math.round(salary * (rate / 100) * period);
+    if (monthlyCell) monthlyCell.textContent = salary ? salary.toLocaleString('ko-KR') : '';
+    if (costCell) costCell.textContent = cost ? cost.toLocaleString('ko-KR') : '';
+    return cost;
+}
+
+function updateInKindModalEditSubtotal() {
+    var tbody = document.getElementById('inKindModalEditPersonnelBody');
+    var displayEl = document.getElementById('inKindModalEditSubtotal');
+    if (!tbody || !displayEl) return;
+    var sum = 0;
+    tbody.querySelectorAll('.inkind-edit-cost').forEach(function (td) {
+        var t = (td.textContent || '').replace(/,/g, '').replace(/\s/g, '');
+        var n = parseInt(t, 10);
+        if (!isNaN(n)) sum += n;
+    });
+    displayEl.textContent = sum ? sum.toLocaleString('ko-KR') : '';
+}
+
+function bindInKindModalEditRowEvents(tr) {
+    if (tr.getAttribute('data-inkind-modal-bound') === '1') return;
+    tr.setAttribute('data-inkind-modal-bound', '1');
+    var roleSel = tr.querySelector('.inkind-edit-role');
+    var rateInp = tr.querySelector('.inkind-edit-rate');
+    var periodInp = tr.querySelector('.inkind-edit-period');
+    function onUpdate() {
+        calcInKindModalEditRowCost(tr);
+        updateInKindModalEditSubtotal();
+    }
+    if (roleSel) roleSel.addEventListener('change', onUpdate);
+    if (rateInp) { rateInp.addEventListener('input', onUpdate); rateInp.addEventListener('change', onUpdate); }
+    if (periodInp) { periodInp.addEventListener('input', onUpdate); periodInp.addEventListener('change', onUpdate); }
+    var delBtn = tr.querySelector('.inkind-edit-delete');
+    if (delBtn) delBtn.addEventListener('click', function () { removeInKindModalEditRow(tr); });
+}
+
+function addInKindModalEditRow() {
+    var tbody = document.getElementById('inKindModalEditPersonnelBody');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML = buildInKindModalEditRowHtml().replace(/^<tr>|<\/tr>$/g, '');
+    tbody.appendChild(tr);
+    bindInKindModalEditRowEvents(tr);
+}
+
+function removeInKindModalEditRow(tr) {
+    if (!tr || !tr.parentNode) return;
+    tr.remove();
+    updateInKindModalEditSubtotal();
+}
+
+function inKindModalEnterEdit() {
+    var c = window._inKindModalContract;
+    var tbody = document.getElementById('inKindModalEditPersonnelBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    var list = Array.isArray(c && c.in_kind_personnel) ? c.in_kind_personnel : [];
+    if (list.length > 0) {
+        list.forEach(function (row) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = buildInKindModalEditRowHtml().replace(/^<tr>|<\/tr>$/g, '');
+            tbody.appendChild(tr);
+            var roleSel = tr.querySelector('.inkind-edit-role');
+            var nameInp = tr.querySelector('.inkind-edit-name');
+            var roleTitleInp = tr.querySelector('.inkind-edit-role-title');
+            var rateInp = tr.querySelector('.inkind-edit-rate');
+            var periodInp = tr.querySelector('.inkind-edit-period');
+            var remarkInp = tr.querySelector('.inkind-edit-remark');
+            if (roleSel && (row.position || row.구분)) roleSel.value = (row.position || row.구분 || '').trim() || roleSel.value;
+            if (nameInp) nameInp.value = (row.name || row.이름 || '').trim();
+            if (roleTitleInp) roleTitleInp.value = (row.role_title || row.직책 || '').trim();
+            if (rateInp) rateInp.value = (row.rate != null || row.참여율 != null) ? String(row.rate != null ? row.rate : row.참여율) : '';
+            if (periodInp) periodInp.value = (row.period != null && row.period !== '' ? row.period : (row.기간 || '')) !== '' ? String(row.period != null ? row.period : row.기간 || '') : '';
+            if (remarkInp) remarkInp.value = (row.remark || row.비고 || '').trim();
+            bindInKindModalEditRowEvents(tr);
+            calcInKindModalEditRowCost(tr);
+        });
+    } else {
+        addInKindModalEditRow();
+        var firstTr = tbody.querySelector('tr');
+        if (firstTr) {
+            var roleSel = firstTr.querySelector('.inkind-edit-role');
+            if (roleSel) roleSel.value = '연구보조원';
+        }
+    }
+    updateInKindModalEditSubtotal();
+    inKindModalSetEditMode();
+}
+
+function inKindModalExitEdit() {
+    var bizNoSpan = document.getElementById('inKindBizNo');
+    var bizNoInput = document.getElementById('inKindBizNoInput');
+    if (bizNoSpan && bizNoInput) bizNoSpan.textContent = (bizNoInput.value || '').trim();
+    inKindModalSetViewMode();
+}
+
+function inKindModalSave() {
+    var contractId = window._inKindModalContractId;
+    if (!contractId || !_supabase) return;
+    var bizNoInput = document.getElementById('inKindBizNoInput');
+    var bizNo = (bizNoInput && bizNoInput.value) ? bizNoInput.value.trim() : '';
+    var tbody = document.getElementById('inKindModalEditPersonnelBody');
+    var inKindPersonnel = [];
+    if (tbody) {
+        tbody.querySelectorAll('tr').forEach(function (tr) {
+            var roleSel = tr.querySelector('.inkind-edit-role');
+            var nameInp = tr.querySelector('.inkind-edit-name');
+            var roleTitleInp = tr.querySelector('.inkind-edit-role-title');
+            var rateInp = tr.querySelector('.inkind-edit-rate');
+            var periodInp = tr.querySelector('.inkind-edit-period');
+            var remarkInp = tr.querySelector('.inkind-edit-remark');
+            var position = (roleSel && roleSel.value ? roleSel.value : '').trim();
+            var name = (nameInp && nameInp.value ? nameInp.value : '').trim();
+            var role_title = (roleTitleInp && roleTitleInp.value ? roleTitleInp.value : '').trim();
+            var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
+            var period = (periodInp && periodInp.value ? periodInp.value : '').trim();
+            var remark = (remarkInp && remarkInp.value ? remarkInp.value : '').trim();
+            inKindPersonnel.push({ position: position, name: name, role_title: role_title, rate: rate, period: period, remark: remark });
+        });
+    }
+    var payload = { in_kind_personnel: inKindPersonnel.length ? inKindPersonnel : null };
+    payload.biz_no = bizNo || null;
+    function onSaveDone() {
+        if (window._inKindModalContract) {
+            window._inKindModalContract.biz_no = bizNo;
+            window._inKindModalContract.in_kind_personnel = inKindPersonnel;
+        }
+        var personnelBody = document.getElementById('inKindPersonnelBody');
+        var totalCell = document.getElementById('inKindPersonnelTotal');
+        var salaryMap = window._inKindModalSalaryByCorp && window._inKindModalCorpKey ? (window._inKindModalSalaryByCorp[window._inKindModalCorpKey] || window._inKindModalSalaryByCorp['중기업'] || window._inKindModalSalaryByCorp['mid'] || {}) : {};
+        var personnelRows = inKindPersonnel.map(function (row) {
+            var key = ROLE_SALARY_KEYS[row.position || ''];
+            var monthlySalary = key ? (salaryMap[key] || 0) : 0;
+            var rate = Number(row.rate) || 0;
+            var period = parseFloat(String(row.period || '').replace(/,/g, '')) || 0;
+            var cost = Math.round(monthlySalary * (rate / 100) * period);
+            return { position: row.position, name: row.name, role_title: row.role_title, amount: cost, monthlySalary: monthlySalary, rate: rate, period: period, remark: row.remark };
+        });
+        renderInKindPersonnel(personnelRows, personnelBody, totalCell);
+        var bizNoSpan = document.getElementById('inKindBizNo');
+        if (bizNoSpan) bizNoSpan.textContent = bizNo;
+        inKindModalExitEdit();
+        alert('저장되었습니다.');
+    }
+    _supabase.from('contract_registry').update(payload).eq('id', contractId).then(function (res) {
+        if (res.error) {
+            var msg = res.error.message || '';
+            if (payload.biz_no !== undefined && (msg.indexOf('biz_no') !== -1 || msg.indexOf('column') !== -1)) {
+                delete payload.biz_no;
+                _supabase.from('contract_registry').update(payload).eq('id', contractId).then(function (res2) {
+                    if (res2.error) alert('저장 실패: ' + (res2.error && res2.error.message ? res2.error.message : ''));
+                    else onSaveDone();
+                });
+                return;
+            }
+            alert('저장 실패: ' + msg);
+            return;
+        }
+        onSaveDone();
+    }).catch(function (err) {
+        alert('저장 실패: ' + (err && err.message ? err.message : String(err)));
+    });
+}
+
+function renderInKindPersonnel(rows, personnelBody, totalCell) {
+    if (!personnelBody) return;
+    var escapeHtml = function (s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var fmtNum = function (n) { return (n != null && n !== '') ? Number(n).toLocaleString('ko-KR') : ''; };
+    var cellStyle = 'border: 1px solid #e2e8f0; padding: 8px 10px;';
+    if (rows.length === 0) {
+        personnelBody.innerHTML = '<tr><td colspan="8" style="' + cellStyle + ' color: #94a3b8; text-align: center;">인력 없음</td></tr>';
+        if (totalCell) totalCell.textContent = '';
+        return;
+    }
+    var subTotal = 0;
+    var trs = rows.map(function (r) {
+        subTotal += r.amount;
+        var 구분 = escapeHtml(r.position || '');
+        var 성명 = escapeHtml(r.name || '');
+        var 직책 = escapeHtml(r.role_title || '');
+        var 월단가 = fmtNum(r.monthlySalary);
+        var 투입률 = r.rate != null && r.rate !== '' ? r.rate : '';
+        var 투입기간 = r.period != null && r.period !== '' ? r.period : '';
+        var 현물인건비 = fmtNum(r.amount);
+        var 비고 = escapeHtml(r.remark || '');
+        return '<tr><td style="' + cellStyle + ' text-align: center;">' + 구분 + '</td><td style="' + cellStyle + ' text-align: center;">' + 성명 + '</td><td style="' + cellStyle + ' text-align: center;">' + 직책 + '</td><td style="' + cellStyle + ' text-align: right;">' + 월단가 + '</td><td style="' + cellStyle + ' text-align: center;">' + 투입률 + '</td><td style="' + cellStyle + ' text-align: center;">' + 투입기간 + '</td><td style="' + cellStyle + ' text-align: right;">' + 현물인건비 + '</td><td style="' + cellStyle + ' text-align: left;">' + 비고 + '</td></tr>';
+    });
+    personnelBody.innerHTML = trs.join('');
+    if (totalCell) totalCell.textContent = subTotal > 0 ? subTotal.toLocaleString('ko-KR') + '원' : '';
+}
+
+function closeInKindModal() {
+    var modal = document.getElementById('inKindModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 월말보고서 모달 (파일: 메모리 저장, DB/Storage 연동 시 확장) ---------- */
+var _monthReportStore = {};
+var MONTH_REPORT_BUCKET = 'month-reports';
+var _monthReportBusy = false;
+
+function monthReportDeriveTitle(fileName) {
+    var base = String(fileName || '').trim();
+    if (!base) return '—';
+    // 마지막 언더바(_) 뒤 내용을 추출, 확장자 제거 후 큰 글씨로 표시
+    var parts = base.split('_');
+    var last = (parts.length > 1 ? parts.pop() : parts[0]) || '';
+    last = last.replace(/\.[^/.]+$/, '').trim();
+    return last || '월말 보고서';
+}
+
+function monthReportSetStatus(msg, isError) {
+    var el = document.getElementById('monthReportUploadStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? '#e53e3e' : '#94a3b8';
+}
+
+function monthReportSyncUI(data) {
+    var nameEl = document.getElementById('monthReportFileName');
+    var titleEl = document.getElementById('monthReportTitle');
+    var deleteBtn = document.getElementById('monthReportDeleteBtn');
+    var downloadBtn = document.getElementById('monthReportDownloadBtn');
+    var dropText = document.getElementById('monthReportDropText');
+    var fileName = (data && (data.fileName || data.file_name)) ? String(data.fileName || data.file_name) : '';
+    if (titleEl) titleEl.textContent = fileName ? monthReportDeriveTitle(fileName) : '—';
+    if (nameEl) nameEl.textContent = fileName || '—';
+    var show = fileName ? 'inline-block' : 'none';
+    if (deleteBtn) deleteBtn.style.display = show;
+    if (downloadBtn) downloadBtn.style.display = show;
+    if (dropText) dropText.innerHTML = fileName ? '다른 파일로 변경하려면 끌어다 놓거나 클릭' : '📤 파일을 여기로 끌어다 놓거나<br>클릭하여 선택';
+}
+
+function monthReportSafeObjectName(fileName) {
+    // Storage 키는 ASCII만 사용 (공백·한글 등으로 Invalid key 방지). 확장자만 추출.
+    var name = String(fileName || 'report');
+    var dot = name.lastIndexOf('.');
+    var ext = dot >= 0 ? name.slice(dot) : '';
+    // 확장자가 비ASCII 포함 시 .bin 등 안전한 값으로
+    if (!/^.[A-Za-z0-9]+$/.test(ext)) ext = '.bin';
+    return ext;
+}
+
+function monthReportLoadFromDb(contractId) {
+    if (!_supabase) return Promise.resolve(null);
+    return _supabase
+        .from('contract_month_report')
+        .select('contract_id, file_name, file_path, uploaded_at')
+        .eq('contract_id', contractId)
+        .maybeSingle()
+        .then(function (res) {
+            if (res && res.error) throw res.error;
+            return res && res.data ? res.data : null;
+        });
+}
+
+function getChartUrlForContract(contractId) {
+    var projectKey = getProjectKey();
+    var base = (window._page3Base || '').replace(/\/?$/, '');
+    var path = base ? base + '/' + 'chart.html' : 'chart.html';
+    return path + '?table=' + encodeURIComponent(projectKey) + '&contract_id=' + encodeURIComponent(contractId);
+}
+function getChartUrlForProject(contractIds) {
+    var projectKey = getProjectKey();
+    var base = (window._page3Base || '').replace(/\/?$/, '');
+    var path = base ? base + '/' + 'chart.html' : 'chart.html';
+    var url = path + '?table=' + encodeURIComponent(projectKey);
+    if (contractIds && contractIds.length > 0) {
+        url += '&contract_id=' + encodeURIComponent(contractIds.join(','));
+    }
+    return url;
+}
+function openChartForContract(contractId) {
+    window.open(getChartUrlForContract(contractId), '_blank');
+}
+
+function openMonthReportModal(contractId) {
+    window._monthReportCurrentContractId = contractId;
+    monthReportSetStatus('', false);
+    monthReportSyncUI(_monthReportStore[contractId] || { fileName: '' });
+    var fileInput = document.getElementById('monthReportFileInput');
+    if (fileInput) fileInput.value = '';
+    var modal = document.getElementById('monthReportModal');
+    if (modal) modal.style.display = 'flex';
+
+    monthReportRefreshPlatformStatus(contractId);
+
+    // DB에서 최신 파일 메타 로드
+    if (_supabase) {
+        monthReportSetStatus('불러오는 중...', false);
+        monthReportLoadFromDb(contractId).then(function (row) {
+            if (!row) {
+                _monthReportStore[contractId] = { fileName: '', filePath: '' };
+                monthReportSyncUI(_monthReportStore[contractId]);
+                monthReportSetStatus('', false);
+                return;
+            }
+            _monthReportStore[contractId] = { fileName: row.file_name || row.fileName || '', filePath: row.file_path || row.filePath || '' };
+            monthReportSyncUI(_monthReportStore[contractId]);
+            monthReportSetStatus('', false);
+        }).catch(function (e) {
+            monthReportSetStatus('로드 실패: ' + (e && e.message ? e.message : String(e)), true);
+        });
+    }
+}
+
+/**
+ * KPI 목표(국가-플랫폼)와 업로드 엑셀(3열=국가, 4열=플랫폼) 유니크 조합을 읽어 플랫폼 현황 영역에 표시.
+ * KPI에 있는 조합 = 초록, 없는 조합 = 빨강.
+ */
+function monthReportRefreshPlatformStatus(contractId) {
+    var summaryEl = document.getElementById('monthReportPlatformSummary');
+    var kpiEl = document.getElementById('monthReportKpiTags');
+    var excelEl = document.getElementById('monthReportExcelTags');
+    if (!kpiEl || !excelEl) return;
+    kpiEl.innerHTML = '';
+    excelEl.innerHTML = '';
+    if (summaryEl) summaryEl.textContent = '현재 : 0건 / 목표 건수 : 0건 / 달성률 : —%';
+
+    if (!_supabase || contractId == null) return;
+
+    Promise.all([
+        _supabase.from('contract_registry').select('block_target').eq('id', contractId).single(),
+        _supabase.from('contract_kpi_target').select('country, platform').eq('contract_id', contractId),
+        _supabase.from('data_rows').select('col3_val, col4_val').eq('contract_id', contractId)
+    ]).then(function (results) {
+        var regRes = results[0];
+        var kpiRes = results[1];
+        var rowsRes = results[2];
+        var blockTarget = (regRes && regRes.data && regRes.data.block_target != null && regRes.data.block_target !== '')
+            ? parseInt(regRes.data.block_target, 10) : 0;
+        if (isNaN(blockTarget)) blockTarget = 0;
+        var kpiRows = (kpiRes && kpiRes.data) ? kpiRes.data : [];
+        var dataRows = (rowsRes && rowsRes.data) ? rowsRes.data : [];
+
+        // KPI: 유니크 (country, platform). platform은 쉼표 구분으로 펼침
+        var kpiSet = {};
+        kpiRows.forEach(function (r) {
+            var country = String(r.country || '').trim();
+            var platformStr = String(r.platform || '').trim();
+            if (!platformStr) {
+                if (country) kpiSet[country + '|'] = { country: country, platform: '' };
+                return;
+            }
+            platformStr.split(',').forEach(function (p) {
+                var platform = p.trim();
+                if (country || platform) kpiSet[country + '|' + platform] = { country: country, platform: platform };
+            });
+        });
+        // 업로드 데이터: 3열=국가(col3_val), 4열=플랫폼(col4_val) 유니크
+        var excelSet = {};
+        dataRows.forEach(function (r) {
+            var country = String(r.col3_val != null ? r.col3_val : '').trim();
+            var platform = String(r.col4_val != null ? r.col4_val : '').trim();
+            var key = country + '|' + platform;
+            if (!excelSet[key]) excelSet[key] = { country: country, platform: platform };
+        });
+        var excelPairs = Object.keys(excelSet).map(function (k) { return excelSet[k]; });
+        var m = dataRows.length;
+        var n = blockTarget;
+        var rateStr = n > 0 ? ((m / n * 100).toFixed(1) + '%') : '—%';
+        if (summaryEl) summaryEl.textContent = '현재 : ' + m.toLocaleString('ko-KR') + '건 / 목표 건수 : ' + n.toLocaleString('ko-KR') + '건 / 달성률 : ' + rateStr;
+
+        // 상단 KPI: 하단(업로드)에 이미 있는 조합은 제외 → 아직 데이터 없는 목표만 표시
+        var kpiPairsToShow = Object.keys(kpiSet).filter(function (k) { return !excelSet[k]; }).map(function (k) { return kpiSet[k]; });
+
+        kpiPairsToShow.forEach(function (p) {
+            var span = document.createElement('span');
+            span.style.cssText = 'display: inline-block; padding: 4px 10px; font-size: 12px; border-radius: 6px; background: #e2e8f0; color: #475569;';
+            span.textContent = (p.country || '(국가)') + ' - ' + (p.platform || '(플랫폼)');
+            kpiEl.appendChild(span);
+        });
+
+        excelPairs.forEach(function (p) {
+            var span = document.createElement('span');
+            var key = p.country + '|' + p.platform;
+            var inKpi = kpiSet[key] !== undefined;
+            span.style.cssText = 'display: inline-block; padding: 4px 10px; font-size: 12px; border-radius: 6px; color: #1a202c; ' +
+                (inKpi ? 'background: #c6f6d5;' : 'background: #fed7d7;');
+            span.textContent = (p.country || '(국가)') + ' - ' + (p.platform || '(플랫폼)');
+            excelEl.appendChild(span);
+        });
+    }).catch(function () {
+        kpiEl.innerHTML = '<span style="font-size: 12px; color: #94a3b8;">로드 실패</span>';
+    });
+}
+
+function closeMonthReportModal() {
+    var modal = document.getElementById('monthReportModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * 엑셀 파일 파싱: 2행=헤더, 3행부터 데이터. data_rows에 contract_id로 저장 (해당 협약 기존 데이터 삭제 후 삽입).
+ * @param {File} file - 엑셀 파일
+ * @param {number} contractId - contract_registry.id (월말보고서 모달에서 선택된 협약)
+ * @returns {Promise<number>} 저장한 행 수. xlsx가 아니거나 실패 시 0, 파싱만 스킵 시 -1
+ */
+function monthReportParseExcelToDataRows(file, contractId) {
+    if (!file || !_supabase || contractId == null) return Promise.resolve(-1);
+    var XLSX = window.XLSX || window.xlsx;
+    if (!XLSX) return Promise.resolve(-1);
+    var name = (file.name || '').toLowerCase();
+    if (name.indexOf('.xlsx') === -1 && name.indexOf('.xls') === -1) return Promise.resolve(-1);
+
+    return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () {
+            try {
+                var wb = XLSX.read(r.result, { type: 'array' });
+                var firstSheet = wb.SheetNames && wb.SheetNames[0] ? wb.Sheets[wb.SheetNames[0]] : null;
+                if (!firstSheet) { resolve(0); return; }
+                var aoa = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+                if (!aoa || aoa.length < 3) { resolve(0); return; }
+                var dataRows = aoa.slice(2).filter(function (row) {
+                    if (!row) return false;
+                    var emptyCount = 0;
+                    for (var c = 0; c < 20; c++) {
+                        var v = row[c];
+                        if (v === undefined || v === '' || v === null) emptyCount++;
+                    }
+                    return emptyCount < 10;
+                });
+                if (dataRows.length === 0) { resolve(0); return; }
+
+                var projectKey = getProjectKey();
+                var toInsert = dataRows.map(function (row) {
+                    var obj = { contract_id: contractId, project_key: projectKey };
+                    for (var i = 0; i < 20; i++) {
+                        var v = row[i];
+                        obj['col' + (i + 1) + '_val'] = (v !== undefined && v !== '' && v !== null) ? v : null;
+                    }
+                    return obj;
+                });
+
+                _supabase.from('data_rows').delete().eq('contract_id', contractId).then(function (delRes) {
+                    if (delRes.error) { reject(delRes.error); return; }
+                    var chunk = 100;
+                    function runChunk(idx) {
+                        if (idx >= toInsert.length) {
+                            resolve(toInsert.length);
+                            return;
+                        }
+                        var slice = toInsert.slice(idx, idx + chunk);
+                        _supabase.from('data_rows').insert(slice).then(function (res) {
+                            if (res.error) { reject(res.error); return; }
+                            runChunk(idx + chunk);
+                        }).catch(reject);
+                    }
+                    runChunk(0);
+                }).catch(reject);
+            } catch (e) {
+                reject(e);
+            }
+        };
+        r.onerror = function () { reject(new Error('파일 읽기 실패')); };
+        r.readAsArrayBuffer(file);
+    });
+}
+
+function monthReportUploadFile(file) {
+    var contractId = window._monthReportCurrentContractId;
+    if (!contractId || !file) return;
+    if (!_supabase) {
+        alert('Supabase 연결 불가.');
+        return;
+    }
+    if (_monthReportBusy) return;
+    _monthReportBusy = true;
+    monthReportSetStatus('업로드 중...', false);
+
+    // 기존 파일 있으면 삭제 (DB + Storage)
+    var existing = _monthReportStore[contractId] || { fileName: '', filePath: '' };
+    var deletePromise = Promise.resolve();
+    if (existing.filePath) {
+        deletePromise = _supabase.storage.from(MONTH_REPORT_BUCKET).remove([existing.filePath]).then(function () {
+            return _supabase.from('contract_month_report').delete().eq('contract_id', contractId);
+        });
+    }
+
+    var path = String(contractId) + '/' + Date.now() + monthReportSafeObjectName(file.name);
+
+    deletePromise.then(function () {
+        return _supabase.storage.from(MONTH_REPORT_BUCKET).upload(path, file, { upsert: false });
+    }).then(function (upRes) {
+        if (upRes && upRes.error) throw upRes.error;
+        return _supabase.from('contract_month_report').upsert(
+            { contract_id: contractId, file_name: file.name, file_path: path },
+            { onConflict: 'contract_id' }
+        );
+    }).then(function (metaRes) {
+        if (metaRes && metaRes.error) throw metaRes.error;
+        _monthReportStore[contractId] = { fileName: file.name, filePath: path };
+        monthReportSyncUI(_monthReportStore[contractId]);
+        return monthReportParseExcelToDataRows(file, contractId);
+    }).then(function (rowCount) {
+        monthReportRefreshPlatformStatus(contractId);
+        updateAgreementRowButtons(contractId, monthReportDeriveTitle(file.name));
+        monthReportSetStatus(rowCount >= 0 ? '업로드 완료' + (rowCount > 0 ? ' (' + rowCount + '건 데이터 저장)' : '') : '업로드 완료', false);
+        setTimeout(function () { monthReportSetStatus('', false); }, 2500);
+    }).catch(function (e) {
+        monthReportSetStatus('업로드 실패: ' + (e && e.message ? e.message : String(e)), true);
+    }).finally(function () {
+        _monthReportBusy = false;
+    });
+}
+
+/**
+ * 협약 행의 '월말 엑셀' 버튼·'KPI' 버튼 문구를 한 번에 갱신.
+ * @param {string} contractId - 협약 ID
+ * @param {string} [monthReportLabel] - 월말 엑셀 버튼에 쓸 라벨(생략 시 월말 엑셀 버튼은 건드리지 않음)
+ */
+function updateAgreementRowButtons(contractId, monthReportLabel) {
+    var monthBtn = document.querySelector('.month-report-btn[data-contract-id="' + contractId + '"]');
+    var kpiBtn = document.querySelector('.kpi-rate-btn[data-contract-id="' + contractId + '"]');
+    if (monthReportLabel !== undefined && monthBtn) {
+        monthBtn.textContent = '월말 엑셀 : ' + (monthReportLabel || '--');
+    }
+    if (!kpiBtn) return;
+    if (!_supabase) {
+        kpiBtn.textContent = 'KPI : -%';
+        return;
+    }
+    Promise.all([
+        _supabase.from('contract_registry').select('block_target').eq('id', contractId).single(),
+        _supabase.from('data_rows').select('contract_id').eq('contract_id', contractId)
+    ]).then(function (results) {
+        var reg = results[0] && results[0].data;
+        var rows = results[1] && results[1].data ? results[1].data : [];
+        var n = (reg && reg.block_target != null && reg.block_target !== '') ? parseInt(reg.block_target, 10) : 0;
+        var m = rows.length;
+        var rateStr = n > 0 ? (m / n * 100).toFixed(1) + '%' : '-%';
+        kpiBtn.textContent = 'KPI : ' + rateStr;
+    }).catch(function () {
+        kpiBtn.textContent = 'KPI : -%';
+    });
+}
+
+function monthReportDownloadFile() {
+    var contractId = window._monthReportCurrentContractId;
+    if (!contractId || !_supabase) return;
+    var existing = _monthReportStore[contractId] || { fileName: '', filePath: '' };
+    if (!existing.filePath || !existing.fileName) return;
+    monthReportSetStatus('다운로드 중...', false);
+    _supabase.storage.from(MONTH_REPORT_BUCKET).download(existing.filePath).then(function (res) {
+        if (res && res.error) throw res.error;
+        var blob = res.data;
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = existing.fileName || 'report.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        monthReportSetStatus('다운로드 완료', false);
+        setTimeout(function () { monthReportSetStatus('', false); }, 1500);
+    }).catch(function (e) {
+        monthReportSetStatus('다운로드 실패: ' + (e && e.message ? e.message : String(e)), true);
+    });
+}
+
+function monthReportDeleteFile() {
+    var contractId = window._monthReportCurrentContractId;
+    if (!contractId) return;
+    if (!_supabase) {
+        _monthReportStore[contractId] = { fileName: '', filePath: '' };
+        monthReportSyncUI(_monthReportStore[contractId]);
+        monthReportSetStatus('', false);
+        return;
+    }
+    if (_monthReportBusy) return;
+    _monthReportBusy = true;
+    monthReportSetStatus('삭제 중...', false);
+    var existing = _monthReportStore[contractId] || { fileName: '', filePath: '' };
+    var removePromise = Promise.resolve();
+    if (existing.filePath) {
+        removePromise = _supabase.storage.from(MONTH_REPORT_BUCKET).remove([existing.filePath]);
+    }
+    removePromise.then(function (rmRes) {
+        if (rmRes && rmRes.error) throw rmRes.error;
+        return _supabase.from('contract_month_report').delete().eq('contract_id', contractId);
+    }).then(function (delRes) {
+        if (delRes && delRes.error) throw delRes.error;
+        return _supabase.from('data_rows').delete().eq('contract_id', contractId);
+    }).then(function (dataRowsRes) {
+        if (dataRowsRes && dataRowsRes.error) throw dataRowsRes.error;
+        _monthReportStore[contractId] = { fileName: '', filePath: '' };
+        monthReportSyncUI(_monthReportStore[contractId]);
+        monthReportRefreshPlatformStatus(contractId);
+        updateAgreementRowButtons(contractId, '--');
+        monthReportSetStatus('삭제 완료', false);
+        setTimeout(function () { monthReportSetStatus('', false); }, 1500);
+    }).catch(function (e) {
+        monthReportSetStatus('삭제 실패: ' + (e && e.message ? e.message : String(e)), true);
+    }).finally(function () {
+        _monthReportBusy = false;
+        var fileInput = document.getElementById('monthReportFileInput');
+        if (fileInput) fileInput.value = '';
+    });
+}
+
+function monthReportDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var zone = document.getElementById('monthReportDropZone');
+    if (zone) zone.style.borderColor = '#3182ce';
+}
+
+function monthReportDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var zone = document.getElementById('monthReportDropZone');
+    if (zone) zone.style.borderColor = '#cbd5e0';
+}
+
+function monthReportDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var zone = document.getElementById('monthReportDropZone');
+    if (zone) zone.style.borderColor = '#cbd5e0';
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) monthReportUploadFile(files[0]);
+}
+
+function monthReportFileSelect(e) {
+    var files = e.target && e.target.files;
+    if (files && files.length) monthReportUploadFile(files[0]);
+}
+
+function openKpiEditModal() {
+    var contractId = window._kpiCurrentContractId;
+    if (contractId == null) return;
+    var data = _kpiStore[contractId] || { targetCount: '', rows: [] };
+    var targetInput = document.getElementById('kpiEditTargetCount');
+    var tbody = document.getElementById('kpiEditTableBody');
+    if (targetInput) targetInput.value = (data.targetCount !== '' && data.targetCount != null) ? String(data.targetCount) : '';
+    if (tbody) {
+        var rows = data.rows || [];
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;"></td><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;"></td></tr>';
+        } else {
+            tbody.innerHTML = rows.map(function (r) {
+                var c = (r.country || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var p = (r.platform || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<tr><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;">' + c + '</td><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;">' + p + '</td></tr>';
+            }).join('');
+        }
+    }
+    attachKpiEditPasteHandler();
+    var modal = document.getElementById('kpiEditModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeKpiEditModal() {
+    var modal = document.getElementById('kpiEditModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function attachKpiEditPasteHandler() {
+    var table = document.getElementById('kpiEditTable');
+    if (!table) return;
+    table.onpaste = function (e) {
+        e.preventDefault();
+        var text = (e.clipboardData || window.clipboardData).getData('text');
+        var lines = (text || '').split(/\r?\n/).filter(function (line) { return line.trim() !== ''; });
+        if (lines.length === 0) return;
+        var tbody = document.getElementById('kpiEditTableBody');
+        if (!tbody) return;
+        var rows = [];
+        for (var i = 0; i < lines.length; i++) {
+            var cells = lines[i].split(/\t/);
+            var c0, c1;
+            if (cells.length >= 2) {
+                c0 = (cells[0] || '').trim();
+                c1 = (cells[1] || '').trim();
+            } else {
+                var line = (lines[i] || '').trim();
+                var firstSpace = line.indexOf(' ');
+                if (firstSpace > 0) {
+                    c0 = line.slice(0, firstSpace).trim();
+                    c1 = line.slice(firstSpace).trim();
+                } else {
+                    c0 = line;
+                    c1 = '';
+                }
+            }
+            rows.push({ country: c0, platform: c1 });
+        }
+        tbody.innerHTML = rows.map(function (r) {
+            var c = (r.country || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var p = (r.platform || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<tr><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;">' + c + '</td><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;">' + p + '</td></tr>';
+        }).join('');
+    };
+}
+
+function saveKpi() {
+    var contractId = window._kpiCurrentContractId;
+    if (contractId == null) return;
+    var targetInput = document.getElementById('kpiEditTargetCount');
+    var tbody = document.getElementById('kpiEditTableBody');
+    var targetCount = (targetInput && targetInput.value) ? targetInput.value.trim() : '';
+    var rows = [];
+    if (tbody) {
+        var trs = tbody.querySelectorAll('tr');
+        for (var i = 0; i < trs.length; i++) {
+            var cells = trs[i].querySelectorAll('td');
+            var country = (cells[0] && cells[0].textContent) ? cells[0].textContent.trim() : '';
+            var platform = (cells[1] && cells[1].textContent) ? cells[1].textContent.trim() : '';
+            if (country || platform) rows.push({ country: country, platform: platform });
+        }
+    }
+    _kpiStore[contractId] = { targetCount: targetCount, rows: rows };
+
+    if (!_supabase) {
+        closeKpiEditModal();
+        openKpiModal(contractId);
+        return;
+    }
+    var blockTargetVal = targetCount === '' ? null : (isNaN(Number(targetCount)) ? targetCount : Number(targetCount));
+    _supabase.from('contract_registry').update({ block_target: blockTargetVal }).eq('id', contractId).then(function (upRes) {
+        if (upRes.error) {
+            alert('목표 건수 저장 실패: ' + (upRes.error.message || ''));
+            return;
+        }
+        _supabase.from('contract_kpi_target').delete().eq('contract_id', contractId).then(function (delRes) {
+            if (rows.length === 0) {
+                closeKpiEditModal();
+                openKpiModal(contractId);
+                return;
+            }
+            var toInsert = rows.map(function (r, idx) {
+                return { contract_id: contractId, country: r.country || '', platform: r.platform || '', sort_order: idx };
+            });
+            _supabase.from('contract_kpi_target').insert(toInsert).then(function (insRes) {
+                if (insRes.error) {
+                    alert('KPI 표 저장 실패: ' + (insRes.error.message || ''));
+                    return;
+                }
+                closeKpiEditModal();
+                openKpiModal(contractId);
+            });
+        });
     });
 }
 
@@ -1342,7 +2562,7 @@ function updateAddContractFinancialTable() {
     var cashAmount = Math.floor(totalAmount * (cashRatioPct / 100));
     var govSupport = totalAmount - kindAmount - cashAmount;
     var projectExpense = totalAmount - kindAmount;
-    var vat = Math.floor(projectExpense / 11);
+    var vat = Math.round(projectExpense / 11);
     var totalCost = projectExpense - vat;
     var generalAdmin = totalCost - personnelSum;
     var adminRatioEl = document.getElementById('addContractAdminRatioDisplay');
@@ -2174,6 +3394,9 @@ function bindJoinContractCellTooltip() {
     });
 }
 
+var PAGE3_SECTION_IDS = ['feature1', 'feature2', 'feature3', 'settings'];
+var PAGE3_SECTION_STORAGE_KEY = 'page3_last_section';
+
 function showSection(sectionId) {
     document.querySelectorAll('.content-section').forEach(function (el) { el.classList.remove('active'); });
     document.querySelectorAll('.menu-item').forEach(function (el) { el.classList.remove('active'); });
@@ -2181,6 +3404,10 @@ function showSection(sectionId) {
     if (section) section.classList.add('active');
     var menuItem = document.querySelector('.menu-item[onclick*="' + sectionId + '"]');
     if (menuItem) menuItem.classList.add('active');
+    try {
+        var key = PAGE3_SECTION_STORAGE_KEY + (getProjectKey() ? '_' + getProjectKey() : '');
+        if (sectionId && PAGE3_SECTION_IDS.indexOf(sectionId) !== -1) sessionStorage.setItem(key, sectionId);
+    } catch (e) {}
     if (sectionId === 'settings') loadPage3Keywords();
     if (sectionId === 'feature1') {
         loadStatusSummary();

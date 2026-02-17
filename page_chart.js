@@ -57,16 +57,27 @@ window.initChartPage = async function() {
     var tableName = window.tableName;
     if (!tableName) return false;
 
+    var urlParams = new URLSearchParams(window.location.search);
+    var contractIdParam = urlParams.get('contract_id');
+
     try {
+        var query = _supabase.from('data_rows').select('*').eq('project_key', tableName);
+        if (contractIdParam != null && String(contractIdParam).trim() !== '') {
+            var ids = String(contractIdParam).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            if (ids.length === 1) {
+                query = query.eq('contract_id', ids[0]);
+            } else if (ids.length > 1) {
+                query = query.in('contract_id', ids);
+            }
+        }
         const [_, dataResult] = await Promise.all([
             loadTableConfigForChart(),
-            _supabase.from('data_rows').select('*').eq('project_key', tableName)
+            query
         ]);
 
         if (dataResult.error) throw dataResult.error;
 
         var rows = dataResult.data || [];
-        var urlParams = new URLSearchParams(window.location.search);
         var searchKeyword = urlParams.get('search');
         var searchField = urlParams.get('searchField') || 'all';
         if (searchKeyword != null && String(searchKeyword).trim() !== '') {
@@ -307,17 +318,36 @@ window.saveAnalysisPreset = async function(presetName, config, type, saveToCommo
 
 window.loadPresets = async function() {
     var tableKey = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
+    var errMsg = '';
     try {
         const [commonRes, projectRes] = await Promise.all([
             _supabase.from('analysis_presets').select('*').eq('project_key', 'COMMON').order('created_at', { ascending: false }),
             _supabase.from('analysis_presets').select('*').eq('project_key', tableKey).order('created_at', { ascending: false })
         ]);
+        if (commonRes.error) {
+            errMsg = (errMsg ? errMsg + ' / ' : '') + (commonRes.error.message || '공용 프리셋 조회 실패');
+            console.error('analysis_presets(COMMON) 조회 오류:', commonRes.error);
+        }
+        if (projectRes.error) {
+            errMsg = (errMsg ? errMsg + ' / ' : '') + (projectRes.error.message || '프로젝트 프리셋 조회 실패');
+            console.error('analysis_presets(project) 조회 오류:', projectRes.error);
+        }
         if (typeof renderPresetButtons === 'function') {
             renderPresetButtons(commonRes.data || [], 'presetButtons');
             renderPresetButtons(projectRes.data || [], 'presetButtonsProject');
         }
+        if (errMsg) {
+            var bar1 = document.getElementById('presetButtons');
+            var bar2 = document.getElementById('presetButtonsProject');
+            if (bar1) bar1.innerHTML = '<span style="color:#c53030; font-size:13px;">프리셋 로드 실패: ' + errMsg + '</span>';
+            if (bar2) bar2.innerHTML = '<span style="color:#c53030; font-size:13px;">프리셋 로드 실패: ' + errMsg + '</span>';
+        }
     } catch (e) {
         console.error("프리셋 로드 실패:", e);
+        var bar1 = document.getElementById('presetButtons');
+        var bar2 = document.getElementById('presetButtonsProject');
+        if (bar1) bar1.innerHTML = '<span style="color:#c53030; font-size:13px;">프리셋 로드 실패: ' + (e && e.message ? e.message : String(e)) + '</span>';
+        if (bar2) bar2.innerHTML = '<span style="color:#c53030; font-size:13px;">프리셋 로드 실패: ' + (e && e.message ? e.message : String(e)) + '</span>';
     }
 };
 

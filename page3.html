@@ -8,6 +8,7 @@
         .contract-list-card:hover { background: #eff6ff !important; border-color: #3182ce !important; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script>
         (function () {
             var base;
@@ -192,6 +193,10 @@
             <h2 class="fw-bold mb-4">협약 관리</h2>
             <div style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 20px; background: #fff; min-width: 0;">
                 <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">협약 리스트</div>
+                <div style="margin-bottom: 12px;">
+                    <input type="text" id="agreementSearchInput" placeholder="협약 검색 (참조번호, 기업명, 브랜드명 등)" autocomplete="off"
+                           style="width: 100%; max-width: 320px; height: 36px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+                </div>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0 0 16px 0;">
                 <div id="agreementListArea" style="min-height: 120px; color: #64748b; font-size: 13px;">
                     데이터를 불러오는 중...
@@ -588,6 +593,246 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" onclick="closeContractPeriodEditModal()" class="btn-select" style="padding: 10px 16px; background: #edf2f7; color: #475569;">취소</button>
                 <button type="button" onclick="confirmContractPeriodEdit()" class="btn-select" style="padding: 10px 20px; background: #3182ce; color: white; font-weight: bold;">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 보기 모달 -->
+    <div id="kpiViewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeKpiViewModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 520px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">KPI</h3>
+                <button type="button" onclick="closeKpiViewModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <span style="font-size: 13px; font-weight: 600; color: #475569;">목표 건수</span>
+                <span id="kpiViewTargetCount" style="margin-left: 8px; font-size: 15px; color: #1e293b;">—</span>
+            </div>
+            <div style="overflow-x: auto; margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th id="kpiViewCountryHeader" style="border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left;">국가 (0개)</th>
+                            <th id="kpiViewPlatformHeader" style="border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left;">플랫폼 (0개)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiViewTableBody">
+                        <tr><td colspan="2" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">데이터 없음</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="button" class="btn-select" style="padding: 8px 16px;" onclick="openKpiEditModal()">수정</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 수정 모달 (목표 건수 + 붙여넣기 표) -->
+    <div id="kpiEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeKpiEditModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 640px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">KPI 수정</h3>
+                <button type="button" onclick="closeKpiEditModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">목표 건수</label>
+                <input type="text" id="kpiEditTargetCount" placeholder="예: 100" style="width: 160px; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+            </div>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 10px;">💡 엑셀에서 데이터를 복사(Ctrl+C)한 후, 아래 표의 첫 번째 칸을 클릭하고 붙여넣기(Ctrl+V) 하세요.</p>
+            <div style="flex: 1; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px;">
+                <table id="kpiEditTable" class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left;">국가</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left;">플랫폼</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiEditTableBody">
+                        <tr><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;"></td><td contenteditable="true" style="border: 1px solid #e2e8f0; padding: 8px 12px; min-height: 36px;"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn-select" onclick="closeKpiEditModal()" style="padding: 10px 16px;">취소</button>
+                <button type="button" onclick="saveKpi()" style="padding: 10px 20px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 산출내역서(총괄표) 모달 -->
+    <div id="outputStatementModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeOutputStatementModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 660px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">총괄표</h3>
+                <button type="button" onclick="closeOutputStatementModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="outputStatementTable" class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0; table-layout: fixed;">
+                    <colgroup>
+                        <col style="width: 25%;">
+                        <col style="width: 20%;">
+                        <col style="width: 15%;">
+                        <col style="width: 13%;">
+                        <col style="width: 13%;">
+                        <col style="width: 14%;">
+                    </colgroup>
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">구 분</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">금 액(원)</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;">월급여(원)</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입율(%)</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입기간(개월)</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left;">사업 총 투입(%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outputStatementPersonnelBody">
+                        <tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>
+                    </tbody>
+                    <tbody id="outputStatementExpenseBody">
+                        <tr style="background: #f8fafc;"><td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600;">경 비</td><td style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right; font-weight: 600;">금 액</td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600;">비 고</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">외부전문가(해외대리인)</td><td id="osExp1" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">해외여비</td><td id="osExp2" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 한국지식재산보호원 사전 승인 필수</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">침해감정서 작성 비용</td><td id="osExp3" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">기타</td><td id="osExp4" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>
+                        <tr style="background: #f1f5f9;"><td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600;">②소계</td><td id="osExpSubtotal" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>
+                    </tbody>
+                    <tbody id="outputStatementSummaryBody">
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">③일반관리비</td><td id="osGeneralAdmin" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 인건비 및 경비 합계액의 6% 이하</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">④총원가(①+②+③)</td><td id="osTotalCost" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">⑤부가세</td><td id="osVat" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 총원가의 10%</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">⑥과제비(④+⑤)</td><td id="osProjectExpense" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 정부지원금, 기업부담현금 합계액</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 8px 10px;">⑦기업부담 현물</td><td id="osCorpKind" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 기업부담금 기준 : 소기업 현금 10% 현물 10% / 중기업 현금 20% 현물 10%<br>중견기업 현금 30% 현물 20% / 대기업 현금 40% 현물 20%</td></tr>
+                        <tr style="background: #fff7ed;"><td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 700;">⑧차단지원비용 총액(⑥+⑦)</td><td id="osTotalBudget" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right; font-weight: 700;"></td><td colspan="4" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; color: #64748b;">※ 정부지원금, 기업부담현금 및 현물 합계액</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 현물출자 모달 -->
+    <div id="inKindModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeInKindModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 720px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">현물출자</h3>
+                <button type="button" onclick="closeInKindModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">과제개요</div>
+                <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">
+                    <colgroup><col style="width: 120px;"><col style="width: auto;"><col style="width: 120px;"><col style="width: auto;"></colgroup>
+                    <tbody>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">과제번호</td><td id="inKindRefNo" colspan="3" style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">지원기업</td><td id="inKindCompanyName" style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">사업자등록번호</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px;"><span id="inKindBizNo"></span><input type="text" id="inKindBizNoInput" placeholder="사업자등록번호" style="display: none; width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box;"></td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">수행기관</td><td id="inKindPerformingOrg" colspan="3" style="border: 1px solid #e2e8f0; padding: 10px 12px;">주식회사 위고페어</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">협약기간</td><td id="inKindPeriod" colspan="3" style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td></tr>
+                        <tr><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">총사업비</td><td id="inKindTotalBudget" style="border: 1px solid #e2e8f0; padding: 10px 12px;">—</td><td style="border: 1px solid #e2e8f0; padding: 10px 12px; background: #f8fafc; font-weight: 500;">현물 금액</td><td id="inKindInKindAmount" style="border: 1px solid #e2e8f0; padding: 10px 12px;"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="inKindPersonnelSection">
+                <div style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">지원기업 현물출자 인력 투입현황</div>
+                <div id="inKindPersonnelViewWrap" style="overflow-x: auto;">
+                    <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">
+                        <colgroup><col style="width: 100px;"><col style="width: 80px;"><col style="width: 80px;"><col style="width: 90px;"><col style="width: 70px;"><col style="width: 80px;"><col style="width: 100px;"><col style="width: auto;"></colgroup>
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">구분</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">성명</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">직책</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">월 단가</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입률(%)</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입 기간</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">현물(인건비)</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">비고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inKindPersonnelBody">
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f5f9;">
+                                <td colspan="6" style="border: 1px solid #e2e8f0; padding: 8px 10px; font-weight: 600; text-align: right;">합계</td>
+                                <td id="inKindPersonnelTotal" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;"></td>
+                                <td style="border: 1px solid #e2e8f0; padding: 8px 10px;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div id="inKindPersonnelEditWrap" style="display: none; overflow-x: auto;">
+                    <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">
+                        <colgroup><col style="width: 36px;"><col style="width: 100px;"><col style="width: 80px;"><col style="width: 80px;"><col style="width: 90px;"><col style="width: 70px;"><col style="width: 80px;"><col style="width: 100px;"><col style="width: auto;"></colgroup>
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;"></th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">구분</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">성명</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">직책</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">월 단가</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입률(%)</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">투입 기간</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">현물(인건비)</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">비고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inKindModalEditPersonnelBody">
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f5f9;">
+                                <td colspan="7" style="border: 1px solid #e2e8f0; padding: 8px 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <button type="button" class="btn-select" style="padding: 4px 8px; font-size: 11px;" onclick="addInKindModalEditRow()">+ 행 추가</button>
+                                        <span style="font-weight: bold;">합계</span>
+                                    </div>
+                                </td>
+                                <td id="inKindModalEditSubtotal" style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right; font-weight: bold;"></td>
+                                <td style="border: 1px solid #e2e8f0; background: #f1f5f9;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <div id="inKindViewModeBtns">
+                    <button type="button" id="inKindEditBtn" class="btn-select" style="padding: 8px 16px;" onclick="inKindModalEnterEdit()">수정</button>
+                </div>
+                <div id="inKindEditModeBtns" style="display: none; gap: 10px;">
+                    <button type="button" id="inKindSaveBtn" style="padding: 8px 16px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="inKindModalSave()">저장</button>
+                    <button type="button" id="inKindCancelBtn" style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 8px; cursor: pointer;" onclick="inKindModalExitEdit()">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 월말보고 모달 -->
+    <div id="monthReportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeMonthReportModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 560px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 18px;">월말보고용 엑셀</h3>
+                <button type="button" onclick="closeMonthReportModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #f8fafc;">
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">현재 업로드된 파일</div>
+                    <div id="monthReportTitle" style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">—</div>
+                    <div id="monthReportFileName" style="font-size: 13px; color: #475569; word-break: break-all;">—</div>
+                </div>
+                <div id="monthReportDropZone" style="border: 2px dashed #cbd5e0; border-radius: 8px; padding: 20px; background: #f8fafc; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100px;"
+                     ondragover="monthReportDragOver(event)" ondragleave="monthReportDragLeave(event)" ondrop="monthReportDrop(event)" onclick="document.getElementById('monthReportFileInput').click()">
+                    <input type="file" id="monthReportFileInput" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" style="display: none;" onchange="monthReportFileSelect(event)">
+                    <p id="monthReportDropText" style="margin: 0; font-size: 13px; color: #64748b;">📤 파일을 여기로 끌어다 놓거나<br>클릭하여 선택</p>
+                    <p id="monthReportUploadStatus" style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;"></p>
+                    <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button type="button" id="monthReportDownloadBtn" style="display: none; padding: 6px 12px; font-size: 12px; border: 1px solid #90cdf4; color: #2b6cb0; background: #ebf8ff; border-radius: 6px; cursor: pointer;" onclick="event.stopPropagation(); monthReportDownloadFile();">다운로드</button>
+                        <button type="button" id="monthReportDeleteBtn" style="display: none; padding: 6px 12px; font-size: 12px; border: 1px solid #feb2b2; color: #c53030; background: #fff5f5; border-radius: 6px; cursor: pointer;" onclick="event.stopPropagation(); monthReportDeleteFile();">삭제</button>
+                    </div>
+                </div>
+            </div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; background: #fafafa; min-height: 120px;">
+                <div id="monthReportPlatformSummary" style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">현재 : 0건 / 목표 건수 : 0건 / 달성률 : —%</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">KPI 목표 (국가-플랫폼)</div>
+                <div id="monthReportKpiTags" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; min-height: 24px;"></div>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">업로드 데이터 (3·4열 기준)</div>
+                <div id="monthReportExcelTags" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px;"></div>
             </div>
         </div>
     </div>
