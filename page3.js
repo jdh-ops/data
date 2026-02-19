@@ -701,7 +701,7 @@ function loadAgreementList() {
             var sel = document.getElementById('agreementFilterPersonnel');
             if (sel) {
                 var currentVal = sel.value;
-                sel.innerHTML = '<option value="">이름 선택</option>' + personnelList.map(function (p) {
+                sel.innerHTML = '<option value="">참여 인력</option>' + personnelList.map(function (p) {
                     var name = (p.name || '').trim() || '(이름 없음)';
                     return '<option value="' + (p.id != null ? p.id : '') + '">' + name.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
                 }).join('');
