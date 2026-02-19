@@ -1048,7 +1048,7 @@ function openInKindModal(contractId) {
             var remark = (row.remark || row.비고 || '').trim();
             var key = ROLE_SALARY_KEYS[position];
             var monthlySalary = key ? (salaryMap[key] || 0) : 0;
-            var cost = Math.round(monthlySalary * (rate / 100) * period);
+            var cost = Math.floor(monthlySalary * (rate / 100) * period);
             personnelRows.push({
                 position: position,
                 name: name,
@@ -1136,7 +1136,7 @@ function calcInKindModalEditRowCost(tr) {
     var salary = getInKindModalSalaryForRole(role);
     var rate = parseFloat(rateInp && rateInp.value ? rateInp.value.replace(/,/g, '').replace(/%/g, '') : 0) || 0;
     var period = parseFloat(periodInp && periodInp.value ? periodInp.value.replace(/,/g, '') : 0) || 0;
-    var cost = Math.round(salary * (rate / 100) * period);
+    var cost = Math.floor(salary * (rate / 100) * period);
     if (monthlyCell) monthlyCell.textContent = salary ? salary.toLocaleString('ko-KR') : '';
     if (costCell) costCell.textContent = cost ? cost.toLocaleString('ko-KR') : '';
     return cost;
@@ -1271,14 +1271,13 @@ function inKindModalSave() {
             var monthlySalary = key ? (salaryMap[key] || 0) : 0;
             var rate = Number(row.rate) || 0;
             var period = parseFloat(String(row.period || '').replace(/,/g, '')) || 0;
-            var cost = Math.round(monthlySalary * (rate / 100) * period);
+            var cost = Math.floor(monthlySalary * (rate / 100) * period);
             return { position: row.position, name: row.name, role_title: row.role_title, amount: cost, monthlySalary: monthlySalary, rate: rate, period: period, remark: row.remark };
         });
         renderInKindPersonnel(personnelRows, personnelBody, totalCell);
         var bizNoSpan = document.getElementById('inKindBizNo');
         if (bizNoSpan) bizNoSpan.textContent = bizNo;
         inKindModalExitEdit();
-        alert('저장되었습니다.');
     }
     _supabase.from('contract_registry').update(payload).eq('id', contractId).then(function (res) {
         if (res.error) {
