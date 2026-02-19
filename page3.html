@@ -7,90 +7,6 @@
     <style>
         .contract-list-card:hover { background: #eff6ff !important; border-color: #3182ce !important; }
         .agreement-search-info-wrap:hover .agreement-search-info-tooltip { display: block !important; }
-        /* 편의 기능 카드 (OTT 스타일) */
-        .convenience-card {
-            position: relative;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #1a1a2e;
-            aspect-ratio: 16/9;
-            cursor: pointer;
-        }
-        .convenience-card .card-thumb {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        .convenience-card .card-title-top {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 10px 36px 10px 10px;
-            background: linear-gradient(transparent, rgba(0,0,0,0.85));
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-        }
-        .convenience-card .card-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.88);
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-        .convenience-card:hover .card-overlay { opacity: 1; }
-        .convenience-card .card-overlay .card-title { color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-        .convenience-card .card-overlay .card-desc { color: #cbd5e0; font-size: 12px; line-height: 1.4; }
-        .convenience-card .card-menu-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 28px;
-            height: 28px;
-            border: none;
-            background: rgba(0,0,0,0.5);
-            color: #fff;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
-            z-index: 2;
-        }
-        .convenience-card .card-menu-btn:hover { background: rgba(0,0,0,0.75); }
-        .convenience-card .card-dropdown {
-            position: absolute;
-            top: 38px;
-            right: 8px;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10;
-            min-width: 120px;
-            padding: 4px 0;
-        }
-        .convenience-card .card-dropdown button {
-            display: block;
-            width: 100%;
-            padding: 8px 12px;
-            text-align: left;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 13px;
-            color: #334155;
-        }
-        .convenience-card .card-dropdown button:hover { background: #f1f5f9; }
-        /* 즐겨찾기 순서 모달 리스트 */
-        .convenience-order-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; background: #f8fafc; cursor: grab; }
-        .convenience-order-item:active { cursor: grabbing; }
-        .convenience-order-item .order-handle { color: #94a3b8; font-size: 14px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -119,7 +35,9 @@
                 if (typeof window.tableName === 'undefined') window.tableName = (q.get('table') || '').trim() || 'default';
                 if (typeof window.projectKeyName === 'undefined') window.projectKeyName = q.get('key') ? decodeURIComponent(q.get('key')) : window.tableName;
                 loadScript('page3.js', function () {
-                    if (window.page3Ready) window.page3Ready();
+                    loadScript('convenience.js', function () {
+                        if (window.page3Ready) window.page3Ready();
+                    });
                 });
             });
         })();
@@ -132,7 +50,7 @@
         <div class="sidebar-menu">
             <div class="menu-item" onclick="showSection('feature1')"><i>📌</i> <span>신청 및 인력</span></div>
             <div class="menu-item" onclick="showSection('feature2')"><i>📝</i> <span>협약 관리</span></div>
-            <div class="menu-item" onclick="showSection('feature3')"><i>⭐</i> <span>편의 기능</span></div>
+            <div class="menu-item" onclick="window.open('convenience.html', '_blank', 'width=720,height=700,scrollbars=yes,resizable=yes')"><i>⭐</i> <span>편의 기능</span></div>
             <div class="menu-item" onclick="showSection('settings')"><i>⚙️</i> <span>설정</span></div>
             <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
         </div>
@@ -304,19 +222,6 @@
             </div>
         </div>
 
-        <div id="feature3" class="content-section">
-            <h2 class="fw-bold mb-4">편의 기능</h2>
-            <!-- 구역 1: 즐겨찾기 모음 (있을 때만 표시) -->
-            <div id="convenienceFavoritesZone" style="display: none; margin-bottom: 24px;">
-                <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">즐겨찾기 모음</div>
-                <div id="convenienceFavoritesRow" style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px;"></div>
-                <button type="button" class="btn-select" id="convenienceFavoriteOrderBtn" onclick="openConvenienceFavoriteOrderModal()" style="padding: 6px 14px; font-size: 13px;">즐겨찾기 순서</button>
-            </div>
-            <!-- 구역 2: 각종 기능 카드 -->
-            <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">기능</div>
-            <div id="convenienceCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px;"></div>
-        </div>
-
         <div id="settings" class="content-section">
             <h2>⚙️ 설정</h2>
 
@@ -346,28 +251,6 @@
                     </table>
                 </div>
             </div>
-
-            <!-- 가려진 편의기능 (키워드 관리와 동일한 형태) -->
-            <div class="keyword-mgmt" style="margin-top: 24px; max-width: 480px;">
-                <h3 style="margin-bottom: 16px; font-size: 16px;">가려진 편의기능</h3>
-                <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">숨긴 편의기능을 선택한 뒤 복구하면 다시 표시됩니다.</p>
-                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
-                    <button type="button" class="btn-select" onclick="restoreSelectedConvenience()" style="padding: 8px 16px;">복구</button>
-                </div>
-                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
-                    <table class="manager-table" style="table-layout: auto; width: 100%;">
-                        <thead>
-                            <tr style="background: #f8fafc;">
-                                <th style="width: 44px; padding: 10px;"><input type="checkbox" id="hiddenConvSelectAll" onchange="toggleHiddenConvenienceSelectAll(this)"></th>
-                                <th style="padding: 10px; text-align: left;">편의기능</th>
-                            </tr>
-                        </thead>
-                        <tbody id="hiddenConvenienceTableBody">
-                            <tr><td colspan="2" style="padding: 24px; text-align: center; color: #94a3b8;">가려진 항목 없음</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -386,19 +269,6 @@
             <div style="display: flex; gap: 10px;">
                 <button type="button" onclick="saveAddKeyword()" style="flex: 1; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">저장</button>
                 <button type="button" onclick="closeAddKeywordModal()" style="padding: 10px 16px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer;">취소</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 즐겨찾기 순서 모달 (편의 기능) -->
-    <div id="convenienceFavoriteOrderModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;" onclick="if(event.target===this) closeConvenienceFavoriteOrderModal()">
-        <div style="background: white; padding: 24px; border-radius: 12px; width: 360px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
-            <h3 style="margin-top: 0;">즐겨찾기 순서</h3>
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">아래 목록을 드래그하여 순서를 바꾼 뒤 저장하세요.</p>
-            <ul id="convenienceFavoriteOrderList" style="list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto;"></ul>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="button" onclick="saveConvenienceFavoriteOrder()" style="flex: 1; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">저장</button>
-                <button type="button" onclick="closeConvenienceFavoriteOrderModal()" style="padding: 10px 16px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer;">취소</button>
             </div>
         </div>
     </div>
