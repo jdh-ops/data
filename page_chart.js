@@ -316,6 +316,56 @@ window.saveAnalysisPreset = async function(presetName, config, type, saveToCommo
     }
 };
 
+/**
+ * 분석 버튼으로 진입 시: 선택된 협약의 브랜드명(기업명) 또는 전체 선택 시 프로젝트명을 상단에 표시
+ */
+window.renderChartScopeLabel = async function() {
+    var el = document.getElementById('chartScopeLabel');
+    if (!el) return;
+    var tableName = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
+    var urlParams = new URLSearchParams(window.location.search);
+    var contractIdParam = urlParams.get('contract_id');
+
+    if (contractIdParam != null && String(contractIdParam).trim() !== '') {
+        var ids = String(contractIdParam).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        var numIds = ids.map(function (id) { return parseInt(id, 10); }).filter(function (n) { return !isNaN(n); });
+        if (numIds.length > 0 && _supabase) {
+            try {
+                var totalRes = await _supabase.from('contract_registry').select('id', { count: 'exact', head: true }).eq('target_table', tableName).eq('status', '선정');
+                var totalCount = (totalRes && totalRes.count != null) ? totalRes.count : 0;
+                if (numIds.length === totalCount && totalCount > 0) {
+                    var projectName = tableName || '전체';
+                    try {
+                        var gwRes = await _supabase.from('gateways').select('keyword').eq('target_page', 'page3').eq('target_table', tableName).limit(1).maybeSingle();
+                        if (gwRes.data && gwRes.data.keyword) projectName = String(gwRes.data.keyword).trim();
+                    } catch (e) {}
+                    el.textContent = projectName + '(전체)';
+                    return;
+                }
+                var res = await _supabase.from('contract_registry').select('id, company_name, brand_name').eq('target_table', tableName).in('id', numIds);
+                if (res.data && res.data.length > 0) {
+                    var labels = res.data.map(function (r) {
+                        var brand = (r.brand_name || '').trim();
+                        var company = (r.company_name || '').trim();
+                        return brand ? (company ? brand + ' (' + company + ')' : brand) : (company || '(이름 없음)');
+                    });
+                    el.textContent = labels.join(', ');
+                    return;
+                }
+            } catch (e) { console.warn('chartScopeLabel contract_registry:', e); }
+        }
+    }
+
+    var projectName = tableName || '전체';
+    if (_supabase) {
+        try {
+            var gwRes = await _supabase.from('gateways').select('keyword').eq('target_page', 'page3').eq('target_table', tableName).limit(1).maybeSingle();
+            if (gwRes.data && gwRes.data.keyword) projectName = String(gwRes.data.keyword).trim();
+        } catch (e) {}
+    }
+    el.textContent = projectName + '(전체)';
+};
+
 window.loadPresets = async function() {
     var tableKey = window.tableName || new URLSearchParams(window.location.search).get('table') || 'test_data';
     var errMsg = '';

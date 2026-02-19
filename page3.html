@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="./style.css">
     <style>
         .contract-list-card:hover { background: #eff6ff !important; border-color: #3182ce !important; }
+        .agreement-search-info-wrap:hover .agreement-search-info-tooltip { display: block !important; }
         /* 편의 기능 카드 (OTT 스타일) */
         .convenience-card {
             position: relative;
@@ -276,9 +277,20 @@
         <div id="feature2" class="content-section">
             <h2 class="fw-bold mb-4">협약 관리</h2>
             <div style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 20px; background: #fff; min-width: 0;">
-                <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px;">협약 리스트</div>
+                <div style="font-size: 15px; font-weight: bold; color: #2d3748; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                    <span>협약 리스트</span>
+                    <span class="agreement-search-info-wrap" style="position: relative; display: inline-flex; align-items: center;">
+                        <button type="button" aria-label="검색 도움말" style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid #94a3b8; background: #f8fafc; color: #64748b; font-size: 8px; font-weight: bold; cursor: help; line-height: 1; padding: 0; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex-shrink: 0;">i</button>
+                        <span class="agreement-search-info-tooltip" style="display: none; position: absolute; left: 0; top: 100%; margin-top: 6px; padding: 10px 12px; background: #1e293b; color: #e2e8f0; font-size: 12px; font-weight: normal; line-height: 1.5; border-radius: 8px; white-space: normal; width: 260px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                            <strong style="color: #fff;">검색 기호</strong><br>
+                            · 쉼표(,) : OR 검색 (둘 중 하나 포함)<br>
+                            · 더하기(+) : AND 검색 (모두 포함)<br>
+                            · 빼기(-) : 해당 단어 제외
+                        </span>
+                    </span>
+                </div>
                 <div style="margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
-                    <input type="text" id="agreementSearchInput" placeholder="협약 검색 (참조번호, 기업명, 브랜드명 등)" autocomplete="off"
+                    <input type="text" id="agreementSearchInput" placeholder="협약 검색 (참조번호, 기업명, 브랜드명, 담당자)" autocomplete="off"
                            style="width: 100%; max-width: 320px; height: 36px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
                     <select id="agreementFilterPersonnel" onchange="applyAgreementNameFilter()" style="height: 36px; padding: 0 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 13px; min-width: 120px;">
                         <option value="">이름 선택</option>
@@ -520,6 +532,9 @@
                     </select>
                     <span id="addContractRefNoWrap" style="display: none;">
                         <input type="text" id="addContractRefNo" placeholder="ref_no" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; width: 120px; font-size: 14px;">
+                        <select id="addContractAssignee" style="margin-left: 8px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; min-width: 72px;">
+                            <option value="">미정</option>
+                        </select>
                     </span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">

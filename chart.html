@@ -24,6 +24,10 @@
 <body>
     <div class="builder-container" id="builderView">
         <h2 class="fw-bold mb-4">⚒️ 리포트 프리셋 빌더</h2>
+        <div class="saved-presets-bar" id="chartScopeLabelBar" style="margin-bottom: 12px;">
+            <span class="small fw-bold" style="color: #4a5568;">📌 분석 대상:</span>
+            <span id="chartScopeLabel" style="font-size: 13px; color: #334155; margin-left: 6px;">—</span>
+        </div>
         <div class="saved-presets-bar" id="savedPresetsBar">
             <span class="small fw-bold">💾 공용 프리셋:</span>
             <div id="presetButtons" style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -83,7 +87,9 @@
                 const success = await initChartPage(); 
                 
                 if (success) { 
-                    // 2. 프리셋 로드
+                    // 2. 분석 대상 라벨 표시 (선택된 협약명 또는 프로젝트명)
+                    if (typeof renderChartScopeLabel === 'function') await renderChartScopeLabel();
+                    // 3. 프리셋 로드
                     await loadPresets(); 
                     console.log("모든 데이터 로드 및 UI 준비 완료");
                 }
