@@ -501,7 +501,18 @@ function renderAgreementListFromData() {
     if (!area || !data) return;
     var inputEl = document.getElementById('agreementSearchInput');
     var term = (inputEl && inputEl.value) ? inputEl.value.trim().toLowerCase() : '';
+    var personnelId = window._agreementListFilterPersonnelId != null && window._agreementListFilterPersonnelId !== '' ? window._agreementListFilterPersonnelId : null;
     var rows = data.rows;
+    if (personnelId && data.contractIdsByPersonnelId) {
+        var allowIds = {};
+        var ids = data.contractIdsByPersonnelId[personnelId];
+        if (ids && ids.length > 0) {
+            ids.forEach(function (id) { allowIds[id] = true; });
+            rows = rows.filter(function (r) { return allowIds[r.id]; });
+        } else {
+            rows = [];
+        }
+    }
     var filtered = term ? rows.filter(function (r) {
         var ref = (r.ref_no != null && r.ref_no !== '') ? String(r.ref_no).trim() : '';
         var company = (r.company_name || '').trim();
@@ -567,6 +578,22 @@ function renderAgreementListFromData() {
     area.innerHTML = html;
 }
 
+function applyAgreementNameFilter() {
+    var sel = document.getElementById('agreementFilterPersonnel');
+    var val = sel && sel.value ? sel.value.trim() : '';
+    window._agreementListFilterPersonnelId = val || null;
+    renderAgreementListFromData();
+}
+
+function resetAgreementListFilter() {
+    var inputEl = document.getElementById('agreementSearchInput');
+    if (inputEl) inputEl.value = '';
+    var sel = document.getElementById('agreementFilterPersonnel');
+    if (sel) sel.value = '';
+    window._agreementListFilterPersonnelId = null;
+    renderAgreementListFromData();
+}
+
 function loadAgreementList() {
     var area = document.getElementById('agreementListArea');
     if (!area) return;
@@ -585,14 +612,28 @@ function loadAgreementList() {
         var contractIds = rows.map(function (r) { return r.id; });
         Promise.all([
             _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
-            _supabase.from('data_rows').select('contract_id').in('contract_id', contractIds)
+            _supabase.from('data_rows').select('contract_id').in('contract_id', contractIds),
+            _supabase.from('personnel_master').select('id, name').eq('target_table', projectKey).order('name'),
+            _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds)
         ]).then(function (results) {
             var reportRes = results[0];
             var dataRowsRes = results[1];
-            return { reportRes: reportRes, dataRowsRes: dataRowsRes };
-        }).catch(function () { return { reportRes: { data: [] }, dataRowsRes: { data: [] } }; }).then(function (payload) {
+            var personnelRes = results[2];
+            var partRes = results[3];
+            return { reportRes: reportRes, dataRowsRes: dataRowsRes, personnelList: (personnelRes && personnelRes.data) ? personnelRes.data : [], partList: (partRes && partRes.data) ? partRes.data : [] };
+        }).catch(function () {
+            return { reportRes: { data: [] }, dataRowsRes: { data: [] }, personnelList: [], partList: [] };
+        }).then(function (payload) {
             var reportRows = (payload.reportRes && payload.reportRes.data) ? payload.reportRes.data : [];
             var dataRows = (payload.dataRowsRes && payload.dataRowsRes.data) ? payload.dataRowsRes.data : [];
+            var personnelList = payload.personnelList || [];
+            var partList = payload.partList || [];
+            var contractIdsByPersonnelId = {};
+            partList.forEach(function (p) {
+                var pid = p.personnel_id;
+                if (!contractIdsByPersonnelId[pid]) contractIdsByPersonnelId[pid] = [];
+                contractIdsByPersonnelId[pid].push(p.contract_id);
+            });
             var titleByContractId = {};
             reportRows.forEach(function (row) {
                 var fid = row.contract_id;
@@ -611,7 +652,16 @@ function loadAgreementList() {
                 var m = countByContractId[r.id] || 0;
                 rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '-%';
             });
-            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId };
+            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
+            var sel = document.getElementById('agreementFilterPersonnel');
+            if (sel) {
+                var currentVal = sel.value;
+                sel.innerHTML = '<option value="">이름 선택</option>' + personnelList.map(function (p) {
+                    var name = (p.name || '').trim() || '(이름 없음)';
+                    return '<option value="' + (p.id != null ? p.id : '') + '">' + name.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
+                }).join('');
+                if (currentVal && personnelList.some(function (p) { return String(p.id) === String(currentVal); })) sel.value = currentVal;
+            }
             renderAgreementListFromData();
             if (!window._agreementSearchListenerAttached) {
                 window._agreementSearchListenerAttached = true;
@@ -1909,7 +1959,8 @@ function loadPersonnelDetailTable() {
             contracts.forEach(function (c) {
                 if (c.status === '신청' || c.status === '선정') cum += partMap[p.id + '_' + c.id] || 0;
             });
-            p._cumulative = (p.total_rate != null && p.total_rate !== '') ? Number(p.total_rate) : cum;
+            cum = Math.round(cum * 1000) / 1000;
+            p._cumulative = (p.total_rate != null && p.total_rate !== '') ? (Math.round(Number(p.total_rate) * 1000) / 1000) : cum;
             p._rest = (p.rest_rate != null && p.rest_rate !== '') ? Number(p.rest_rate) : null;
         });
         personnelDetailListCache = list;
@@ -1932,7 +1983,7 @@ function loadPersonnelDetailTable() {
                 contracts.forEach(function (c) {
                     if (c.status === '신청' || c.status === '선정') cum += partMap[p.id + '_' + c.id] || 0;
                 });
-                p._cumulative = cum;
+                p._cumulative = Math.round(cum * 1000) / 1000;
                 p._rest = null;
                 p.join_contract = null;
             });
@@ -1982,7 +2033,7 @@ function renderPersonnelDetailRows(list, editMode) {
                 var sel = (r === (p.position || '')) ? ' selected' : '';
                 return '<option value="' + r.replace(/"/g, '&quot;') + '"' + sel + '>' + r + '</option>';
             }).join('');
-            var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
+            var cumStr = (p._cumulative != null) ? (Math.round(Number(p._cumulative) * 1000) / 1000 + '%') : '—';
             var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
             var tags = formatJoinContractTags(p.join_contract, q) || '—';
             var tooltipRaw = joinContractTooltipText(p.join_contract, q);
@@ -1991,7 +2042,7 @@ function renderPersonnelDetailRows(list, editMode) {
         }).join('');
     } else {
         tbody.innerHTML = list.map(function (p) {
-            var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
+            var cumStr = (p._cumulative != null) ? (Math.round(Number(p._cumulative) * 1000) / 1000 + '%') : '—';
             var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
             var tags = formatJoinContractTags(p.join_contract, q) || '—';
             var tooltipRaw = joinContractTooltipText(p.join_contract, q);
@@ -2504,7 +2555,7 @@ function onAddContractNameChange(tr) {
         return;
     }
     roleCell.textContent = p.position || '';
-    if (cumCell) cumCell.textContent = (p.total_rate != null && p.total_rate !== '') ? (Number(p.total_rate) + '%') : '—';
+    if (cumCell) cumCell.textContent = (p.total_rate != null && p.total_rate !== '') ? (Math.round(Number(p.total_rate) * 1000) / 1000 + '%') : '—';
     if (restCell) restCell.textContent = (p.rest_rate != null && p.rest_rate !== '') ? (Number(p.rest_rate) + '%') : '—';
 }
 function getAddContractSalaryForRole(role) {
@@ -2882,7 +2933,8 @@ function loadAddContractSelectPersonnelTable() {
             contracts.forEach(function (c) {
                 if (c.status === '신청' || c.status === '선정') cum += partMap[p.id + '_' + c.id] || 0;
             });
-            p._cumulative = (p.total_rate != null && p.total_rate !== '') ? Number(p.total_rate) : cum;
+            cum = Math.round(cum * 1000) / 1000;
+            p._cumulative = (p.total_rate != null && p.total_rate !== '') ? (Math.round(Number(p.total_rate) * 1000) / 1000) : cum;
             p._rest = (p.rest_rate != null && p.rest_rate !== '') ? Number(p.rest_rate) : null;
         });
         addContractSelectPersonnelListCache = list;
@@ -2907,7 +2959,7 @@ function renderAddContractSelectPersonnelTable(list) {
         return;
     }
     var html = list.map(function (p) {
-        var cumStr = (p._cumulative != null) ? (Number(p._cumulative) + '%') : '—';
+        var cumStr = (p._cumulative != null) ? (Math.round(Number(p._cumulative) * 1000) / 1000 + '%') : '—';
         var restStr = (p._rest != null) ? (Number(p._rest) + '%') : '—';
         var tags = formatJoinContractTags(p.join_contract, q) || '—';
         var tooltipRaw = joinContractTooltipText(p.join_contract, q);
@@ -3161,6 +3213,7 @@ function updatePersonnelMasterRates(projectKey, personnelIds) {
             if (isNaN(id)) return;
             var o = byPersonnel[pid];
             var total = o ? o.total : 0;
+            total = Math.round(total * 1000) / 1000;
             var join = o && o.join && o.join.length ? o.join : null;
             updates.push(_supabase.from('personnel_master').update({ total_rate: total, join_contract: join }).eq('id', id).eq('target_table', projectKey));
         });
@@ -3397,6 +3450,227 @@ function bindJoinContractCellTooltip() {
 var PAGE3_SECTION_IDS = ['feature1', 'feature2', 'feature3', 'settings'];
 var PAGE3_SECTION_STORAGE_KEY = 'page3_last_section';
 
+// 편의 기능: 예시 5개 (id, title, description)
+var CONVENIENCE_FEATURES = [
+    { id: 'conv1', title: '제목1', description: '설명입니다.' },
+    { id: 'conv2', title: '제목2', description: '설명입니다.' },
+    { id: 'conv3', title: '제목3', description: '설명입니다.' },
+    { id: 'conv4', title: '제목4', description: '설명입니다.' },
+    { id: 'conv5', title: '제목5', description: '설명입니다.' }
+];
+var CONVENIENCE_STORAGE_FAV = 'page3_convenience_favorites';
+var CONVENIENCE_STORAGE_HIDDEN = 'page3_convenience_hidden';
+
+function getConvenienceFavorites() {
+    try {
+        var raw = localStorage.getItem(CONVENIENCE_STORAGE_FAV);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+}
+function setConvenienceFavorites(arr) {
+    try { localStorage.setItem(CONVENIENCE_STORAGE_FAV, JSON.stringify(arr)); } catch (e) {}
+}
+function getConvenienceHidden() {
+    try {
+        var raw = localStorage.getItem(CONVENIENCE_STORAGE_HIDDEN);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+}
+function setConvenienceHidden(arr) {
+    try { localStorage.setItem(CONVENIENCE_STORAGE_HIDDEN, JSON.stringify(arr)); } catch (e) {}
+}
+function getConvenienceById(id) {
+    return CONVENIENCE_FEATURES.filter(function (f) { return f.id === id; })[0] || null;
+}
+
+function renderConvenienceFeature3() {
+    var favIds = getConvenienceFavorites();
+    var hiddenIds = getConvenienceHidden();
+    var zone = document.getElementById('convenienceFavoritesZone');
+    var row = document.getElementById('convenienceFavoritesRow');
+    var grid = document.getElementById('convenienceCardsGrid');
+    if (!zone || !row || !grid) return;
+    var visibleFavIds = favIds.filter(function (id) { return hiddenIds.indexOf(id) === -1; });
+    if (visibleFavIds.length > 0) {
+        zone.style.display = 'block';
+        row.innerHTML = visibleFavIds.map(function (id) {
+            var f = getConvenienceById(id);
+            return f ? buildConvenienceCardHtml(f, true) : '';
+        }).filter(Boolean).join('');
+    } else {
+        zone.style.display = 'none';
+        row.innerHTML = '';
+    }
+    bindConvenienceCardMenus(row);
+    var visible = CONVENIENCE_FEATURES.filter(function (f) { return hiddenIds.indexOf(f.id) === -1; });
+    grid.innerHTML = visible.map(function (f) { return buildConvenienceCardHtml(f, false); }).join('');
+    bindConvenienceCardMenus(grid);
+}
+
+function buildConvenienceCardHtml(feature, isFavoriteRow) {
+    var favIds = getConvenienceFavorites();
+    var isFav = favIds.indexOf(feature.id) !== -1;
+    var thumbStyle = 'background: linear-gradient(135deg, #334155 0%, #1e293b 100%);';
+    return '<div class="convenience-card" data-id="' + feature.id + '" style="width: ' + (isFavoriteRow ? '160px' : '100%') + ';">' +
+        '<div style="width:100%;height:100%;min-height:90px;' + thumbStyle + '" class="card-thumb-wrap"></div>' +
+        '<div class="card-title-top">' + (feature.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+        '<div class="card-overlay">' +
+        '<div class="card-title">' + (feature.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+        '<div class="card-desc">' + (feature.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+        '</div>' +
+        '<button type="button" class="card-menu-btn" aria-label="메뉴">⋮</button>' +
+        '<div class="card-dropdown" style="display:none;">' +
+        '<button type="button" data-action="' + (isFav ? 'unfavorite' : 'favorite') + '">' + (isFav ? '즐겨찾기 제거' : '즐겨찾기 추가') + '</button>' +
+        '<button type="button" data-action="hide">숨기기</button>' +
+        '</div></div>';
+}
+
+function bindConvenienceCardMenus(container) {
+    if (!container) return;
+    container.querySelectorAll('.card-menu-btn').forEach(function (btn) {
+        btn.onclick = function (e) {
+            e.stopPropagation();
+            var card = btn.closest('.convenience-card');
+            var dd = card ? card.querySelector('.card-dropdown') : null;
+            document.querySelectorAll('.convenience-card .card-dropdown').forEach(function (d) {
+                if (d !== dd) d.style.display = 'none';
+            });
+            if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        };
+    });
+    container.querySelectorAll('.card-dropdown button').forEach(function (btn) {
+        btn.onclick = function (e) {
+            e.stopPropagation();
+            var card = btn.closest('.convenience-card');
+            var id = card ? card.getAttribute('data-id') : null;
+            var action = btn.getAttribute('data-action');
+            if (!id) return;
+            if (action === 'favorite') {
+                var fav = getConvenienceFavorites();
+                if (fav.indexOf(id) === -1) { fav.push(id); setConvenienceFavorites(fav); }
+            } else if (action === 'unfavorite') {
+                setConvenienceFavorites(getConvenienceFavorites().filter(function (x) { return x !== id; }));
+            } else if (action === 'hide') {
+                var hidden = getConvenienceHidden();
+                if (hidden.indexOf(id) === -1) hidden.push(id);
+                setConvenienceHidden(hidden);
+                setConvenienceFavorites(getConvenienceFavorites().filter(function (x) { return x !== id; }));
+            }
+            var dd = card ? card.querySelector('.card-dropdown') : null;
+            if (dd) dd.style.display = 'none';
+            setTimeout(function () {
+                renderConvenienceFeature3();
+                if (action === 'hide') renderHiddenConvenienceList();
+            }, 0);
+        };
+    });
+}
+document.addEventListener('click', function () {
+    document.querySelectorAll('.convenience-card .card-dropdown').forEach(function (d) { d.style.display = 'none'; });
+});
+
+function renderHiddenConvenienceList() {
+    var tbody = document.getElementById('hiddenConvenienceTableBody');
+    if (!tbody) return;
+    var hidden = getConvenienceHidden();
+    if (hidden.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="padding: 24px; text-align: center; color: #94a3b8;">가려진 항목 없음</td></tr>';
+        return;
+    }
+    tbody.innerHTML = hidden.map(function (id) {
+        var f = getConvenienceById(id);
+        var title = f ? (f.title || id) : id;
+        return '<tr><td style="padding: 10px;"><input type="checkbox" class="hidden-conv-cb" data-id="' + id + '"></td><td style="padding: 10px; text-align: left;">' + (title + '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</td></tr>';
+    }).join('');
+    var cbAll = document.getElementById('hiddenConvSelectAll');
+    if (cbAll) cbAll.checked = false;
+}
+
+function toggleHiddenConvenienceSelectAll(checkbox) {
+    var tbody = document.getElementById('hiddenConvenienceTableBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('.hidden-conv-cb').forEach(function (cb) { cb.checked = !!checkbox.checked; });
+}
+
+function restoreSelectedConvenience() {
+    var checked = [];
+    document.querySelectorAll('.hidden-conv-cb:checked').forEach(function (cb) {
+        var id = cb.getAttribute('data-id');
+        if (id) checked.push(id);
+    });
+    if (checked.length === 0) {
+        alert('복구할 항목을 체크해 주세요.');
+        return;
+    }
+    var hidden = getConvenienceHidden().filter(function (id) { return checked.indexOf(id) === -1; });
+    setConvenienceHidden(hidden);
+    renderHiddenConvenienceList();
+    renderConvenienceFeature3();
+}
+
+function openConvenienceFavoriteOrderModal() {
+    var modal = document.getElementById('convenienceFavoriteOrderModal');
+    var listEl = document.getElementById('convenienceFavoriteOrderList');
+    if (!modal || !listEl) return;
+    var fav = getConvenienceFavorites();
+    var hidden = getConvenienceHidden();
+    var visibleFav = fav.filter(function (id) { return hidden.indexOf(id) === -1; });
+    if (visibleFav.length === 0) {
+        alert('즐겨찾기에 항목이 없습니다.');
+        return;
+    }
+    listEl.innerHTML = visibleFav.map(function (id, idx) {
+        var f = getConvenienceById(id);
+        var title = f ? f.title : id;
+        return '<li class="convenience-order-item" data-id="' + id + '" data-index="' + idx + '">' +
+            '<span class="order-handle">⋮⋮</span>' +
+            '<span style="flex:1;">' + (title + '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' +
+            '</li>';
+    }).join('');
+    modal.style.display = 'flex';
+    makeConvenienceOrderListSortable(listEl);
+}
+
+function makeConvenienceOrderListSortable(listEl) {
+    var items = [].slice.call(listEl.querySelectorAll('.convenience-order-item'));
+    var dragSrc = null;
+    items.forEach(function (item) {
+        item.draggable = true;
+        item.ondragstart = function (e) { dragSrc = item; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', item.getAttribute('data-id')); };
+        item.ondragover = function (e) { e.preventDefault(); if (dragSrc && dragSrc !== item) item.style.opacity = '0.5'; };
+        item.ondragleave = function (e) { item.style.opacity = '1'; };
+        item.ondrop = function (e) {
+            e.preventDefault();
+            item.style.opacity = '1';
+            if (!dragSrc || dragSrc === item) return;
+            var all = [].slice.call(listEl.querySelectorAll('.convenience-order-item'));
+            var idxSrc = all.indexOf(dragSrc);
+            var idxDest = all.indexOf(item);
+            if (idxSrc === -1 || idxDest === -1) return;
+            listEl.insertBefore(dragSrc, idxDest < idxSrc ? item : item.nextSibling);
+        };
+        item.ondragend = function () { items.forEach(function (i) { i.style.opacity = '1'; }); dragSrc = null; };
+    });
+}
+
+function closeConvenienceFavoriteOrderModal() {
+    var modal = document.getElementById('convenienceFavoriteOrderModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function saveConvenienceFavoriteOrder() {
+    var listEl = document.getElementById('convenienceFavoriteOrderList');
+    if (!listEl) return;
+    var order = [].map.call(listEl.querySelectorAll('.convenience-order-item'), function (li) { return li.getAttribute('data-id'); });
+    var curFav = getConvenienceFavorites();
+    var hidden = getConvenienceHidden();
+    var newFav = order.slice();
+    curFav.forEach(function (id) { if (order.indexOf(id) === -1 && hidden.indexOf(id) === -1) newFav.push(id); });
+    setConvenienceFavorites(newFav);
+    closeConvenienceFavoriteOrderModal();
+    renderConvenienceFeature3();
+}
+
 function showSection(sectionId) {
     document.querySelectorAll('.content-section').forEach(function (el) { el.classList.remove('active'); });
     document.querySelectorAll('.menu-item').forEach(function (el) { el.classList.remove('active'); });
@@ -3408,7 +3682,10 @@ function showSection(sectionId) {
         var key = PAGE3_SECTION_STORAGE_KEY + (getProjectKey() ? '_' + getProjectKey() : '');
         if (sectionId && PAGE3_SECTION_IDS.indexOf(sectionId) !== -1) sessionStorage.setItem(key, sectionId);
     } catch (e) {}
-    if (sectionId === 'settings') loadPage3Keywords();
+    if (sectionId === 'settings') {
+        loadPage3Keywords();
+        renderHiddenConvenienceList();
+    }
     if (sectionId === 'feature1') {
         loadStatusSummary();
         loadPersonnelTable();
@@ -3417,6 +3694,7 @@ function showSection(sectionId) {
         loadContractDetailList();
     }
     if (sectionId === 'feature2') loadAgreementList();
+    if (sectionId === 'feature3') renderConvenienceFeature3();
 }
 
 function goToGateway() {
