@@ -14,7 +14,9 @@ function openExcelMergeModal() {
     if (emptyEl) emptyEl.style.display = 'block';
     if (fileInput) fileInput.value = '';
     var downloadAllBtn = document.getElementById('excelMergeDownloadAllBtn');
+    var copyDataBtn = document.getElementById('excelMergeCopyDataBtn');
     if (downloadAllBtn) downloadAllBtn.style.display = 'none';
+    if (copyDataBtn) copyDataBtn.style.display = 'none';
     renderExcelMergeTabs();
     var modal = document.getElementById('excelMergeModal');
     if (modal) modal.style.display = 'flex';
@@ -314,7 +316,9 @@ function excelMergeDoMerge(tabIndex) {
     }
     var downloadBtn = panel.querySelector('.excel-merge-download-btn');
     var dupMsg = panel.querySelector('.excel-merge-dup-msg');
+    var copyDataBtn = document.getElementById('excelMergeCopyDataBtn');
     if (downloadBtn) downloadBtn.style.display = 'inline-block';
+    if (copyDataBtn) copyDataBtn.style.display = 'inline-block';
     if (dupMsg) {
         if (tab.removedRows && tab.removedRows.length > 0) {
             var byFile = {};
@@ -347,6 +351,23 @@ function excelMergeDoMerge(tabIndex) {
     }
 }
 
+function excelMergeCopyData() {
+    var tab = _excelMergeTabs[_excelMergeActiveTabIndex];
+    if (!tab || !tab.result || !tab.result.aoa || tab.result.aoa.length <= 1) {
+        alert('복사할 데이터가 없습니다. 먼저 합치기를 실행하세요.');
+        return;
+    }
+    var dataRows = tab.result.aoa.slice(1);
+    var text = dataRows.map(function (row) {
+        return (row || []).map(function (cell) { return cell == null ? '' : String(cell); }).join('\t');
+    }).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {}).catch(function () { alert('복사에 실패했습니다.'); });
+    } else {
+        alert('클립보드 API를 사용할 수 없습니다.');
+    }
+}
+
 function excelMergeDownload(tabIndex) {
     var tab = _excelMergeTabs[tabIndex];
     if (!tab || !tab.result || !tab.result.aoa || tab.result.aoa.length === 0) return;
@@ -363,7 +384,9 @@ function excelMergeDoMergeAll() {
     if (_excelMergeFiles.length === 0) { alert('합칠 파일을 먼저 업로드하세요.'); return; }
     for (var i = 0; i < _excelMergeTabs.length; i++) excelMergeDoMerge(i);
     var downloadAllBtn = document.getElementById('excelMergeDownloadAllBtn');
+    var copyDataBtn = document.getElementById('excelMergeCopyDataBtn');
     if (downloadAllBtn) downloadAllBtn.style.display = 'inline-block';
+    if (copyDataBtn) copyDataBtn.style.display = 'inline-block';
 }
 
 function excelMergeDownloadAll() {
