@@ -386,6 +386,7 @@ function excelMergeDownloadAll() {
 // 편의 기능: 예시 5개 (id, title, description)
 var CONVENIENCE_FEATURES = [
     { id: 'excelMerge', title: '엑셀 합치기', description: '여러 엑셀 파일을 하나로 합치고 중복 행을 제거합니다.' },
+    { id: 'urlConverter', title: 'URL 단축', description: '여러 URL을 붙여넣으면 지원 사이트는 단축해 주고, 복사할 수 있습니다.' },
     { id: 'conv2', title: '제목2', description: '설명입니다.' },
     { id: 'conv3', title: '제목3', description: '설명입니다.' },
     { id: 'conv4', title: '제목4', description: '설명입니다.' },
@@ -438,6 +439,7 @@ function bindConvenienceCardClick(container) {
             if (e.target.closest('.card-menu-btn') || e.target.closest('.card-dropdown')) return;
             var id = card.getAttribute('data-id');
             if (id === 'excelMerge') openExcelMergeModal();
+            if (id === 'urlConverter') openUrlConverterModal();
         });
     });
 }
@@ -553,4 +555,106 @@ function saveConvenienceFavoriteOrder() {
     setConvenienceFavorites(newFav);
     closeConvenienceFavoriteOrderModal();
     renderConvenienceFeature3();
+}
+
+// ---------- URL 단축 (편의 기능) ----------
+// 반환: { url: 변환된 URL 또는 원본, site: 'shopee'|'lazada'|'taobao'|null }
+function convertUrlBySite(urlStr) {
+    var s = (urlStr || '').trim();
+    if (!s) return { url: s, site: null };
+    try {
+        var u = new URL(s);
+        var host = (u.hostname || '').toLowerCase().replace(/^www\./, '');
+        if (host.indexOf('shopee.') === 0) {
+            var match = s.match(/(-i\.\d+\.\d+)/);
+            if (match) return { url: u.origin + '/Vanish' + match[1], site: 'shopee' };
+        }
+        if (host.indexOf('lazada.') === 0) {
+            var m = s.match(/-i(\d+)/);
+            if (m) return { url: u.origin + '/products/Vanish-i' + m[1] + '.html', site: 'lazada' };
+        }
+        if (host === 'item.taobao.com' || host.indexOf('taobao.') !== -1) {
+            var idMatch = s.match(/[?&]id=(\d+)/);
+            if (idMatch) return { url: 'https://item.taobao.com/item.htm?id=' + idMatch[1], site: 'taobao' };
+        }
+    } catch (e) {}
+    return { url: s, site: null };
+}
+
+function runUrlConverter() {
+    var ta = document.getElementById('urlConverterTextarea');
+    var msgEl = document.getElementById('urlConverterMessage');
+    if (!ta) return;
+    var rawLines = (ta.value || '').split(/\r?\n/);
+    var lines = rawLines.map(function (line) { return line.trim(); }).filter(function (line) { return line !== ''; });
+    if (lines.length === 0) {
+        if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
+        return;
+    }
+    var count = { shopee: 0, lazada: 0, taobao: 0, none: 0 };
+    var converted = lines.map(function (line) {
+        var r = convertUrlBySite(line);
+        if (r.site === 'shopee') count.shopee++;
+        else if (r.site === 'lazada') count.lazada++;
+        else if (r.site === 'taobao') count.taobao++;
+        else count.none++;
+        return r.url;
+    });
+    ta.value = converted.join('\n');
+    var parts = [];
+    if (count.shopee) parts.push('Shopee ' + count.shopee + '개');
+    if (count.lazada) parts.push('Lazada ' + count.lazada + '개');
+    if (count.taobao) parts.push('Taobao ' + count.taobao + '개');
+    if (parts.length) parts.push('변환됨');
+    if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
+    if (msgEl) {
+        msgEl.textContent = parts.join(' ');
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao ? '#64748b' : '#1e293b';
+    }
+}
+
+function openUrlConverterModal() {
+    var modal = document.getElementById('urlConverterModal');
+    var ta = document.getElementById('urlConverterTextarea');
+    var msgEl = document.getElementById('urlConverterMessage');
+    if (modal) modal.style.display = 'flex';
+    if (ta) { ta.value = ''; ta.focus(); }
+    if (msgEl) msgEl.textContent = '';
+}
+
+function closeUrlConverterModal() {
+    var modal = document.getElementById('urlConverterModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function copyUrlConverterResult() {
+    var ta = document.getElementById('urlConverterTextarea');
+    if (!ta || !ta.value.trim()) {
+        alert('복사할 URL이 없습니다. 먼저 URL을 붙여넣고 변환해 주세요.');
+        return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value.trim()).then(function () {
+            // 알림 없음
+        }).catch(function () {
+            fallbackCopyUrlConverter(ta.value.trim());
+        });
+    } else {
+        fallbackCopyUrlConverter(ta.value.trim());
+    }
+}
+
+function fallbackCopyUrlConverter(text) {
+    var sel = document.getSelection();
+    var range = document.createRange();
+    var ta = document.getElementById('urlConverterTextarea');
+    if (ta) {
+        ta.select();
+        try {
+            document.execCommand('copy');
+        } catch (err) {
+            alert('복사에 실패했습니다. 내용을 직접 선택해 복사해 주세요.');
+        }
+        if (sel) { sel.removeAllRanges(); if (range) sel.addRange(range); }
+    }
 }
