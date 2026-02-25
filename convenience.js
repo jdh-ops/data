@@ -600,6 +600,10 @@ function convertUrlBySite(urlStr) {
             var idMatch = s.match(/[?&]id=(\d+)/);
             if (idMatch) return { url: 'https://item.taobao.com/item.htm?id=' + idMatch[1], site: 'taobao' };
         }
+        if (host === 'markgonzaleskorea.com') {
+            var pathMatch = u.pathname.match(/\/(\d+)\/?$/);
+            if (pathMatch) return { url: u.origin + '/product/detail.html?product_no=' + pathMatch[1], site: 'markgonzales' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -614,12 +618,13 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
         else if (r.site === 'lazada') count.lazada++;
         else if (r.site === 'taobao') count.taobao++;
+        else if (r.site === 'markgonzales') count.markgonzales++;
         else count.none++;
         return r.url;
     });
@@ -628,11 +633,12 @@ function runUrlConverter() {
     if (count.shopee) parts.push('Shopee ' + count.shopee + '개');
     if (count.lazada) parts.push('Lazada ' + count.lazada + '개');
     if (count.taobao) parts.push('Taobao ' + count.taobao + '개');
+    if (count.markgonzales) parts.push('Mark Gonzales ' + count.markgonzales + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales ? '#64748b' : '#1e293b';
     }
 }
 
