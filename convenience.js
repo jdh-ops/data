@@ -604,6 +604,18 @@ function convertUrlBySite(urlStr) {
             var pathMatch = u.pathname.match(/\/(\d+)\/?$/);
             if (pathMatch) return { url: u.origin + '/product/detail.html?product_no=' + pathMatch[1], site: 'markgonzales' };
         }
+        if (host.indexOf('temu.com') !== -1) {
+            // 예시: https://www.temu.com/kr/....-g-601101849297464.html?...
+            // → https://www.temu.com/kr/g-601101849297464.html
+            var temuMatch = s.match(/\/(g-\d+\.html)/i);
+            if (temuMatch) {
+                // 경로에서 /kr/ 까지는 유지하고 그 뒤를 g-숫자.html로 교체
+                var basePath = u.pathname;
+                var krIndex = basePath.indexOf('/kr/');
+                var prefix = krIndex !== -1 ? basePath.slice(0, krIndex + 4) : '/';
+                return { url: u.origin + prefix + temuMatch[1], site: 'temu' };
+            }
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -618,13 +630,14 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
         else if (r.site === 'lazada') count.lazada++;
         else if (r.site === 'taobao') count.taobao++;
         else if (r.site === 'markgonzales') count.markgonzales++;
+        else if (r.site === 'temu') count.temu++;
         else count.none++;
         return r.url;
     });
@@ -634,6 +647,7 @@ function runUrlConverter() {
     if (count.lazada) parts.push('Lazada ' + count.lazada + '개');
     if (count.taobao) parts.push('Taobao ' + count.taobao + '개');
     if (count.markgonzales) parts.push('Mark Gonzales ' + count.markgonzales + '개');
+    if (count.temu) parts.push('Temu ' + count.temu + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
