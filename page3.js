@@ -1335,6 +1335,9 @@ function closeInKindModal() {
 var _monthReportStore = {};
 var MONTH_REPORT_BUCKET = 'month-reports';
 var _monthReportBusy = false;
+// 월말보고용 엑셀에서 '신고결과' 헤더가 위치한 컬럼에 대응하는 data_rows 컬럼 이름
+// 현재 '신고결과'는 P열(16번째 열)이므로 col16_val 사용
+var MONTH_REPORT_RESULT_COL = 'col16_val';
 
 function monthReportDeriveTitle(fileName) {
     var base = String(fileName || '').trim();
@@ -1470,10 +1473,12 @@ function monthReportRefreshPlatformStatus(contractId) {
 
     if (!_supabase || contractId == null) return;
 
+    var resultCol = MONTH_REPORT_RESULT_COL;
+
     Promise.all([
         _supabase.from('contract_registry').select('block_target').eq('id', contractId).single(),
         _supabase.from('contract_kpi_target').select('country, platform').eq('contract_id', contractId),
-        _supabase.from('data_rows').select('col3_val, col4_val').eq('contract_id', contractId)
+        _supabase.from('data_rows').select('col3_val, col4_val, ' + resultCol).eq('contract_id', contractId)
     ]).then(function (results) {
         var regRes = results[0];
         var kpiRes = results[1];
@@ -1507,7 +1512,13 @@ function monthReportRefreshPlatformStatus(contractId) {
             if (!excelSet[key]) excelSet[key] = { country: country, platform: platform };
         });
         var excelPairs = Object.keys(excelSet).map(function (k) { return excelSet[k]; });
-        var m = dataRows.length;
+        // '신고결과'가 '차단완료'인 행만 카운트
+        var blockedCount = 0;
+        dataRows.forEach(function (r) {
+            var resultVal = String(r[resultCol] != null ? r[resultCol] : '').trim();
+            if (resultVal === '차단완료') blockedCount++;
+        });
+        var m = blockedCount;
         var n = blockTarget;
         var rateStr = n > 0 ? ((m / n * 100).toFixed(1) + '%') : '—%';
         if (summaryEl) summaryEl.textContent = '현재 : ' + m.toLocaleString('ko-KR') + '건 / 목표 건수 : ' + n.toLocaleString('ko-KR') + '건 / 달성률 : ' + rateStr;
