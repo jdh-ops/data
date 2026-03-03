@@ -607,7 +607,8 @@ function convertUrlBySite(urlStr) {
         if (host.indexOf('temu.com') !== -1) {
             // 예시: https://www.temu.com/kr/....-g-601101849297464.html?...
             // → https://www.temu.com/kr/g-601101849297464.html
-            var temuMatch = s.match(/\/(g-\d+\.html)/i);
+            // 원본 URL에는 "-g-숫자.html" 앞에 슬래시(/)가 없어서, 슬래시를 제외하고 패턴을 찾는다.
+            var temuMatch = s.match(/(g-\d+\.html)/i);
             if (temuMatch) {
                 // 경로에서 /kr/ 까지는 유지하고 그 뒤를 g-숫자.html로 교체
                 var basePath = u.pathname;
