@@ -957,7 +957,7 @@ function closeOutputStatementModal() {
     if (modal) modal.style.display = 'none';
 }
 
-/* ---------- 선금/잔금 모달 (총액, 기업부담 현물/현금, 정부지원금 → 선금 70% 소수 첫째 자리 내림, 잔금 = 정부지원금 - 선금) ---------- */
+/* ---------- 선금/잔금 모달 (총액, 기업부담 현물/현금, 정부지원금 → 선금 = 정부지원금*0.7 소수점 아래 버림, 잔금 = 정부지원금 - 선금) ---------- */
 function openAdvanceBalanceModal(contractId) {
     var modal = document.getElementById('advanceBalanceModal');
     var tbody = document.getElementById('advanceBalanceTableBody');
@@ -984,7 +984,7 @@ function openAdvanceBalanceModal(contractId) {
         var corpKind = Number(c.corp_kind) || 0;
         var corpCash = Number(c.corp_cash) || 0;
         var gov = Number(c.gov_contribution) || 0;
-        var advance = Math.floor(gov * 0.7 * 10) / 10;
+        var advance = Math.floor(gov * 0.7);
         var balance = gov - advance;
         function fmt(n) { return (n != null && !isNaN(n)) ? n.toLocaleString('ko-KR') : '0'; }
         var cellStyle = 'border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;';
