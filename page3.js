@@ -984,7 +984,7 @@ function openAdvanceBalanceModal(contractId) {
         var corpKind = Number(c.corp_kind) || 0;
         var corpCash = Number(c.corp_cash) || 0;
         var gov = Number(c.gov_contribution) || 0;
-        var advance = Math.floor(gov * 0.7);
+        var advance = Math.floor((gov * 7) / 10);
         var balance = gov - advance;
         function fmt(n) { return (n != null && !isNaN(n)) ? n.toLocaleString('ko-KR') : '0'; }
         var cellStyle = 'border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;';
