@@ -675,6 +675,38 @@
         </div>
     </div>
 
+    <!-- 선금/잔금 모달 -->
+    <div id="advanceBalanceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeAdvanceBalanceModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 820px; max-width: 95vw; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <h3 style="margin: 0; font-size: 18px;">선금/잔금</h3>
+                <button type="button" onclick="closeAdvanceBalanceModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div id="advanceBalanceSubtitle" style="margin-top: 12px; margin-bottom: 12px; font-size: 16px; font-weight: 600; color: #1e293b;">—</div>
+            <div style="margin-bottom: 12px; font-size: 13px; color: #475569;">현재 기준 : 정부지원금의 70%</div>
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">총액</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">기업부담 현물</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">기업부담 현금</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">정부지원금</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">선금</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">잔금</th>
+                        </tr>
+                    </thead>
+                    <tbody id="advanceBalanceTableBody">
+                        <tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <button type="button" class="btn-select" onclick="closeAdvanceBalanceModal()" style="padding: 8px 16px;">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 산출내역서(총괄표) 모달 -->
     <div id="outputStatementModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeOutputStatementModal()">
         <div style="background: white; padding: 24px; border-radius: 12px; width: 660px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">

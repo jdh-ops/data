@@ -582,12 +582,13 @@ function renderAgreementListFromData() {
     var defaultChartContractIds = (filtered.length > 0 && filtered.length < rows.length) ? filtered.map(function (r) { return r.id; }) : null;
     var html = '<div style="overflow-x: auto;">';
     html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
-    html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 70px;"><col style="width: 110px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 105px;"><col style="width: 50px;"><col style="width: auto;"></colgroup>';
+    html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 70px;"><col style="width: 110px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 85px;"><col style="width: 105px;"><col style="width: 50px;"><col style="width: auto;"></colgroup>';
     html += '<thead><tr style="background: #f8fafc;">';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">차수</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">과제번호</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">브랜드명(기업명)</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">담당자</th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
@@ -614,6 +615,7 @@ function renderAgreementListFromData() {
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openKpiModal(' + r.id + ')">KPI : ' + kpiRate + '</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openOutputStatementModal(' + r.id + ')">산출내역서</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openInKindModal(' + r.id + ')">현물출자</button></td>';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openAdvanceBalanceModal(' + r.id + ')">선금/잔금</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select month-report-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openMonthReportModal(' + r.id + ')">월말 엑셀 : ' + monthLabel + '</button></td>';
         html += '<td style="' + cellStyle + '"><label style="display:block;cursor:pointer;margin:-8px -6px;padding:8px 6px;min-height:20px;"><input type="checkbox" class="agreement-chart-cb" data-contract-id="' + r.id + '" aria-label="데이터 분석 대상 선택" style="cursor:pointer;"></label></td>';
         html += '<td style="' + cellStyle + '"></td>';
@@ -952,6 +954,55 @@ function fillOutputStatementSummary(contract, personnelSubtotal) {
 
 function closeOutputStatementModal() {
     var modal = document.getElementById('outputStatementModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 선금/잔금 모달 (총액, 기업부담 현물/현금, 정부지원금 → 선금 70% 소수 첫째 자리 내림, 잔금 = 정부지원금 - 선금) ---------- */
+function openAdvanceBalanceModal(contractId) {
+    var modal = document.getElementById('advanceBalanceModal');
+    var tbody = document.getElementById('advanceBalanceTableBody');
+    if (!modal || !tbody) return;
+    modal.style.display = 'flex';
+    tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>';
+    if (!_supabase) {
+        tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">연결할 수 없습니다.</td></tr>';
+        return;
+    }
+    _supabase.from('contract_registry').select('ref_no, company_name, brand_name, total_budget, corp_kind, corp_cash, gov_contribution').eq('id', contractId).single().then(function (res) {
+        if (res.error || !res.data) {
+            tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">협약 데이터를 불러올 수 없습니다.</td></tr>';
+            return;
+        }
+        var c = res.data;
+        var refNo = (c.ref_no != null && c.ref_no !== '') ? String(c.ref_no).trim() : '';
+        var company = (c.company_name || '').trim();
+        var brand = (c.brand_name || '').trim();
+        var subtitleText = (refNo ? '[' + refNo + ']' : '') + company + (brand ? '(' + brand + ')' : '');
+        var subtitleEl = document.getElementById('advanceBalanceSubtitle');
+        if (subtitleEl) subtitleEl.textContent = subtitleText || '—';
+        var total = Number(c.total_budget) || 0;
+        var corpKind = Number(c.corp_kind) || 0;
+        var corpCash = Number(c.corp_cash) || 0;
+        var gov = Number(c.gov_contribution) || 0;
+        var advance = Math.floor(gov * 0.7 * 10) / 10;
+        var balance = gov - advance;
+        function fmt(n) { return (n != null && !isNaN(n)) ? n.toLocaleString('ko-KR') : '0'; }
+        var cellStyle = 'border: 1px solid #e2e8f0; padding: 8px 10px; text-align: right;';
+        tbody.innerHTML = '<tr>' +
+            '<td style="' + cellStyle + '">' + fmt(total) + '원</td>' +
+            '<td style="' + cellStyle + '">' + fmt(corpKind) + '원</td>' +
+            '<td style="' + cellStyle + '">' + fmt(corpCash) + '원</td>' +
+            '<td style="' + cellStyle + '">' + fmt(gov) + '원</td>' +
+            '<td style="' + cellStyle + '">' + fmt(advance) + '원</td>' +
+            '<td style="' + cellStyle + '">' + fmt(balance) + '원</td>' +
+            '</tr>';
+    }).catch(function () {
+        tbody.innerHTML = '<tr><td colspan="6" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+    });
+}
+
+function closeAdvanceBalanceModal() {
+    var modal = document.getElementById('advanceBalanceModal');
     if (modal) modal.style.display = 'none';
 }
 
