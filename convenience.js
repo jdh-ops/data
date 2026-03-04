@@ -617,6 +617,12 @@ function convertUrlBySite(urlStr) {
                 return { url: u.origin + prefix + temuMatch[1], site: 'temu' };
             }
         }
+        if (host === 'soupmall.co.kr') {
+            // 예시: https://soupmall.co.kr/product/상품명슬러그/59718/category/127/display/1/
+            // → https://soupmall.co.kr/product/detail.html?product_no=59718
+            var soupMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (soupMatch) return { url: u.origin + '/product/detail.html?product_no=' + soupMatch[1], site: 'soupmall' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -631,7 +637,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -639,6 +645,7 @@ function runUrlConverter() {
         else if (r.site === 'taobao') count.taobao++;
         else if (r.site === 'markgonzales') count.markgonzales++;
         else if (r.site === 'temu') count.temu++;
+        else if (r.site === 'soupmall') count.soupmall++;
         else count.none++;
         return r.url;
     });
@@ -649,11 +656,12 @@ function runUrlConverter() {
     if (count.taobao) parts.push('Taobao ' + count.taobao + '개');
     if (count.markgonzales) parts.push('Mark Gonzales ' + count.markgonzales + '개');
     if (count.temu) parts.push('Temu ' + count.temu + '개');
+    if (count.soupmall) parts.push('숲몰 ' + count.soupmall + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall ? '#64748b' : '#1e293b';
     }
 }
 
