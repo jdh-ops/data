@@ -629,6 +629,12 @@ function convertUrlBySite(urlStr) {
             var pdrnMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
             if (pdrnMatch) return { url: u.origin + '/product/detail.html?product_no=' + pdrnMatch[1], site: 'pdrnmall' };
         }
+        if (host === 'pleatsme.com') {
+            // 예시: https://pleatsme.com/product/상품명슬러그/4541/category/63/display/1/
+            // → https://pleatsme.com/product/detail.html?product_no=4541
+            var pleatsMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (pleatsMatch) return { url: u.origin + '/product/detail.html?product_no=' + pleatsMatch[1], site: 'pleatsme' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -643,7 +649,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -653,6 +659,7 @@ function runUrlConverter() {
         else if (r.site === 'temu') count.temu++;
         else if (r.site === 'soupmall') count.soupmall++;
         else if (r.site === 'pdrnmall') count.pdrnmall++;
+        else if (r.site === 'pleatsme') count.pleatsme++;
         else count.none++;
         return r.url;
     });
@@ -665,11 +672,12 @@ function runUrlConverter() {
     if (count.temu) parts.push('Temu ' + count.temu + '개');
     if (count.soupmall) parts.push('숲몰 ' + count.soupmall + '개');
     if (count.pdrnmall) parts.push('리쥬더마 ' + count.pdrnmall + '개');
+    if (count.pleatsme) parts.push('플리츠미 ' + count.pleatsme + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme ? '#64748b' : '#1e293b';
     }
 }
 
