@@ -565,6 +565,7 @@ function renderAgreementListFromData() {
     }
     var titleByContractId = data.titleByContractId;
     var rateByContractId = data.rateByContractId;
+    var tooltipByContractId = data.tooltipByContractId || {};
     filtered.sort(function (a, b) {
         var ta = (a.num_tag || '').trim();
         var tb = (b.num_tag || '').trim();
@@ -612,7 +613,9 @@ function renderAgreementListFromData() {
         html += '<td style="' + cellStyle + '"><span role="button" tabindex="0" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;" onclick="event.stopPropagation(); openAddContractModal(' + contractId + ');">' + cell2 + '</span></td>';
         html += '<td style="' + cellStyle + '">' + assigneeCell + '</td>';
         var kpiRate = (rateByContractId[r.id] || '-%').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openKpiModal(' + r.id + ')">KPI : ' + kpiRate + '</button></td>';
+        var kpiTooltip = tooltipByContractId[r.id] != null ? String(tooltipByContractId[r.id]) : '';
+        var kpiTooltipEsc = kpiTooltip ? escapeHtml(kpiTooltip) : '';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" title="' + kpiTooltipEsc + '" onclick="openKpiModal(' + r.id + ')">KPI : ' + kpiRate + '</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openOutputStatementModal(' + r.id + ')">산출내역서</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openInKindModal(' + r.id + ')">현물출자</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openAdvanceBalanceModal(' + r.id + ')">선금/잔금</button></td>';
@@ -659,7 +662,7 @@ function loadAgreementList() {
         var contractIds = rows.map(function (r) { return r.id; });
         Promise.all([
             _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
-            _supabase.from('data_rows').select('contract_id').in('contract_id', contractIds),
+            _supabase.from('data_rows').select('contract_id, ' + MONTH_REPORT_RESULT_COL).in('contract_id', contractIds),
             _supabase.from('personnel_master').select('id, name').eq('target_table', projectKey).order('name'),
             _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds)
         ]).then(function (results) {
@@ -690,16 +693,19 @@ function loadAgreementList() {
             var countByContractId = {};
             dataRows.forEach(function (row) {
                 var cid = row.contract_id;
-                countByContractId[cid] = (countByContractId[cid] || 0) + 1;
+                var resultVal = String(row[MONTH_REPORT_RESULT_COL] != null ? row[MONTH_REPORT_RESULT_COL] : '').trim();
+                if (resultVal === '차단완료') countByContractId[cid] = (countByContractId[cid] || 0) + 1;
             });
             var rateByContractId = {};
+            var tooltipByContractId = {};
             rows.forEach(function (r) {
                 var n = (r.block_target != null && r.block_target !== '') ? parseInt(r.block_target, 10) : 0;
                 if (isNaN(n)) n = 0;
                 var m = countByContractId[r.id] || 0;
-                rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '-%';
+                rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '—%';
+                tooltipByContractId[r.id] = '차단 : ' + m.toLocaleString('ko-KR') + '건 / 목표 : ' + n.toLocaleString('ko-KR') + '건';
             });
-            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
+            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, tooltipByContractId: tooltipByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
             var sel = document.getElementById('agreementFilterPersonnel');
             if (sel) {
                 var currentVal = sel.value;
@@ -1516,10 +1522,12 @@ function openMonthReportModal(contractId) {
 function monthReportRefreshPlatformStatus(contractId) {
     var summaryEl = document.getElementById('monthReportPlatformSummary');
     var kpiEl = document.getElementById('monthReportKpiTags');
-    var excelEl = document.getElementById('monthReportExcelTags');
-    if (!kpiEl || !excelEl) return;
+    var blockedExcelEl = document.getElementById('monthReportBlockedExcelTags');
+    var inProgressExcelEl = document.getElementById('monthReportInProgressExcelTags');
+    if (!kpiEl || !blockedExcelEl || !inProgressExcelEl) return;
     kpiEl.innerHTML = '';
-    excelEl.innerHTML = '';
+    blockedExcelEl.innerHTML = '';
+    inProgressExcelEl.innerHTML = '';
     if (summaryEl) summaryEl.textContent = '현재 : 0건 / 목표 건수 : 0건 / 달성률 : —%';
 
     if (!_supabase || contractId == null) return;
@@ -1554,28 +1562,30 @@ function monthReportRefreshPlatformStatus(contractId) {
                 if (country || platform) kpiSet[country + '|' + platform] = { country: country, platform: platform };
             });
         });
-        // 업로드 데이터: 3열=국가(col3_val), 4열=플랫폼(col4_val) 유니크
-        var excelSet = {};
+        // 업로드 데이터: 3열=국가(col3_val), 4열=플랫폼(col4_val)
+        // 유니크 조합을 '차단완료' / '신고중'으로 분리해서 표시한다.
+        var blockedExcelSet = {};
+        var inProgressExcelSet = {};
+        var blockedCount = 0;
         dataRows.forEach(function (r) {
             var country = String(r.col3_val != null ? r.col3_val : '').trim();
             var platform = String(r.col4_val != null ? r.col4_val : '').trim();
             var key = country + '|' + platform;
-            if (!excelSet[key]) excelSet[key] = { country: country, platform: platform };
-        });
-        var excelPairs = Object.keys(excelSet).map(function (k) { return excelSet[k]; });
-        // '신고결과'가 '차단완료'인 행만 카운트
-        var blockedCount = 0;
-        dataRows.forEach(function (r) {
             var resultVal = String(r[resultCol] != null ? r[resultCol] : '').trim();
-            if (resultVal === '차단완료') blockedCount++;
+            if (resultVal === '차단완료') {
+                blockedCount++;
+                if (!blockedExcelSet[key]) blockedExcelSet[key] = { country: country, platform: platform };
+            } else if (resultVal === '신고중') {
+                if (!inProgressExcelSet[key]) inProgressExcelSet[key] = { country: country, platform: platform };
+            }
         });
         var m = blockedCount;
         var n = blockTarget;
         var rateStr = n > 0 ? ((m / n * 100).toFixed(1) + '%') : '—%';
         if (summaryEl) summaryEl.textContent = '현재 : ' + m.toLocaleString('ko-KR') + '건 / 목표 건수 : ' + n.toLocaleString('ko-KR') + '건 / 달성률 : ' + rateStr;
 
-        // 상단 KPI: 하단(업로드)에 이미 있는 조합은 제외 → 아직 데이터 없는 목표만 표시
-        var kpiPairsToShow = Object.keys(kpiSet).filter(function (k) { return !excelSet[k]; }).map(function (k) { return kpiSet[k]; });
+        // 상단 KPI: 하단(차단완료)에 이미 있는 조합은 제외 → 아직 차단완료 데이터 없는 목표만 표시
+        var kpiPairsToShow = Object.keys(kpiSet).filter(function (k) { return !blockedExcelSet[k]; }).map(function (k) { return kpiSet[k]; });
 
         kpiPairsToShow.forEach(function (p) {
             var span = document.createElement('span');
@@ -1584,14 +1594,27 @@ function monthReportRefreshPlatformStatus(contractId) {
             kpiEl.appendChild(span);
         });
 
-        excelPairs.forEach(function (p) {
+        var blockedPairs = Object.keys(blockedExcelSet).map(function (k) { return blockedExcelSet[k]; });
+        var inProgressPairs = Object.keys(inProgressExcelSet).map(function (k) { return inProgressExcelSet[k]; });
+
+        blockedPairs.forEach(function (p) {
             var span = document.createElement('span');
             var key = p.country + '|' + p.platform;
             var inKpi = kpiSet[key] !== undefined;
             span.style.cssText = 'display: inline-block; padding: 4px 10px; font-size: 12px; border-radius: 6px; color: #1a202c; ' +
                 (inKpi ? 'background: #c6f6d5;' : 'background: #fed7d7;');
             span.textContent = (p.country || '(국가)') + ' - ' + (p.platform || '(플랫폼)');
-            excelEl.appendChild(span);
+            blockedExcelEl.appendChild(span);
+        });
+
+        inProgressPairs.forEach(function (p) {
+            var span = document.createElement('span');
+            var key = p.country + '|' + p.platform;
+            var inKpi = kpiSet[key] !== undefined;
+            span.style.cssText = 'display: inline-block; padding: 4px 10px; font-size: 12px; border-radius: 6px; color: #1a202c; ' +
+                (inKpi ? 'background: #c6f6d5;' : 'background: #fed7d7;');
+            span.textContent = (p.country || '(국가)') + ' - ' + (p.platform || '(플랫폼)');
+            inProgressExcelEl.appendChild(span);
         });
     }).catch(function () {
         kpiEl.innerHTML = '<span style="font-size: 12px; color: #94a3b8;">로드 실패</span>';
