@@ -565,7 +565,9 @@ function renderAgreementListFromData() {
     }
     var titleByContractId = data.titleByContractId;
     var rateByContractId = data.rateByContractId;
+    var monthlyTargetByContractId = data.monthlyTargetByContractId || {};
     var tooltipByContractId = data.tooltipByContractId || {};
+    var memoHasUncheckedByContractId = data.memoHasUncheckedByContractId || {};
     filtered.sort(function (a, b) {
         var ta = (a.num_tag || '').trim();
         var tb = (b.num_tag || '').trim();
@@ -581,15 +583,23 @@ function renderAgreementListFromData() {
         if (p.id != null) assigneeIdToName[p.id] = (p.name || '').trim() || '(이름 없음)';
     });
     var defaultChartContractIds = (filtered.length > 0 && filtered.length < rows.length) ? filtered.map(function (r) { return r.id; }) : null;
+    function parseKpiPercentNum(displayStr) {
+        if (displayStr == null || displayStr === '') return NaN;
+        var t = String(displayStr).replace(/%/g, '').replace(/[—\-]/g, '').trim();
+        if (t === '') return NaN;
+        var v = parseFloat(t);
+        return isNaN(v) ? NaN : v;
+    }
     var html = '<div style="overflow-x: auto;">';
     html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
-    html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 70px;"><col style="width: 110px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 85px;"><col style="width: 105px;"><col style="width: 50px;"><col style="width: auto;"></colgroup>';
+    html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 70px;"><col style="width: 110px;"><col style="width: 70px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 85px;"><col style="width: 105px;"><col style="width: 50px;"><col style="width: auto;"></colgroup>';
     html += '<thead><tr style="background: #f8fafc;">';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">차수</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">과제번호</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">브랜드명(기업명)</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">담당자</th>';
-    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">KPI</th>';
+    html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;">메모</th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
     html += '<th style="border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center;"></th>';
@@ -613,9 +623,25 @@ function renderAgreementListFromData() {
         html += '<td style="' + cellStyle + '"><span role="button" tabindex="0" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;" onclick="event.stopPropagation(); openAddContractModal(' + contractId + ');">' + cell2 + '</span></td>';
         html += '<td style="' + cellStyle + '">' + assigneeCell + '</td>';
         var kpiRate = (rateByContractId[r.id] || '-%').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var kpiMt = String(monthlyTargetByContractId[r.id] != null ? monthlyTargetByContractId[r.id] : '—').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var kpiTooltip = tooltipByContractId[r.id] != null ? String(tooltipByContractId[r.id]) : '';
         var kpiTooltipEsc = kpiTooltip ? escapeHtml(kpiTooltip) : '';
-        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" title="' + kpiTooltipEsc + '" onclick="openKpiModal(' + r.id + ')">KPI : ' + kpiRate + '</button></td>';
+        var rateNum = parseKpiPercentNum(rateByContractId[r.id]);
+        var mtNum = parseKpiPercentNum(monthlyTargetByContractId[r.id]);
+        var kpiBtnColor = '';
+        if (!isNaN(rateNum) && !isNaN(mtNum)) {
+            if (rateNum > mtNum) {
+                kpiBtnColor = 'background:#dcfce7;color:#166534;border-color:#86efac;';
+            } else if (rateNum > mtNum / 2) {
+                kpiBtnColor = 'background:#fef9c3;color:#854d0e;border-color:#fde047;';
+            } else {
+                kpiBtnColor = 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;';
+            }
+        }
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + kpiBtnColor + '" title="' + kpiTooltipEsc + '" onclick="openKpiModal(' + r.id + ')">' + kpiRate + ' / ' + kpiMt + '</button></td>';
+        var memoDot = memoHasUncheckedByContractId[r.id] ? '<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;background:#dc2626;border-radius:50%;" aria-hidden="true"></span>' : '';
+        var memoBtnTitle = memoHasUncheckedByContractId[r.id] ? ' title="체크되지 않은 메모가 있습니다"' : '';
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="position:relative;padding:3px 4px;font-size:11px;width:100%;box-sizing:border-box;"' + memoBtnTitle + ' onclick="openContractMemoModal(' + contractId + ')">확인' + memoDot + '</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openOutputStatementModal(' + r.id + ')">산출내역서</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openInKindModal(' + r.id + ')">현물출자</button></td>';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;" onclick="openAdvanceBalanceModal(' + r.id + ')">선금/잔금</button></td>';
@@ -644,6 +670,36 @@ function resetAgreementListFilter() {
     renderAgreementListFromData();
 }
 
+/** 협약 시작월~10월말까지 총 개월, 현재월 기준 이전 달까지 경과 개월. 월목표% = (100/총개월)*경과개월 */
+function monthKeyYm(y, m) {
+    return y * 12 + m;
+}
+
+function computeKpiMonthlyTargetPercent(startDateStr) {
+    if (startDateStr == null || startDateStr === '') return null;
+    var d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return null;
+    var sy = d.getFullYear();
+    var sm = d.getMonth() + 1;
+    var deadlineY = sm > 10 ? sy + 1 : sy;
+    var totalMonths = (deadlineY - sy) * 12 + (10 - sm) + 1;
+    if (totalMonths <= 0) return null;
+
+    var now = new Date();
+    var cy = now.getFullYear();
+    var cm = now.getMonth() + 1;
+    var prevY = cm === 1 ? cy - 1 : cy;
+    var prevM = cm === 1 ? 12 : cm - 1;
+
+    var dk = monthKeyYm(deadlineY, 10);
+    var pk = monthKeyYm(prevY, prevM);
+    var endKey = Math.min(pk, dk);
+    var sk = monthKeyYm(sy, sm);
+    if (endKey < sk) return 0;
+    var elapsedMonths = endKey - sk + 1;
+    return (100 / totalMonths) * elapsedMonths;
+}
+
 function loadAgreementList() {
     var area = document.getElementById('agreementListArea');
     if (!area) return;
@@ -653,26 +709,29 @@ function loadAgreementList() {
     }
     var projectKey = getProjectKey();
     area.innerHTML = '<p style="color: #94a3b8;">데이터를 불러오는 중...</p>';
-    _supabase.from('contract_registry').select('id, num_tag, company_name, brand_name, status, ref_no, block_target, assignee_id').eq('target_table', projectKey).eq('status', '선정').order('num_tag').order('id', { ascending: true }).then(function (res) {
+    _supabase.from('contract_registry').select('id, num_tag, company_name, brand_name, status, ref_no, block_target, assignee_id, start_date').eq('target_table', projectKey).eq('status', '선정').order('num_tag').order('id', { ascending: true }).then(function (res) {
         var rows = res.data || [];
         if (rows.length === 0) {
             area.innerHTML = '<p style="color: #94a3b8;">선정된 협약이 없습니다.</p>';
             return;
         }
         var contractIds = rows.map(function (r) { return r.id; });
+        var memoQuery = _supabase.from('contract_memo').select('contract_id').eq('is_done', false).in('contract_id', contractIds);
         Promise.all([
             _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
             _supabase.from('data_rows').select('contract_id, ' + MONTH_REPORT_RESULT_COL).in('contract_id', contractIds),
             _supabase.from('personnel_master').select('id, name').eq('target_table', projectKey).order('name'),
-            _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds)
+            _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds),
+            memoQuery.then(function (r) { return r; }).catch(function () { return { data: [], error: true }; })
         ]).then(function (results) {
             var reportRes = results[0];
             var dataRowsRes = results[1];
             var personnelRes = results[2];
             var partRes = results[3];
-            return { reportRes: reportRes, dataRowsRes: dataRowsRes, personnelList: (personnelRes && personnelRes.data) ? personnelRes.data : [], partList: (partRes && partRes.data) ? partRes.data : [] };
+            var memoRes = results[4];
+            return { reportRes: reportRes, dataRowsRes: dataRowsRes, personnelList: (personnelRes && personnelRes.data) ? personnelRes.data : [], partList: (partRes && partRes.data) ? partRes.data : [], memoRes: memoRes };
         }).catch(function () {
-            return { reportRes: { data: [] }, dataRowsRes: { data: [] }, personnelList: [], partList: [] };
+            return { reportRes: { data: [] }, dataRowsRes: { data: [] }, personnelList: [], partList: [], memoRes: { data: [] } };
         }).then(function (payload) {
             var reportRows = (payload.reportRes && payload.reportRes.data) ? payload.reportRes.data : [];
             var dataRows = (payload.dataRowsRes && payload.dataRowsRes.data) ? payload.dataRowsRes.data : [];
@@ -697,15 +756,25 @@ function loadAgreementList() {
                 if (resultVal === '차단완료') countByContractId[cid] = (countByContractId[cid] || 0) + 1;
             });
             var rateByContractId = {};
+            var monthlyTargetByContractId = {};
             var tooltipByContractId = {};
+            var memoHasUncheckedByContractId = {};
+            var memoRes = payload.memoRes;
+            if (memoRes && memoRes.data && !memoRes.error) {
+                memoRes.data.forEach(function (row) {
+                    if (row.contract_id != null) memoHasUncheckedByContractId[row.contract_id] = true;
+                });
+            }
             rows.forEach(function (r) {
                 var n = (r.block_target != null && r.block_target !== '') ? parseInt(r.block_target, 10) : 0;
                 if (isNaN(n)) n = 0;
                 var m = countByContractId[r.id] || 0;
                 rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '—%';
                 tooltipByContractId[r.id] = '차단 : ' + m.toLocaleString('ko-KR') + '건 / 목표 : ' + n.toLocaleString('ko-KR') + '건';
+                var mt = computeKpiMonthlyTargetPercent(r.start_date);
+                monthlyTargetByContractId[r.id] = mt == null ? '—' : (typeof mt === 'number' ? mt.toFixed(1) + '%' : '—');
             });
-            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, tooltipByContractId: tooltipByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
+            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, monthlyTargetByContractId: monthlyTargetByContractId, tooltipByContractId: tooltipByContractId, memoHasUncheckedByContractId: memoHasUncheckedByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
             var sel = document.getElementById('agreementFilterPersonnel');
             if (sel) {
                 var currentVal = sel.value;
@@ -724,6 +793,23 @@ function loadAgreementList() {
         });
     }).catch(function () {
         area.innerHTML = '<p style="color: #e53e3e;">로드 실패.</p>';
+    });
+}
+
+/** 협약 리스트 메모 열 빨간 점(미체크 메모 존재)만 재조회 */
+function refreshAgreementMemoUncheckedFlags() {
+    if (!_supabase || !window._agreementListData || !window._agreementListData.rows) return;
+    var contractIds = window._agreementListData.rows.map(function (r) { return r.id; });
+    if (!contractIds.length) return;
+    _supabase.from('contract_memo').select('contract_id').eq('is_done', false).in('contract_id', contractIds).then(function (res) {
+        var memoHasUncheckedByContractId = {};
+        if (res.data && !res.error) {
+            res.data.forEach(function (row) {
+                if (row.contract_id != null) memoHasUncheckedByContractId[row.contract_id] = true;
+            });
+        }
+        window._agreementListData.memoHasUncheckedByContractId = memoHasUncheckedByContractId;
+        renderAgreementListFromData();
     });
 }
 
@@ -1010,6 +1096,220 @@ function openAdvanceBalanceModal(contractId) {
 function closeAdvanceBalanceModal() {
     var modal = document.getElementById('advanceBalanceModal');
     if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 협약 메모 모달 (contract_memo) ---------- */
+var _contractMemoState = { contractId: null, rows: [], deletedIds: [] };
+var _contractMemoSaving = false;
+
+function contractMemoTodayStr() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+function contractMemoNormalizeDate(v) {
+    if (v == null || v === '') return contractMemoTodayStr();
+    var s = String(v);
+    if (s.length >= 10) return s.slice(0, 10);
+    return contractMemoTodayStr();
+}
+
+/** DB용 YYYY-MM-DD → 화면용 월-일만 (연도 없음) */
+function contractMemoMdDisplay(iso) {
+    var n = contractMemoNormalizeDate(iso);
+    return n.slice(5, 10);
+}
+
+/** 입력 월·일 + 기존 행의 연도(없으면 올해) → YYYY-MM-DD */
+function contractMemoIsoFromMdInput(raw, prevIso) {
+    var prev = contractMemoNormalizeDate(prevIso);
+    var y = prev.slice(0, 4);
+    var rawStr = String(raw || '').trim();
+    if (!rawStr) return prev;
+    var nums = rawStr.match(/\d+/g);
+    if (!nums || nums.length < 2) return prev;
+    var m = parseInt(nums[0], 10);
+    var d = parseInt(nums[1], 10);
+    if (isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return prev;
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+}
+
+function contractMemoEscapeForTextarea(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function contractMemoCollectFromDom() {
+    var tb = document.getElementById('contractMemoTableBody');
+    if (!tb || !_contractMemoState.rows) return;
+    var trs = tb.querySelectorAll('tr[data-memo-idx]');
+    for (var i = 0; i < trs.length; i++) {
+        var tr = trs[i];
+        var idx = parseInt(tr.getAttribute('data-memo-idx'), 10);
+        if (isNaN(idx) || !_contractMemoState.rows[idx]) continue;
+        var ta = tr.querySelector('.memo-c-body');
+        var dt = tr.querySelector('.memo-c-date');
+        var cb = tr.querySelector('.memo-c-done');
+        _contractMemoState.rows[idx].content = ta ? ta.value : '';
+        var prevW = _contractMemoState.rows[idx].written_at;
+        _contractMemoState.rows[idx].written_at = contractMemoIsoFromMdInput(dt ? dt.value : '', prevW);
+        _contractMemoState.rows[idx].is_done = cb ? cb.checked : false;
+    }
+}
+
+function contractMemoRenderTable() {
+    var tbody = document.getElementById('contractMemoTableBody');
+    if (!tbody) return;
+    var rows = _contractMemoState.rows;
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">메모가 없습니다. 「항목 추가」로 입력하세요.</td></tr>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var doneStyle = r.is_done ? 'text-decoration: line-through; color: #94a3b8;' : 'color: #1a202c;';
+        html += '<tr data-memo-idx="' + i + '">';
+        html += '<td style="border: 1px solid #e2e8f0; padding: 4px 2px; text-align: center; vertical-align: middle; width: 28px;"><input type="checkbox" class="memo-c-done" ' + (r.is_done ? 'checked' : '') + ' onchange="contractMemoOnCheck(' + i + ')" style="cursor: pointer;" aria-label="완료 표시"></td>';
+        html += '<td style="border: 1px solid #e2e8f0; padding: 6px 8px;"><textarea class="memo-c-body" spellcheck="false" rows="2" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; resize: vertical; min-height: 44px; ' + doneStyle + '">' + contractMemoEscapeForTextarea(r.content) + '</textarea></td>';
+        html += '<td style="border: 1px solid #e2e8f0; padding: 4px 2px; text-align: center; vertical-align: middle; width: 70px;"><input type="text" class="memo-c-date" value="' + contractMemoEscapeForTextarea(contractMemoMdDisplay(r.written_at)) + '" placeholder="MM-DD" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="작성일 월-일" style="width: 100%; max-width: 64px; padding: 4px 4px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; font-size: 12px; text-align: center;"></td>';
+        html += '<td style="border: 1px solid #e2e8f0; padding: 4px 2px; text-align: center; vertical-align: middle; width: 36px;"><button type="button" class="btn-select" style="padding: 2px 4px; font-size: 11px; color: #c53030; border-color: #feb2b2;" onclick="contractMemoRemoveRow(' + i + ')">삭제</button></td>';
+        html += '</tr>';
+    }
+    tbody.innerHTML = html;
+}
+
+function contractMemoOnCheck(i) {
+    if (!_contractMemoState.rows[i]) return;
+    var tr = document.querySelector('#contractMemoTableBody tr[data-memo-idx="' + i + '"]');
+    var cb = tr ? tr.querySelector('.memo-c-done') : null;
+    var ta = tr ? tr.querySelector('.memo-c-body') : null;
+    var checked = cb ? cb.checked : false;
+    _contractMemoState.rows[i].is_done = checked;
+    if (ta) {
+        ta.style.textDecoration = checked ? 'line-through' : 'none';
+        ta.style.color = checked ? '#94a3b8' : '#1a202c';
+    }
+}
+
+function contractMemoRemoveRow(i) {
+    contractMemoCollectFromDom();
+    var row = _contractMemoState.rows[i];
+    if (row && row.id != null) _contractMemoState.deletedIds.push(row.id);
+    _contractMemoState.rows.splice(i, 1);
+    contractMemoRenderTable();
+}
+
+function contractMemoAddRow() {
+    contractMemoCollectFromDom();
+    _contractMemoState.rows.push({ id: null, content: '', written_at: contractMemoTodayStr(), is_done: false });
+    contractMemoRenderTable();
+}
+
+function openContractMemoModal(contractId) {
+    var modal = document.getElementById('contractMemoModal');
+    var tbody = document.getElementById('contractMemoTableBody');
+    var subEl = document.getElementById('contractMemoSubtitle');
+    if (!modal || !tbody) return;
+    _contractMemoState = { contractId: contractId, rows: [], deletedIds: [] };
+    modal.style.display = 'flex';
+    tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>';
+    if (subEl) subEl.textContent = '—';
+    if (!_supabase) {
+        tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">연결할 수 없습니다.</td></tr>';
+        return;
+    }
+    _supabase.from('contract_registry').select('ref_no, company_name, brand_name').eq('id', contractId).single().then(function (res) {
+        if (subEl && res.data) {
+            var refNo = (res.data.ref_no != null && res.data.ref_no !== '') ? String(res.data.ref_no).trim() : '';
+            var company = (res.data.company_name || '').trim();
+            var brand = (res.data.brand_name || '').trim();
+            var line = (refNo ? '[' + refNo + '] ' : '') + company + (brand ? ' (' + brand + ')' : '');
+            subEl.textContent = line.trim() ? line : '—';
+        }
+    });
+    _supabase.from('contract_memo').select('id, content, written_at, is_done, sort_order').eq('contract_id', contractId).order('sort_order', { ascending: true }).order('id', { ascending: true }).then(function (res) {
+        if (res.error) {
+            tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">메모를 불러올 수 없습니다. DB에 contract_memo 테이블이 있는지 확인하세요.</td></tr>';
+            return;
+        }
+        var list = res.data || [];
+        _contractMemoState.rows = list.map(function (r) {
+            return { id: r.id, content: r.content != null ? String(r.content) : '', written_at: contractMemoNormalizeDate(r.written_at), is_done: !!r.is_done };
+        });
+        contractMemoRenderTable();
+    }).catch(function () {
+        tbody.innerHTML = '<tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #e53e3e;">로드 실패.</td></tr>';
+    });
+}
+
+function hideContractMemoModal() {
+    var modal = document.getElementById('contractMemoModal');
+    if (modal) modal.style.display = 'none';
+}
+
+/** ×·배경·닫기: 저장과 동일하게 처리 후 닫힘 */
+function closeContractMemoModal() {
+    saveContractMemo();
+}
+
+function saveContractMemo() {
+    var state = _contractMemoState;
+    var btn = document.getElementById('contractMemoSaveBtn');
+    if (_contractMemoSaving) return;
+    if (!state.contractId) {
+        hideContractMemoModal();
+        return;
+    }
+    if (!_supabase) {
+        alert('연결할 수 없어 저장할 수 없습니다.');
+        return;
+    }
+    contractMemoCollectFromDom();
+    var cid = state.contractId;
+    _contractMemoSaving = true;
+    if (btn) btn.disabled = true;
+    var p = Promise.resolve({ error: null });
+    if (state.deletedIds.length > 0) {
+        p = _supabase.from('contract_memo').delete().in('id', state.deletedIds);
+    }
+    p.then(function (delRes) {
+        if (delRes && delRes.error) throw delRes.error;
+        state.deletedIds = [];
+        var ops = [];
+        state.rows.forEach(function (r, idx) {
+            var payload = {
+                content: r.content != null ? r.content : '',
+                written_at: r.written_at || contractMemoTodayStr(),
+                is_done: !!r.is_done,
+                sort_order: idx
+            };
+            if (r.id != null) {
+                ops.push(_supabase.from('contract_memo').update(payload).eq('id', r.id));
+            } else {
+                ops.push(_supabase.from('contract_memo').insert([Object.assign({ contract_id: cid }, payload)]));
+            }
+        });
+        return Promise.all(ops);
+    }).then(function (results) {
+        if (results && results.length) {
+            for (var ri = 0; ri < results.length; ri++) {
+                if (results[ri] && results[ri].error) throw results[ri].error;
+            }
+        }
+        return _supabase.from('contract_memo').select('id, content, written_at, is_done, sort_order').eq('contract_id', cid).order('sort_order', { ascending: true }).order('id', { ascending: true });
+    }).then(function (res) {
+        if (res.error) throw res.error;
+        hideContractMemoModal();
+        refreshAgreementMemoUncheckedFlags();
+    }).catch(function (err) {
+        console.error(err);
+        alert('저장에 실패했습니다. contract_memo 테이블·권한을 확인하세요.');
+    }).then(function () {
+        _contractMemoSaving = false;
+        if (btn) btn.disabled = false;
+    });
 }
 
 /* ---------- 현물출자 모달 ---------- */

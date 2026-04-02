@@ -900,6 +900,39 @@
         </div>
     </div>
 
+    <!-- 협약 메모 모달 -->
+    <div id="contractMemoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeContractMemoModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 720px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="margin: 0; font-size: 18px;">메모</h3>
+                <button type="button" onclick="closeContractMemoModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <p id="contractMemoSubtitle" style="margin: 0 0 12px 0; font-size: 13px; color: #64748b;">—</p>
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px;">
+                <table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="border: 1px solid #e2e8f0; padding: 6px 4px; text-align: center; width: 28px;">확인</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center;">내용</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 6px 4px; text-align: center; width: 70px;">작성일</th>
+                            <th style="border: 1px solid #e2e8f0; padding: 6px 4px; text-align: center; width: 36px;">삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contractMemoTableBody">
+                        <tr><td colspan="4" style="border: 1px solid #e2e8f0; padding: 16px; text-align: center; color: #94a3b8;">불러오는 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;">
+                <button type="button" class="btn-select" style="padding: 8px 14px;" onclick="contractMemoAddRow()">항목 추가</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-select" onclick="closeContractMemoModal()" style="padding: 10px 16px;">닫기</button>
+                    <button type="button" id="contractMemoSaveBtn" style="padding: 10px 20px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="saveContractMemo()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 참여 협약 셀 호버 시 전체 내용 툴팁 -->
     <div id="joinContractFullTooltip" class="join-contract-full-tooltip" aria-hidden="true"></div>
 
