@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>관리 시스템 - 계약</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .inquiry-module { display: flex; flex-direction: column; gap: 16px; min-height: calc(100vh - 180px); }
+        .inquiry-toolbar {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            background: #fff; border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; padding: 14px 16px;
+        }
+        .inquiry-toolbar input[type="text"] { flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e0; }
+        .inquiry-toolbar select { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e0; }
+        .inquiry-split { display: flex; gap: 16px; align-items: stretch; flex: 1; min-height: 420px; }
+        .inquiry-list-panel {
+            width: 320px; flex-shrink: 0; background: #fff; border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .inquiry-list-panel__head {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .inquiry-list-panel__head-title { font-weight: bold; color: #1e293b; }
+        .inquiry-show-all-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .inquiry-show-all-label input { margin: 0; cursor: pointer; }
+        #inquiryLeadList { flex: 1; overflow-y: auto; }
+        .inquiry-list-empty { padding: 24px; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        .inquiry-lead-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; }
+        .inquiry-lead-item:hover { background: #f8fafc; }
+        .inquiry-lead-item--active { background: #ebf8ff; border-left: 4px solid #3182ce; }
+        .inquiry-lead-item__title { font-weight: 600; color: #1e293b; margin-bottom: 6px; font-size: 14px; }
+        .inquiry-lead-item__meta { font-size: 12px; color: #64748b; }
+        .inquiry-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+        .inquiry-badge--s0 { background: #e2e8f0; color: #334155; border-color: #cbd5e1; }
+        .inquiry-badge--s1 { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
+        .inquiry-badge--s2 { background: #ede9fe; color: #4c1d95; border-color: #c4b5fd; }
+        .inquiry-badge--s3 { background: #ccfbf1; color: #134e4a; border-color: #5eead4; }
+        .inquiry-badge--s4 { background: #fef3c7; color: #78350f; border-color: #fcd34d; }
+        .inquiry-badge--s5 { background: #d1fae5; color: #14532d; border-color: #6ee7b7; }
+        .inquiry-badge--s6 { background: #bfdbfe; color: #1e3a8a; border-color: #3b82f6; }
+        .inquiry-badge--s7 { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+        .inquiry-detail-panel {
+            flex: 1; min-width: 0; background: #fff; border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px; padding: 20px 22px; overflow-y: auto;
+        }
+        .inquiry-detail-empty { color: #94a3b8; padding: 40px 20px; text-align: center; font-size: 15px; }
+        .inquiry-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px 18px; margin-bottom: 18px; }
+        .inquiry-field label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+        .inquiry-field input, .inquiry-field select, .inquiry-field textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid #cbd5e0; font-size: 14px; }
+        .inquiry-field textarea { min-height: 72px; resize: vertical; }
+        .inquiry-field--full { grid-column: 1 / -1; }
+        .inquiry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .inquiry-muted { color: #94a3b8; font-size: 14px; }
+        .inquiry-error { color: #c53030; font-size: 14px; }
+        .inquiry-timeline-item { margin-bottom: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+        .inquiry-timeline-item__row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; }
+        .inquiry-timeline-item__main { flex: 1; min-width: 0; border-left: 3px solid #cbd5e0; padding-left: 12px; }
+        .inquiry-timeline-item__head { font-size: 13px; color: #475569; margin-bottom: 6px; }
+        .inquiry-timeline-item__side {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+        .inquiry-timeline-item__side button { font-size: 12px; padding: 4px 10px; white-space: nowrap; min-height: auto; }
+        .inquiry-timeline-item__side .inquiry-activity-delete {
+            color: #c53030;
+            border-color: #feb2b2;
+        }
+        .inquiry-timeline-body { font-size: 13px; color: #334155; white-space: pre-wrap; margin-top: 6px; }
+        .inquiry-contact-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px; }
+        .inquiry-contact-row .inquiry-field { margin-bottom: 0; }
+        .inquiry-detail-stage-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .inquiry-detail-stage-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .inquiry-detail-top-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .inquiry-detail-top-actions .btn-primary,
+        .inquiry-detail-top-actions .btn-select {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            min-height: 34px;
+            box-sizing: border-box;
+            line-height: 1.2;
+        }
+        .inquiry-detail-top-actions #inquiryBtnDelete {
+            color: #c53030;
+            border-color: #feb2b2;
+        }
+        .inquiry-detail-stage-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            flex-shrink: 0;
+        }
+        .inquiry-detail-stage-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .inquiry-detail-stage-row .inquiry-detail-stage-select {
+            flex: 0 1 auto;
+        }
+        .inquiry-detail-stage-actions .btn-select {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .inquiry-detail-stage-actions .inquiry-btn-stage-end {
+            color: #c53030;
+            border-color: #feb2b2;
+        }
+        .inquiry-detail-stage-select {
+            width: auto;
+            min-width: 100px;
+            max-width: 180px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e0;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .inquiry-contact-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .inquiry-contact-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        #inquiryBtnAddContact {
+            min-width: 36px;
+            padding: 4px 10px;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+        #newLeadModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000; align-items: center; justify-content: center; }
+        #newLeadModal .inquiry-modal-box { background: #fff; border-radius: 12px; padding: 24px; width: 420px; max-width: 94vw; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+        #editActivityModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3100; align-items: center; justify-content: center; }
+        #editActivityModal .inquiry-modal-box { background: #fff; border-radius: 12px; padding: 24px; width: 440px; max-width: 94vw; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+        #addActivityModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3150; align-items: center; justify-content: center; }
+        #addActivityModal .inquiry-modal-box { background: #fff; border-radius: 12px; padding: 24px; width: 440px; max-width: 94vw; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+        .inquiry-dialog-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 4000;
+            background: rgba(0,0,0,0.55);
+            align-items: center;
+            justify-content: center;
+        }
+        .inquiry-dialog-overlay.inquiry-dialog-open { display: flex; }
+        .inquiry-dialog-overlay.inquiry-dialog-near-pointer .inquiry-dialog-box { overflow-y: auto; }
+        .inquiry-dialog-box { max-width: 400px; width: 92vw; }
+        #inquiryDialogOverlay .inquiry-dialog-box {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px 22px;
+            box-shadow:
+                0 4px 6px rgba(15, 23, 42, 0.06),
+                0 12px 40px rgba(15, 23, 42, 0.22);
+            border: 1px solid rgba(148, 163, 184, 0.45);
+        }
+        .inquiry-dialog-text { white-space: pre-wrap; margin-bottom: 20px; font-size: 14px; color: #334155; line-height: 1.55; word-break: break-word; }
+        .inquiry-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header" id="projectTitle">PROJECT</div>
+        <div class="sidebar-menu">
+            <div class="menu-item active" onclick="showSection('inquiry')"><i>💬</i> <span>문의</span></div>
+            <div class="menu-item" onclick="showSection('contractSection')"><i>📄</i> <span>계약</span></div>
+            <div class="menu-item" onclick="showSection('manage')"><i>📋</i> <span>관리</span></div>
+            <div class="menu-item" onclick="goToGateway()" style="margin-top: 20px; background: #3e4f5f;"><i>🚪</i> <span>로그아웃</span></div>
+        </div>
+        <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
+    </div>
+
+    <div class="main-content">
+        <div id="inquiry" class="content-section active">
+            <h2 class="fw-bold mb-4">문의</h2>
+            <div id="inquiryModule" class="inquiry-module">
+                <div class="inquiry-toolbar">
+                    <input type="text" id="inquirySearch" placeholder="회사명·브랜드·메모 검색 (엔터)">
+                    <button type="button" class="btn-select" id="inquiryBtnSearch">검색</button>
+                    <select id="inquiryFilterStage" title="단계 필터">
+                        <option value="">전체 단계</option>
+                        <option value="문의접수">문의접수</option>
+                        <option value="검토중">검토중</option>
+                        <option value="미팅/제안">미팅/제안</option>
+                        <option value="협상">협상</option>
+                        <option value="계약대기">계약대기</option>
+                        <option value="계약전환">계약전환</option>
+                        <option value="보류/실패">문의 종료</option>
+                    </select>
+                    <select id="inquirySort" title="정렬">
+                        <option value="updated_at">최근 수정순</option>
+                        <option value="created_at">생성일순</option>
+                    </select>
+                    <button type="button" class="btn-primary" id="inquiryBtnNew">새 문의</button>
+                </div>
+                <div class="inquiry-split">
+                    <aside class="inquiry-list-panel">
+                        <div class="inquiry-list-panel__head">
+                            <span class="inquiry-list-panel__head-title">리드 목록</span>
+                            <label class="inquiry-show-all-label" title="계약 전환·문의 종료 단계까지 목록에 표시">
+                                <input type="checkbox" id="inquiryShowAllLeads">
+                                전체 표시
+                            </label>
+                        </div>
+                        <div id="inquiryLeadList"><div class="inquiry-list-empty">불러오는 중...</div></div>
+                    </aside>
+                    <main class="inquiry-detail-panel">
+                        <div id="inquiryDetailEmpty" class="inquiry-detail-empty">왼쪽에서 문의를 선택하면 상세와 활동 로그가 표시됩니다.</div>
+                        <div id="inquiryDetailForm" style="display: none;">
+                            <div class="inquiry-detail-stage-top">
+                                <div class="inquiry-detail-stage-left">
+                                    <span class="inquiry-detail-stage-label" id="inquiryDetailStageLabel">단계</span>
+                                    <div class="inquiry-detail-stage-row inquiry-detail-stage-actions">
+                                        <select id="inquiryDetailStage" class="inquiry-detail-stage-select" aria-labelledby="inquiryDetailStageLabel">
+                                            <option value="문의접수">문의접수</option>
+                                            <option value="검토중">검토중</option>
+                                            <option value="미팅/제안">미팅/제안</option>
+                                            <option value="협상">협상</option>
+                                            <option value="계약대기">계약대기</option>
+                                            <option value="계약전환" hidden>계약전환</option>
+                                            <option value="보류/실패" hidden>문의 종료</option>
+                                        </select>
+                                        <button type="button" class="btn-select" id="inquiryBtnStageContract" title="계약 전환 단계로 저장">계약 전환</button>
+                                        <button type="button" class="btn-select inquiry-btn-stage-end" id="inquiryBtnStageEnd" title="단계를 문의 종료로 저장">문의 종료</button>
+                                    </div>
+                                </div>
+                                <div class="inquiry-detail-top-actions">
+                                    <button type="button" class="btn-primary" id="inquiryBtnSave">저장</button>
+                                    <button type="button" class="btn-select" id="inquiryBtnDelete">삭제</button>
+                                </div>
+                            </div>
+                            <h3 style="margin-top:0; font-size:17px; color:#1e293b;">기본 정보</h3>
+                            <div class="inquiry-form-grid">
+                                <div class="inquiry-field"><label for="inquiryDetailCompany">회사명</label><input type="text" id="inquiryDetailCompany"></div>
+                                <div class="inquiry-field"><label for="inquiryDetailBrand">브랜드</label><input type="text" id="inquiryDetailBrand"></div>
+                                <div class="inquiry-field"><label for="inquiryDetailChannel">유입 채널</label><input type="text" id="inquiryDetailChannel" placeholder="전화, 소개, 웹 등"></div>
+                                <div class="inquiry-field inquiry-field--full"><label for="inquiryDetailInterest">메모</label><textarea id="inquiryDetailInterest"></textarea></div>
+                            </div>
+                            <div class="inquiry-field inquiry-field--full" style="margin-bottom: 16px;">
+                                <div class="inquiry-contact-header">
+                                    <span class="inquiry-contact-title">연락처</span>
+                                    <button type="button" class="btn-select" id="inquiryBtnAddContact" title="연락처 추가">+</button>
+                                </div>
+                                <div id="inquiryContactRowsContainer"></div>
+                            </div>
+                            <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+                            <h3 style="font-size:17px; color:#1e293b; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                <span>활동 로그</span>
+                                <button type="button" class="btn-primary" id="inquiryBtnAddActivity">활동 추가</button>
+                            </h3>
+                            <div id="inquiryActivitySection" style="display: none;">
+                                <div id="inquiryTimeline" style="margin-top:12px;"></div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </div>
+
+        <div id="contractSection" class="content-section">
+            <h2 class="fw-bold mb-4">계약</h2>
+            <p style="color: #64748b;">이 영역에 계약 관련 기능을 연결할 수 있습니다.</p>
+        </div>
+
+        <div id="manage" class="content-section">
+            <h2 class="fw-bold mb-4">관리</h2>
+            <p style="color: #64748b;">이 영역에 관리 기능을 연결할 수 있습니다.</p>
+        </div>
+    </div>
+
+    <div id="newLeadModal" onclick="if(event.target===this) closeNewLeadModal()">
+        <div class="inquiry-modal-box" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0;">새 문의</h3>
+            <div class="inquiry-form-grid" style="margin-bottom:16px;">
+                <div class="inquiry-field inquiry-field--full"><label for="newLeadCompany">회사명 (필수)</label><input type="text" id="newLeadCompany"></div>
+                <div class="inquiry-field inquiry-field--full"><label for="newLeadBrand">브랜드</label><input type="text" id="newLeadBrand"></div>
+                <div class="inquiry-field inquiry-field--full"><label for="newLeadStage">단계</label>
+                    <select id="newLeadStage">
+                        <option value="문의접수">문의접수</option>
+                        <option value="검토중">검토중</option>
+                        <option value="미팅/제안">미팅/제안</option>
+                        <option value="협상">협상</option>
+                        <option value="계약대기">계약대기</option>
+                    </select>
+                </div>
+                <div class="inquiry-field inquiry-field--full"><label for="newLeadMemo">메모</label><textarea id="newLeadMemo" rows="3"></textarea></div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn-primary" style="flex:2;" onclick="submitNewLead()">생성</button>
+                <button type="button" class="btn-select" style="flex:1;" onclick="closeNewLeadModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addActivityModal" onclick="if(event.target===this) closeAddActivityModal()">
+        <div class="inquiry-modal-box" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0;">활동 추가</h3>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:12px;">
+                <label for="addActivityType">유형</label>
+                <select id="addActivityType">
+                    <option value="call">통화</option>
+                    <option value="email">메일</option>
+                    <option value="meeting">미팅</option>
+                    <option value="quote">견적</option>
+                    <option value="other">기타</option>
+                </select>
+            </div>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:12px;">
+                <label for="addActivitySummary">요약</label>
+                <input type="text" id="addActivitySummary" placeholder="필수">
+            </div>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:16px;">
+                <label for="addActivityBody">상세 메모</label>
+                <textarea id="addActivityBody" rows="3" style="width:100%; box-sizing:border-box;" placeholder="선택"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn-primary" style="flex:2;" onclick="submitAddActivity()">추가</button>
+                <button type="button" class="btn-select" style="flex:1;" onclick="closeAddActivityModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editActivityModal" onclick="if(event.target===this) closeEditActivityModal()">
+        <div class="inquiry-modal-box" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0;">활동 수정</h3>
+            <input type="hidden" id="edActivityId" value="">
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:12px;">
+                <label for="edActivityType">유형</label>
+                <select id="edActivityType">
+                    <option value="call">통화</option>
+                    <option value="email">메일</option>
+                    <option value="meeting">미팅</option>
+                    <option value="quote">견적</option>
+                    <option value="other">기타</option>
+                </select>
+            </div>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:12px;">
+                <label for="edActivityCreatedAt">날짜·시간</label>
+                <input type="datetime-local" id="edActivityCreatedAt">
+            </div>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:12px;">
+                <label for="edActivitySummary">요약</label>
+                <input type="text" id="edActivitySummary">
+            </div>
+            <div class="inquiry-field inquiry-field--full" style="margin-bottom:16px;">
+                <label for="edActivityBody">상세 메모</label>
+                <textarea id="edActivityBody" rows="3" style="width:100%; box-sizing:border-box;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn-primary" style="flex:2;" onclick="saveEditActivity()">저장</button>
+                <button type="button" class="btn-select" style="flex:1;" onclick="closeEditActivityModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inquiryDialogOverlay" class="inquiry-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="inquiryDialogText">
+        <div class="inquiry-modal-box inquiry-dialog-box" onclick="event.stopPropagation()">
+            <div id="inquiryDialogText" class="inquiry-dialog-text"></div>
+            <div id="inquiryDialogActionsAlert" class="inquiry-dialog-actions" style="display:none;">
+                <button type="button" class="btn-primary" id="inquiryDialogBtnAlertOk">확인</button>
+            </div>
+            <div id="inquiryDialogActionsConfirm" class="inquiry-dialog-actions" style="display:none;">
+                <button type="button" class="btn-select" id="inquiryDialogBtnConfirmNo">취소</button>
+                <button type="button" class="btn-primary" id="inquiryDialogBtnConfirmYes">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="contract-inquiry.js"></script>
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(function (sec) {
+                sec.classList.remove('active');
+            });
+            document.querySelectorAll('.sidebar-menu > .menu-item').forEach(function (item) {
+                item.classList.remove('active');
+            });
+
+            var sec = document.getElementById(sectionId);
+            if (sec) sec.classList.add('active');
+
+            var menuIdx = { inquiry: 0, contractSection: 1, manage: 2 };
+            var idx = menuIdx[sectionId];
+            var items = document.querySelectorAll('.sidebar-menu > .menu-item');
+            if (idx !== undefined && items[idx]) items[idx].classList.add('active');
+
+            if (sectionId === 'inquiry' && typeof window.initContractInquiryTab === 'function') {
+                window.initContractInquiryTab();
+            }
+        }
+
+        function toggleSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            var btn = document.querySelector('.toggle-btn');
+            if (btn) btn.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
+
+        function goToGateway() {
+            (function () {
+                var p = typeof window.showInquiryConfirm === 'function'
+                    ? window.showInquiryConfirm('관문 화면으로 돌아가시겠습니까?')
+                    : Promise.resolve(confirm('관문 화면으로 돌아가시겠습니까?'));
+                Promise.resolve(p).then(function (ok) {
+                    if (ok) window.location.replace('index.html');
+                });
+            })();
+        }
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            if (typeof checkWegoFairUser === "function") {
+                await checkWegoFairUser();
+            }
+            var titleEl = document.getElementById("projectTitle");
+            if (titleEl) {
+                var disp = (window.projectKeyName || window.tableName || "").trim();
+                titleEl.innerText = disp || "계약";
+            }
+
+            var hash = (window.location.hash || "").replace("#", "").trim();
+            if (hash === "inquiry" || hash === "contractSection" || hash === "manage") {
+                showSection(hash);
+            } else if (typeof window.initContractInquiryTab === "function") {
+                window.initContractInquiryTab();
+            }
+        });
+    </script>
+</body>
+</html>

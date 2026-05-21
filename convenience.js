@@ -640,6 +640,12 @@ function convertUrlBySite(urlStr) {
             // → https://www.cosrx.com/products/advanced-snail-96-mucin-power-essence
             return { url: u.origin + u.pathname, site: 'cosrx' };
         }
+        if (host === 'melable.co.kr') {
+            // 예시: https://melable.co.kr/product/상품명슬러그/38/category/24/display/1/
+            // → https://melable.co.kr/product/detail.html?product_no=38
+            var melableMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (melableMatch) return { url: u.origin + '/product/detail.html?product_no=' + melableMatch[1], site: 'melable' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -654,7 +660,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -666,6 +672,7 @@ function runUrlConverter() {
         else if (r.site === 'pdrnmall') count.pdrnmall++;
         else if (r.site === 'pleatsme') count.pleatsme++;
         else if (r.site === 'cosrx') count.cosrx++;
+        else if (r.site === 'melable') count.melable++;
         else count.none++;
         return r.url;
     });
@@ -680,11 +687,12 @@ function runUrlConverter() {
     if (count.pdrnmall) parts.push('리쥬더마 ' + count.pdrnmall + '개');
     if (count.pleatsme) parts.push('플리츠미 ' + count.pleatsme + '개');
     if (count.cosrx) parts.push('코스알엑스 ' + count.cosrx + '개');
+    if (count.melable) parts.push('메라블 ' + count.melable + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable ? '#64748b' : '#1e293b';
     }
 }
 

@@ -16,6 +16,10 @@ function openCreateModal() {
     document.getElementById('newKeyword').value = attemptedKeyword;
     document.getElementById('englishNickname').value = "";
     document.getElementById('adminPw').value = "";
+    const targetPageSelect = document.getElementById('targetPageSelect');
+    if (targetPageSelect) {
+        targetPageSelect.value = attemptedKeyword === '계약' ? 'contract' : 'page1';
+    }
     document.getElementById('createModal').style.display = 'flex';
 }
 
@@ -39,7 +43,10 @@ async function processCreate() {
         const { data: settings } = await _supabase.from('system_settings').select('value').eq('key', 'admin_password').single();
         if (!settings || inputPw !== settings.value) return alert("비밀번호가 일치하지 않습니다.");
 
-        const { error: insertError } = await _supabase.from('gateways').insert([{ keyword, target_table: nickname, target_page: 'page1' }]);
+        const targetPageSelect = document.getElementById('targetPageSelect');
+        const targetPage = (targetPageSelect && targetPageSelect.value ? targetPageSelect.value : 'page1').trim().toLowerCase() || 'page1';
+
+        const { error: insertError } = await _supabase.from('gateways').insert([{ keyword, target_table: nickname, target_page: targetPage }]);
         if (insertError) throw insertError;
 
         alert(`✨ '${keyword}' 생성 완료!`);
@@ -92,7 +99,9 @@ async function checkKeyword() {
             const target = data.target_table || data.keyword;
             const targetPage = (data.target_page || 'page1').toLowerCase();
             var basePath = window.location.pathname.replace(/[#?].*$/, '').replace(/[^/]+$/, '') || '/';
-            var pageFile = targetPage === 'page3' ? 'page3.html' : 'page1.html';
+            var pageFile = 'page1.html';
+            if (targetPage === 'page3') pageFile = 'page3.html';
+            else if (targetPage === 'contract') pageFile = 'contract-page.html';
             setTimeout(() => {
                 const url = new URL(window.location.origin + basePath + pageFile);
                 url.searchParams.set('table', target);
