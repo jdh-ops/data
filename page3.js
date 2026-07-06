@@ -567,7 +567,8 @@ function renderAgreementListFromData() {
     }
     var titleByContractId = data.titleByContractId;
     var rateByContractId = data.rateByContractId;
-    var monthlyTargetByContractId = data.monthlyTargetByContractId || {};
+    var targetCountByContractId = data.targetCountByContractId || {};
+    var monthlyTargetPercentByContractId = data.monthlyTargetPercentByContractId || {};
     var tooltipByContractId = data.tooltipByContractId || {};
     var memoHasUncheckedByContractId = data.memoHasUncheckedByContractId || {};
     filtered.sort(function (a, b) {
@@ -618,22 +619,13 @@ function renderAgreementListFromData() {
         html += '<td style="' + cellStyle + '"><span role="button" tabindex="0" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;" onclick="event.stopPropagation(); openAddContractModal(' + contractId + ');">' + cell2 + '</span></td>';
         html += '<td style="' + cellStyle + '">' + assigneeCell + '</td>';
         var kpiRate = (rateByContractId[r.id] || '-%').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        var kpiMt = String(monthlyTargetByContractId[r.id] != null ? monthlyTargetByContractId[r.id] : '—').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var kpiTargetCount = String(targetCountByContractId[r.id] != null ? targetCountByContractId[r.id] : '—').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var kpiTooltip = tooltipByContractId[r.id] != null ? String(tooltipByContractId[r.id]) : '';
         var kpiTooltipEsc = kpiTooltip ? escapeHtml(kpiTooltip) : '';
         var rateNum = parseKpiPercentNum(rateByContractId[r.id]);
-        var mtNum = parseKpiPercentNum(monthlyTargetByContractId[r.id]);
-        var kpiBtnColor = '';
-        if (!isNaN(rateNum) && !isNaN(mtNum)) {
-            if (rateNum > mtNum) {
-                kpiBtnColor = 'background:#dcfce7;color:#166534;border-color:#86efac;';
-            } else if (rateNum > mtNum / 2) {
-                kpiBtnColor = 'background:#fef9c3;color:#854d0e;border-color:#fde047;';
-            } else {
-                kpiBtnColor = 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;';
-            }
-        }
-        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + kpiBtnColor + '" title="' + kpiTooltipEsc + '" onclick="openKpiModal(' + r.id + ')">' + kpiRate + ' / ' + kpiMt + '</button></td>';
+        var mtPercent = monthlyTargetPercentByContractId[r.id];
+        var kpiBtnColor = getKpiButtonColorStyle(rateNum, typeof mtPercent === 'number' ? mtPercent : NaN);
+        html += '<td style="' + cellStyle + '"><button type="button" class="btn-select kpi-rate-btn" data-contract-id="' + r.id + '" style="padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + kpiBtnColor + '" title="' + kpiTooltipEsc + '" onclick="openKpiModal(' + r.id + ')">' + kpiRate + ' / ' + kpiTargetCount + '</button></td>';
         var memoDot = memoHasUncheckedByContractId[r.id] ? '<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;background:#dc2626;border-radius:50%;" aria-hidden="true"></span>' : '';
         var memoBtnTitle = memoHasUncheckedByContractId[r.id] ? ' title="체크되지 않은 메모가 있습니다"' : '';
         html += '<td style="' + cellStyle + '"><button type="button" class="btn-select" style="position:relative;padding:3px 4px;font-size:11px;width:100%;box-sizing:border-box;"' + memoBtnTitle + ' onclick="openContractMemoModal(' + contractId + ')">확인' + memoDot + '</button></td>';
@@ -761,29 +753,31 @@ function formatKpiCellValues(blockTarget, blockedCount, startDateStr) {
     if (isNaN(n)) n = 0;
     var m = blockedCount || 0;
     var rate = n > 0 ? (m / n * 100).toFixed(1) + '%' : '—%';
+    var targetCount = n > 0 ? n.toLocaleString('ko-KR') : '—';
     var mt = computeKpiMonthlyTargetPercent(startDateStr);
-    var monthlyTarget = mt == null ? '—' : (typeof mt === 'number' ? mt.toFixed(1) + '%' : '—');
+    var monthlyTargetPercent = mt == null ? null : (typeof mt === 'number' ? mt : null);
     var tooltip = '차단 : ' + m.toLocaleString('ko-KR') + '건 / 목표 : ' + n.toLocaleString('ko-KR') + '건';
-    return { rate: rate, monthlyTarget: monthlyTarget, tooltip: tooltip };
+    return { rate: rate, targetCount: targetCount, monthlyTargetPercent: monthlyTargetPercent, tooltip: tooltip };
+}
+
+function getKpiButtonColorStyle(rateNum, monthlyTargetPercent) {
+    var mtNum = typeof monthlyTargetPercent === 'number' ? monthlyTargetPercent : NaN;
+    if (isNaN(rateNum) || isNaN(mtNum)) return '';
+    if (rateNum > mtNum) {
+        return 'background:#dcfce7;color:#166534;border-color:#86efac;';
+    }
+    if (rateNum > mtNum / 2) {
+        return 'background:#fef9c3;color:#854d0e;border-color:#fde047;';
+    }
+    return 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;';
 }
 
 function applyKpiButtonDisplay(kpiBtn, kpiValues) {
     if (!kpiBtn || !kpiValues) return;
-    kpiBtn.textContent = kpiValues.rate + ' / ' + kpiValues.monthlyTarget;
+    kpiBtn.textContent = kpiValues.rate + ' / ' + (kpiValues.targetCount != null ? kpiValues.targetCount : '—');
     kpiBtn.title = kpiValues.tooltip || '';
     var rateNum = parseKpiPercentNum(kpiValues.rate);
-    var mtNum = parseKpiPercentNum(kpiValues.monthlyTarget);
-    var kpiBtnColor = '';
-    if (!isNaN(rateNum) && !isNaN(mtNum)) {
-        if (rateNum > mtNum) {
-            kpiBtnColor = 'background:#dcfce7;color:#166534;border-color:#86efac;';
-        } else if (rateNum > mtNum / 2) {
-            kpiBtnColor = 'background:#fef9c3;color:#854d0e;border-color:#fde047;';
-        } else {
-            kpiBtnColor = 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;';
-        }
-    }
-    kpiBtn.style.cssText = 'padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + kpiBtnColor;
+    kpiBtn.style.cssText = 'padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + getKpiButtonColorStyle(rateNum, kpiValues.monthlyTargetPercent);
 }
 
 function loadAgreementList() {
@@ -836,7 +830,8 @@ function loadAgreementList() {
                 titleByContractId[fid] = typeof monthReportDeriveTitle === 'function' ? monthReportDeriveTitle(fn) : (fn ? fn.replace(/\.[^/.]+$/, '').split('_').pop() || '—' : '—');
             });
             var rateByContractId = {};
-            var monthlyTargetByContractId = {};
+            var targetCountByContractId = {};
+            var monthlyTargetPercentByContractId = {};
             var tooltipByContractId = {};
             var memoHasUncheckedByContractId = {};
             var memoRes = payload.memoRes;
@@ -849,10 +844,11 @@ function loadAgreementList() {
                 var m = countByContractId[r.id] != null ? countByContractId[r.id] : (countByContractId[String(r.id)] || 0);
                 var kpiValues = formatKpiCellValues(r.block_target, m, r.start_date);
                 rateByContractId[r.id] = kpiValues.rate;
-                monthlyTargetByContractId[r.id] = kpiValues.monthlyTarget;
+                targetCountByContractId[r.id] = kpiValues.targetCount;
+                monthlyTargetPercentByContractId[r.id] = kpiValues.monthlyTargetPercent;
                 tooltipByContractId[r.id] = kpiValues.tooltip;
             });
-            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, monthlyTargetByContractId: monthlyTargetByContractId, tooltipByContractId: tooltipByContractId, memoHasUncheckedByContractId: memoHasUncheckedByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
+            window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, targetCountByContractId: targetCountByContractId, monthlyTargetPercentByContractId: monthlyTargetPercentByContractId, tooltipByContractId: tooltipByContractId, memoHasUncheckedByContractId: memoHasUncheckedByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
             var sel = document.getElementById('agreementFilterPersonnel');
             if (sel) {
                 var currentVal = sel.value;
@@ -2132,7 +2128,7 @@ function updateAgreementRowButtons(contractId, monthReportLabel) {
     }
     if (!kpiBtn) return;
     if (!_supabase) {
-        applyKpiButtonDisplay(kpiBtn, { rate: '—%', monthlyTarget: '—', tooltip: '' });
+        applyKpiButtonDisplay(kpiBtn, { rate: '—%', targetCount: '—', monthlyTargetPercent: null, tooltip: '' });
         return;
     }
     Promise.all([
@@ -2145,14 +2141,16 @@ function updateAgreementRowButtons(contractId, monthReportLabel) {
         applyKpiButtonDisplay(kpiBtn, kpiValues);
         if (window._agreementListData) {
             if (!window._agreementListData.rateByContractId) window._agreementListData.rateByContractId = {};
-            if (!window._agreementListData.monthlyTargetByContractId) window._agreementListData.monthlyTargetByContractId = {};
+            if (!window._agreementListData.targetCountByContractId) window._agreementListData.targetCountByContractId = {};
+            if (!window._agreementListData.monthlyTargetPercentByContractId) window._agreementListData.monthlyTargetPercentByContractId = {};
             if (!window._agreementListData.tooltipByContractId) window._agreementListData.tooltipByContractId = {};
             window._agreementListData.rateByContractId[contractId] = kpiValues.rate;
-            window._agreementListData.monthlyTargetByContractId[contractId] = kpiValues.monthlyTarget;
+            window._agreementListData.targetCountByContractId[contractId] = kpiValues.targetCount;
+            window._agreementListData.monthlyTargetPercentByContractId[contractId] = kpiValues.monthlyTargetPercent;
             window._agreementListData.tooltipByContractId[contractId] = kpiValues.tooltip;
         }
     }).catch(function () {
-        applyKpiButtonDisplay(kpiBtn, { rate: '—%', monthlyTarget: '—', tooltip: '' });
+        applyKpiButtonDisplay(kpiBtn, { rate: '—%', targetCount: '—', monthlyTargetPercent: null, tooltip: '' });
     });
 }
 
