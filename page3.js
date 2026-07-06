@@ -1,6 +1,8 @@
 var page3KeywordList = [];
 var page3KeywordListFiltered = [];
 var _supabase = window._supabase;
+// 월말보고 엑셀 '신고결과' 열 → data_rows 컬럼 (P열 = 16번째)
+var MONTH_REPORT_RESULT_COL = 'col16_val';
 
 window.page3Ready = function () {
     if (document.body) document.body.style.visibility = 'visible';
@@ -711,7 +713,7 @@ function countBlockedCompleteRows(dataRows) {
     return count;
 }
 
-/** Supabase 기본 1000행 제한을 넘는 data_rows 전체 조회 */
+/** Supabase 기본 1000행 제한을 넘는 data_rows 전체 조회 (협약별·정렬 고정 페이지네이션) */
 function fetchDataRowsForContractIds(contractIds, selectCols) {
     if (!_supabase || !contractIds || !contractIds.length) return Promise.resolve([]);
     var pageSize = 1000;
@@ -720,6 +722,7 @@ function fetchDataRowsForContractIds(contractIds, selectCols) {
         return _supabase.from('data_rows')
             .select(selectCols)
             .in('contract_id', contractIds)
+            .order('id', { ascending: true })
             .range(offset, offset + pageSize - 1)
             .then(function (res) {
                 if (res.error) throw res.error;
@@ -730,6 +733,27 @@ function fetchDataRowsForContractIds(contractIds, selectCols) {
             });
     }
     return fetchPage(0);
+}
+
+/** 협약 1건의 '차단완료' 건수 (월말 엑셀 모달과 동일 로직) */
+function fetchBlockedCountForContract(contractId) {
+    return fetchDataRowsForContractIds([contractId], MONTH_REPORT_RESULT_COL).then(function (rows) {
+        return countBlockedCompleteRows(rows);
+    });
+}
+
+/** 협약별 '차단완료' 건수 맵 — 전체 협약 일괄 조회 시 행 누락 방지를 위해 협약 단위로 조회 */
+function fetchBlockedCountByContractIds(contractIds) {
+    if (!_supabase || !contractIds || !contractIds.length) return Promise.resolve({});
+    return Promise.all(contractIds.map(function (cid) {
+        return fetchBlockedCountForContract(cid).then(function (count) {
+            return { id: cid, count: count };
+        });
+    })).then(function (results) {
+        var map = {};
+        results.forEach(function (r) { map[r.id] = r.count; });
+        return map;
+    });
 }
 
 function formatKpiCellValues(blockTarget, blockedCount, startDateStr) {
@@ -781,24 +805,22 @@ function loadAgreementList() {
         var memoQuery = _supabase.from('contract_memo').select('contract_id').eq('is_done', false).in('contract_id', contractIds);
         Promise.all([
             _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
-            fetchDataRowsForContractIds(contractIds, 'contract_id, ' + MONTH_REPORT_RESULT_COL).then(function (data) {
-                return { data: data };
-            }).catch(function () { return { data: [] }; }),
+            fetchBlockedCountByContractIds(contractIds).catch(function () { return {}; }),
             _supabase.from('personnel_master').select('id, name').eq('target_table', projectKey).order('name'),
             _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds),
             memoQuery.then(function (r) { return r; }).catch(function () { return { data: [], error: true }; })
         ]).then(function (results) {
             var reportRes = results[0];
-            var dataRowsRes = results[1];
+            var blockedCountMap = results[1] || {};
             var personnelRes = results[2];
             var partRes = results[3];
             var memoRes = results[4];
-            return { reportRes: reportRes, dataRowsRes: dataRowsRes, personnelList: (personnelRes && personnelRes.data) ? personnelRes.data : [], partList: (partRes && partRes.data) ? partRes.data : [], memoRes: memoRes };
+            return { reportRes: reportRes, blockedCountMap: blockedCountMap, personnelList: (personnelRes && personnelRes.data) ? personnelRes.data : [], partList: (partRes && partRes.data) ? partRes.data : [], memoRes: memoRes };
         }).catch(function () {
-            return { reportRes: { data: [] }, dataRowsRes: { data: [] }, personnelList: [], partList: [], memoRes: { data: [] } };
+            return { reportRes: { data: [] }, blockedCountMap: {}, personnelList: [], partList: [], memoRes: { data: [] } };
         }).then(function (payload) {
             var reportRows = (payload.reportRes && payload.reportRes.data) ? payload.reportRes.data : [];
-            var dataRows = (payload.dataRowsRes && payload.dataRowsRes.data) ? payload.dataRowsRes.data : [];
+            var countByContractId = payload.blockedCountMap || {};
             var personnelList = payload.personnelList || [];
             var partList = payload.partList || [];
             var contractIdsByPersonnelId = {};
@@ -813,12 +835,6 @@ function loadAgreementList() {
                 var fn = row.file_name || row.fileName || '';
                 titleByContractId[fid] = typeof monthReportDeriveTitle === 'function' ? monthReportDeriveTitle(fn) : (fn ? fn.replace(/\.[^/.]+$/, '').split('_').pop() || '—' : '—');
             });
-            var countByContractId = {};
-            dataRows.forEach(function (row) {
-                var cid = row.contract_id;
-                var resultVal = String(row[MONTH_REPORT_RESULT_COL] != null ? row[MONTH_REPORT_RESULT_COL] : '').trim();
-                if (resultVal === '차단완료') countByContractId[cid] = (countByContractId[cid] || 0) + 1;
-            });
             var rateByContractId = {};
             var monthlyTargetByContractId = {};
             var tooltipByContractId = {};
@@ -830,7 +846,7 @@ function loadAgreementList() {
                 });
             }
             rows.forEach(function (r) {
-                var m = countByContractId[r.id] || 0;
+                var m = countByContractId[r.id] != null ? countByContractId[r.id] : (countByContractId[String(r.id)] || 0);
                 var kpiValues = formatKpiCellValues(r.block_target, m, r.start_date);
                 rateByContractId[r.id] = kpiValues.rate;
                 monthlyTargetByContractId[r.id] = kpiValues.monthlyTarget;
@@ -1754,10 +1770,6 @@ function closeInKindModal() {
 var _monthReportStore = {};
 var MONTH_REPORT_BUCKET = 'month-reports';
 var _monthReportBusy = false;
-// 월말보고용 엑셀에서 '신고결과' 헤더가 위치한 컬럼에 대응하는 data_rows 컬럼 이름
-// 현재 '신고결과'는 P열(16번째 열)이므로 col16_val 사용
-var MONTH_REPORT_RESULT_COL = 'col16_val';
-
 function monthReportDeriveTitle(fileName) {
     var base = String(fileName || '').trim();
     if (!base) return '—';
@@ -2125,11 +2137,10 @@ function updateAgreementRowButtons(contractId, monthReportLabel) {
     }
     Promise.all([
         _supabase.from('contract_registry').select('block_target, start_date').eq('id', contractId).single(),
-        fetchDataRowsForContractIds([contractId], MONTH_REPORT_RESULT_COL)
+        fetchBlockedCountForContract(contractId)
     ]).then(function (results) {
         var reg = results[0] && results[0].data;
-        var rows = results[1] || [];
-        var m = countBlockedCompleteRows(rows);
+        var m = results[1] || 0;
         var kpiValues = formatKpiCellValues(reg && reg.block_target, m, reg && reg.start_date);
         applyKpiButtonDisplay(kpiBtn, kpiValues);
         if (window._agreementListData) {
