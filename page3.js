@@ -583,13 +583,6 @@ function renderAgreementListFromData() {
         if (p.id != null) assigneeIdToName[p.id] = (p.name || '').trim() || '(이름 없음)';
     });
     var defaultChartContractIds = (filtered.length > 0 && filtered.length < rows.length) ? filtered.map(function (r) { return r.id; }) : null;
-    function parseKpiPercentNum(displayStr) {
-        if (displayStr == null || displayStr === '') return NaN;
-        var t = String(displayStr).replace(/%/g, '').replace(/[—\-]/g, '').trim();
-        if (t === '') return NaN;
-        var v = parseFloat(t);
-        return isNaN(v) ? NaN : v;
-    }
     var html = '<div style="overflow-x: auto;">';
     html += '<table class="manager-table" style="width: 100%; font-size: 13px; border-collapse: collapse; border: 1px solid #e2e8f0;">';
     html += '<colgroup><col style="width: 60px;"><col style="width: 100px;"><col style="width: 210px;"><col style="width: 70px;"><col style="width: 110px;"><col style="width: 70px;"><col style="width: 85px;"><col style="width: 80px;"><col style="width: 85px;"><col style="width: 105px;"><col style="width: 50px;"><col style="width: auto;"></colgroup>';
@@ -700,6 +693,75 @@ function computeKpiMonthlyTargetPercent(startDateStr) {
     return (100 / totalMonths) * elapsedMonths;
 }
 
+function parseKpiPercentNum(displayStr) {
+    if (displayStr == null || displayStr === '') return NaN;
+    var t = String(displayStr).replace(/%/g, '').replace(/[—\-]/g, '').trim();
+    if (t === '') return NaN;
+    var v = parseFloat(t);
+    return isNaN(v) ? NaN : v;
+}
+
+/** data_rows 배열에서 신고결과가 '차단완료'인 행 수 */
+function countBlockedCompleteRows(dataRows) {
+    var count = 0;
+    (dataRows || []).forEach(function (row) {
+        var resultVal = String(row[MONTH_REPORT_RESULT_COL] != null ? row[MONTH_REPORT_RESULT_COL] : '').trim();
+        if (resultVal === '차단완료') count++;
+    });
+    return count;
+}
+
+/** Supabase 기본 1000행 제한을 넘는 data_rows 전체 조회 */
+function fetchDataRowsForContractIds(contractIds, selectCols) {
+    if (!_supabase || !contractIds || !contractIds.length) return Promise.resolve([]);
+    var pageSize = 1000;
+    var all = [];
+    function fetchPage(offset) {
+        return _supabase.from('data_rows')
+            .select(selectCols)
+            .in('contract_id', contractIds)
+            .range(offset, offset + pageSize - 1)
+            .then(function (res) {
+                if (res.error) throw res.error;
+                var data = res.data || [];
+                all = all.concat(data);
+                if (data.length < pageSize) return all;
+                return fetchPage(offset + pageSize);
+            });
+    }
+    return fetchPage(0);
+}
+
+function formatKpiCellValues(blockTarget, blockedCount, startDateStr) {
+    var n = (blockTarget != null && blockTarget !== '') ? parseInt(blockTarget, 10) : 0;
+    if (isNaN(n)) n = 0;
+    var m = blockedCount || 0;
+    var rate = n > 0 ? (m / n * 100).toFixed(1) + '%' : '—%';
+    var mt = computeKpiMonthlyTargetPercent(startDateStr);
+    var monthlyTarget = mt == null ? '—' : (typeof mt === 'number' ? mt.toFixed(1) + '%' : '—');
+    var tooltip = '차단 : ' + m.toLocaleString('ko-KR') + '건 / 목표 : ' + n.toLocaleString('ko-KR') + '건';
+    return { rate: rate, monthlyTarget: monthlyTarget, tooltip: tooltip };
+}
+
+function applyKpiButtonDisplay(kpiBtn, kpiValues) {
+    if (!kpiBtn || !kpiValues) return;
+    kpiBtn.textContent = kpiValues.rate + ' / ' + kpiValues.monthlyTarget;
+    kpiBtn.title = kpiValues.tooltip || '';
+    var rateNum = parseKpiPercentNum(kpiValues.rate);
+    var mtNum = parseKpiPercentNum(kpiValues.monthlyTarget);
+    var kpiBtnColor = '';
+    if (!isNaN(rateNum) && !isNaN(mtNum)) {
+        if (rateNum > mtNum) {
+            kpiBtnColor = 'background:#dcfce7;color:#166534;border-color:#86efac;';
+        } else if (rateNum > mtNum / 2) {
+            kpiBtnColor = 'background:#fef9c3;color:#854d0e;border-color:#fde047;';
+        } else {
+            kpiBtnColor = 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;';
+        }
+    }
+    kpiBtn.style.cssText = 'padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box;' + kpiBtnColor;
+}
+
 function loadAgreementList() {
     var area = document.getElementById('agreementListArea');
     if (!area) return;
@@ -719,7 +781,9 @@ function loadAgreementList() {
         var memoQuery = _supabase.from('contract_memo').select('contract_id').eq('is_done', false).in('contract_id', contractIds);
         Promise.all([
             _supabase.from('contract_month_report').select('contract_id, file_name').in('contract_id', contractIds),
-            _supabase.from('data_rows').select('contract_id, ' + MONTH_REPORT_RESULT_COL).in('contract_id', contractIds),
+            fetchDataRowsForContractIds(contractIds, 'contract_id, ' + MONTH_REPORT_RESULT_COL).then(function (data) {
+                return { data: data };
+            }).catch(function () { return { data: [] }; }),
             _supabase.from('personnel_master').select('id, name').eq('target_table', projectKey).order('name'),
             _supabase.from('page3_participation').select('personnel_id, contract_id').in('contract_id', contractIds),
             memoQuery.then(function (r) { return r; }).catch(function () { return { data: [], error: true }; })
@@ -766,13 +830,11 @@ function loadAgreementList() {
                 });
             }
             rows.forEach(function (r) {
-                var n = (r.block_target != null && r.block_target !== '') ? parseInt(r.block_target, 10) : 0;
-                if (isNaN(n)) n = 0;
                 var m = countByContractId[r.id] || 0;
-                rateByContractId[r.id] = n > 0 ? (m / n * 100).toFixed(1) + '%' : '—%';
-                tooltipByContractId[r.id] = '차단 : ' + m.toLocaleString('ko-KR') + '건 / 목표 : ' + n.toLocaleString('ko-KR') + '건';
-                var mt = computeKpiMonthlyTargetPercent(r.start_date);
-                monthlyTargetByContractId[r.id] = mt == null ? '—' : (typeof mt === 'number' ? mt.toFixed(1) + '%' : '—');
+                var kpiValues = formatKpiCellValues(r.block_target, m, r.start_date);
+                rateByContractId[r.id] = kpiValues.rate;
+                monthlyTargetByContractId[r.id] = kpiValues.monthlyTarget;
+                tooltipByContractId[r.id] = kpiValues.tooltip;
             });
             window._agreementListData = { rows: rows, titleByContractId: titleByContractId, rateByContractId: rateByContractId, monthlyTargetByContractId: monthlyTargetByContractId, tooltipByContractId: tooltipByContractId, memoHasUncheckedByContractId: memoHasUncheckedByContractId, personnelList: personnelList, contractIdsByPersonnelId: contractIdsByPersonnelId };
             var sel = document.getElementById('agreementFilterPersonnel');
@@ -2052,24 +2114,34 @@ function updateAgreementRowButtons(contractId, monthReportLabel) {
     var kpiBtn = document.querySelector('.kpi-rate-btn[data-contract-id="' + contractId + '"]');
     if (monthReportLabel !== undefined && monthBtn) {
         monthBtn.textContent = '월말 엑셀 : ' + (monthReportLabel || '--');
+        if (window._agreementListData && window._agreementListData.titleByContractId) {
+            window._agreementListData.titleByContractId[contractId] = monthReportLabel || '--';
+        }
     }
     if (!kpiBtn) return;
     if (!_supabase) {
-        kpiBtn.textContent = 'KPI : -%';
+        applyKpiButtonDisplay(kpiBtn, { rate: '—%', monthlyTarget: '—', tooltip: '' });
         return;
     }
     Promise.all([
-        _supabase.from('contract_registry').select('block_target').eq('id', contractId).single(),
-        _supabase.from('data_rows').select('contract_id').eq('contract_id', contractId)
+        _supabase.from('contract_registry').select('block_target, start_date').eq('id', contractId).single(),
+        fetchDataRowsForContractIds([contractId], MONTH_REPORT_RESULT_COL)
     ]).then(function (results) {
         var reg = results[0] && results[0].data;
-        var rows = results[1] && results[1].data ? results[1].data : [];
-        var n = (reg && reg.block_target != null && reg.block_target !== '') ? parseInt(reg.block_target, 10) : 0;
-        var m = rows.length;
-        var rateStr = n > 0 ? (m / n * 100).toFixed(1) + '%' : '-%';
-        kpiBtn.textContent = 'KPI : ' + rateStr;
+        var rows = results[1] || [];
+        var m = countBlockedCompleteRows(rows);
+        var kpiValues = formatKpiCellValues(reg && reg.block_target, m, reg && reg.start_date);
+        applyKpiButtonDisplay(kpiBtn, kpiValues);
+        if (window._agreementListData) {
+            if (!window._agreementListData.rateByContractId) window._agreementListData.rateByContractId = {};
+            if (!window._agreementListData.monthlyTargetByContractId) window._agreementListData.monthlyTargetByContractId = {};
+            if (!window._agreementListData.tooltipByContractId) window._agreementListData.tooltipByContractId = {};
+            window._agreementListData.rateByContractId[contractId] = kpiValues.rate;
+            window._agreementListData.monthlyTargetByContractId[contractId] = kpiValues.monthlyTarget;
+            window._agreementListData.tooltipByContractId[contractId] = kpiValues.tooltip;
+        }
     }).catch(function () {
-        kpiBtn.textContent = 'KPI : -%';
+        applyKpiButtonDisplay(kpiBtn, { rate: '—%', monthlyTarget: '—', tooltip: '' });
     });
 }
 
