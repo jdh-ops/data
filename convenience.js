@@ -652,6 +652,18 @@ function convertUrlBySite(urlStr) {
             var ohanaMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
             if (ohanaMatch) return { url: u.origin + '/product/detail.html?product_no=' + ohanaMatch[1], site: 'ohana' };
         }
+        if (host === 'somsoc.kr') {
+            // 예시: https://www.somsoc.kr/product/4차-re-order-rico-emblem-tied-toplime/278/category/23/display/1/
+            // → https://www.somsoc.kr/product/detail.html?product_no=278
+            var somsocMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (somsocMatch) return { url: u.origin + '/product/detail.html?product_no=' + somsocMatch[1], site: 'somsoc' };
+        }
+        if (host === 'soonsungmall.com') {
+            // 예시: https://soonsungmall.com/product/순성-유모차.../631/category/345/display/1/
+            // → https://soonsungmall.com/product/detail.html?product_no=631
+            var soonsungMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (soonsungMatch) return { url: u.origin + '/product/detail.html?product_no=' + soonsungMatch[1], site: 'soonsung' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -666,7 +678,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, somsoc: 0, soonsung: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -680,6 +692,8 @@ function runUrlConverter() {
         else if (r.site === 'cosrx') count.cosrx++;
         else if (r.site === 'melable') count.melable++;
         else if (r.site === 'ohana') count.ohana++;
+        else if (r.site === 'somsoc') count.somsoc++;
+        else if (r.site === 'soonsung') count.soonsung++;
         else count.none++;
         return r.url;
     });
@@ -696,11 +710,13 @@ function runUrlConverter() {
     if (count.cosrx) parts.push('코스알엑스 ' + count.cosrx + '개');
     if (count.melable) parts.push('메라블 ' + count.melable + '개');
     if (count.ohana) parts.push('오하나 ' + count.ohana + '개');
+    if (count.somsoc) parts.push('솜솜(somsoc) ' + count.somsoc + '개');
+    if (count.soonsung) parts.push('순성 ' + count.soonsung + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana && !count.somsoc && !count.soonsung ? '#64748b' : '#1e293b';
     }
 }
 
