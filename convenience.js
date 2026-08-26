@@ -664,6 +664,12 @@ function convertUrlBySite(urlStr) {
             var soonsungMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
             if (soonsungMatch) return { url: u.origin + '/product/detail.html?product_no=' + soonsungMatch[1], site: 'soonsung' };
         }
+        if (host === 'marithe-official.com') {
+            // 예시: https://marithe-official.com/product/small-classic-logo-pk-collar-point-tee-ivory/14171/category/809/display/1/
+            // → https://marithe-official.com/product/detail.html?product_no=14171
+            var maritheMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
+            if (maritheMatch) return { url: u.origin + '/product/detail.html?product_no=' + maritheMatch[1], site: 'marithe' };
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -678,7 +684,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, somsoc: 0, soonsung: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, somsoc: 0, soonsung: 0, marithe: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -694,6 +700,7 @@ function runUrlConverter() {
         else if (r.site === 'ohana') count.ohana++;
         else if (r.site === 'somsoc') count.somsoc++;
         else if (r.site === 'soonsung') count.soonsung++;
+        else if (r.site === 'marithe') count.marithe++;
         else count.none++;
         return r.url;
     });
@@ -712,11 +719,12 @@ function runUrlConverter() {
     if (count.ohana) parts.push('오하나 ' + count.ohana + '개');
     if (count.somsoc) parts.push('솜솜(somsoc) ' + count.somsoc + '개');
     if (count.soonsung) parts.push('순성 ' + count.soonsung + '개');
+    if (count.marithe) parts.push('마리떼 ' + count.marithe + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana && !count.somsoc && !count.soonsung ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana && !count.somsoc && !count.soonsung && !count.marithe ? '#64748b' : '#1e293b';
     }
 }
 
