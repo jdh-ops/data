@@ -785,6 +785,7 @@ var _workStatusOpenByTask = {};
 var _workStatusStore = null;
 var WORK_STATUS_TASKS_PKEY = '__work_status_tasks__';
 var WORK_STATUS_SESSIONS_PKEY = '__work_status_sessions__';
+var WORK_STATUS_HISTORY_LIMIT = 50;
 
 function workStatusEscape(s) {
     return String(s == null ? '' : s)
@@ -997,14 +998,16 @@ async function workStatusCloseOpenSession(taskId, actor, at) {
     return false;
 }
 
-async function workStatusFetchSessions(taskId) {
+async function workStatusFetchSessions(taskId, limit) {
     var db = workStatusDb();
     var store = await workStatusEnsureStore();
+    var cap = (typeof limit === 'number' && limit > 0) ? limit : WORK_STATUS_HISTORY_LIMIT;
     if (store === 'table') {
         var res = await db.from('work_status_sessions')
             .select('id, on_actor, on_at, off_actor, off_at')
             .eq('task_id', taskId)
-            .order('on_at', { ascending: false });
+            .order('on_at', { ascending: false })
+            .limit(cap);
         if (res.error) throw res.error;
         return res.data || [];
     }
@@ -1012,7 +1015,7 @@ async function workStatusFetchSessions(taskId) {
     if (res.error) throw res.error;
     return (res.data || []).map(workStatusMapRowSession).sort(function (a, b) {
         return String(b.on_at || '').localeCompare(String(a.on_at || ''));
-    });
+    }).slice(0, cap);
 }
 
 async function workStatusLoadActor() {
@@ -1244,12 +1247,17 @@ async function openWorkStatusHistoryModal(taskId) {
         return;
     }
     try {
-        var rows = await workStatusFetchSessions(taskId);
+        var rows = await workStatusFetchSessions(taskId, WORK_STATUS_HISTORY_LIMIT + 1);
         if (!rows.length) {
             listEl.innerHTML = '<p style="margin:0;font-size:13px;color:#64748b;">아직 기록이 없습니다.</p>';
             return;
         }
-        listEl.innerHTML = rows.map(function (row) {
+        var truncated = rows.length > WORK_STATUS_HISTORY_LIMIT;
+        if (truncated) rows = rows.slice(0, WORK_STATUS_HISTORY_LIMIT);
+        var note = truncated
+            ? '<p style="margin:0 0 10px;font-size:12px;color:#64748b;">최신 ' + WORK_STATUS_HISTORY_LIMIT + '건만 표시합니다.</p>'
+            : '';
+        listEl.innerHTML = note + rows.map(function (row) {
             var onWho = row.on_actor || '-';
             var offWho = row.off_at ? (row.off_actor || '-') : '';
             var onAt = formatWorkStatusTime(row.on_at) || '-';
