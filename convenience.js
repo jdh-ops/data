@@ -598,8 +598,18 @@ function convertUrlBySite(urlStr) {
             if (m) return { url: u.origin + '/products/Vanish-i' + m[1] + '.html', site: 'lazada' };
         }
         if (host === 'item.taobao.com' || host.indexOf('taobao.') !== -1) {
+            // 예시: https://item.taobao.com/item.htm?id=12345&mi_id=xxx&spm=...
+            // → https://item.taobao.com/item.htm?id=12345&mi_id=xxx
+            // mi_id / pisk 가 있으면 id 뒤에 함께 유지
             var idMatch = s.match(/[?&]id=(\d+)/);
-            if (idMatch) return { url: 'https://item.taobao.com/item.htm?id=' + idMatch[1], site: 'taobao' };
+            if (idMatch) {
+                var taobaoQs = 'id=' + idMatch[1];
+                var miIdMatch = s.match(/[?&]mi_id=([^&#]*)/i);
+                var piskMatch = s.match(/[?&]pisk=([^&#]*)/i);
+                if (miIdMatch) taobaoQs += '&mi_id=' + miIdMatch[1];
+                if (piskMatch) taobaoQs += '&pisk=' + piskMatch[1];
+                return { url: 'https://item.taobao.com/item.htm?' + taobaoQs, site: 'taobao' };
+            }
         }
         if (host === 'markgonzaleskorea.com') {
             var pathMatch = u.pathname.match(/\/(\d+)\/?$/);
