@@ -28,6 +28,10 @@ create index if not exists work_status_sessions_open_idx
   on public.work_status_sessions (task_id)
   where off_at is null;
 
+create unique index if not exists work_status_sessions_one_open_idx
+  on public.work_status_sessions (task_id)
+  where off_at is null;
+
 alter table public.work_status_tasks enable row level security;
 alter table public.work_status_sessions enable row level security;
 

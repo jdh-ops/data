@@ -783,6 +783,7 @@ var _workStatusBusyIds = {};
 var _workStatusTasks = [];
 var _workStatusOpenByTask = {};
 var _workStatusStore = null;
+var _workStatusForceOffId = null;
 var WORK_STATUS_TASKS_PKEY = '__work_status_tasks__';
 var WORK_STATUS_SESSIONS_PKEY = '__work_status_sessions__';
 var WORK_STATUS_HISTORY_LIMIT = 50;
@@ -949,6 +950,30 @@ async function workStatusSetTaskOn(id, isOn) {
     if (res.error) throw res.error;
 }
 
+async function workStatusTryClaimOn(id) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_tasks').update({ is_on: true }).eq('id', id).eq('is_on', false).select('id', { count: 'exact' });
+        if (res.error) throw res.error;
+        return (res.data && res.data.length > 0) || (typeof res.count === 'number' && res.count > 0);
+    }
+    var res = await db.from('data_rows')
+        .update({ col2_val: '1' })
+        .eq('id', id)
+        .eq('project_key', WORK_STATUS_TASKS_PKEY)
+        .eq('col2_val', '0')
+        .select('id', { count: 'exact' });
+    if (res.error) throw res.error;
+    return (res.data && res.data.length > 0) || (typeof res.count === 'number' && res.count > 0);
+}
+
+function workStatusIsConflictError(err) {
+    var code = String((err && err.code) || '');
+    var msg = String((err && err.message) || '');
+    return code === '23505' || /duplicate key|unique constraint|one_open/i.test(msg);
+}
+
 async function workStatusRemoveTask(id) {
     var db = workStatusDb();
     var store = await workStatusEnsureStore();
@@ -1088,6 +1113,7 @@ function closeWorkStatusModal() {
         _workStatusPollTimer = null;
     }
     closeWorkStatusHistoryModal();
+    closeWorkStatusBusyModal();
 }
 
 function setWorkStatusMessage(text, isError) {
@@ -1176,34 +1202,120 @@ function workStatusRequireActor() {
     return actor;
 }
 
+function workStatusSameActor(a, b) {
+    return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+function workStatusFindTask(id) {
+    for (var i = 0; i < _workStatusTasks.length; i++) {
+        if (_workStatusTasks[i].id === id) return _workStatusTasks[i];
+    }
+    return null;
+}
+
+function workStatusOtherUserOn(id, actor) {
+    var open = _workStatusOpenByTask[id];
+    var who = open && open.on_actor ? String(open.on_actor).trim() : '';
+    if (who && !workStatusSameActor(who, actor)) return who;
+    var task = workStatusFindTask(id);
+    if (task && task.is_on && !workStatusSameActor(who, actor)) return who || '다른 사용자';
+    return '';
+}
+
+async function workStatusShowBusyConflict(id, actor) {
+    await loadWorkStatusTasks();
+    var who = workStatusOtherUserOn(id, actor) || '다른 사용자';
+    delete _workStatusBusyIds[id];
+    renderWorkStatusCards();
+    openWorkStatusBusyModal(id, who);
+}
+
+function openWorkStatusBusyModal(taskId, who) {
+    _workStatusForceOffId = taskId;
+    var modal = document.getElementById('workStatusBusyModal');
+    var detail = document.getElementById('workStatusBusyDetail');
+    if (detail) detail.textContent = who ? ('현재 사용자: ' + who) : '';
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeWorkStatusBusyModal() {
+    var modal = document.getElementById('workStatusBusyModal');
+    if (modal) modal.style.display = 'none';
+    _workStatusForceOffId = null;
+}
+
+async function workStatusTurnOffTask(id, actor) {
+    var now = new Date().toISOString();
+    var closed = await workStatusCloseOpenSession(id, actor, now);
+    if (!closed) {
+        await workStatusInsertSession({
+            task_id: id,
+            on_actor: actor,
+            on_at: now,
+            off_actor: actor,
+            off_at: now
+        });
+    }
+    await workStatusSetTaskOn(id, false);
+}
+
+async function forceOffWorkStatusTask() {
+    var id = _workStatusForceOffId;
+    if (!id) return;
+    var actor = workStatusRequireActor();
+    if (!actor) return;
+    closeWorkStatusBusyModal();
+    if (_workStatusBusyIds[id]) return;
+    _workStatusBusyIds[id] = true;
+    renderWorkStatusCards();
+    try {
+        await workStatusTurnOffTask(id, actor);
+        saveWorkStatusNickname();
+        await loadWorkStatusTasks();
+    } catch (err) {
+        alert('저장 실패: ' + (err && err.message ? err.message : String(err)));
+        await loadWorkStatusTasks();
+    }
+    delete _workStatusBusyIds[id];
+    _workStatusForceOffId = null;
+    renderWorkStatusCards();
+}
+
 async function toggleWorkStatusTask(id) {
     if (_workStatusBusyIds[id]) return;
     var actor = workStatusRequireActor();
     if (!actor) return;
-    var task = null;
-    for (var i = 0; i < _workStatusTasks.length; i++) {
-        if (_workStatusTasks[i].id === id) { task = _workStatusTasks[i]; break; }
-    }
-    if (!task) return;
     _workStatusBusyIds[id] = true;
     renderWorkStatusCards();
     try {
-        var now = new Date().toISOString();
+        await loadWorkStatusTasks();
+        var task = workStatusFindTask(id);
+        if (!task) throw new Error('작업을 찾을 수 없습니다.');
+        var otherWho = workStatusOtherUserOn(id, actor);
+        if (otherWho) {
+            delete _workStatusBusyIds[id];
+            renderWorkStatusCards();
+            openWorkStatusBusyModal(id, otherWho);
+            return;
+        }
         if (!task.is_on) {
-            await workStatusInsertSession({ task_id: id, on_actor: actor, on_at: now });
-            await workStatusSetTaskOn(id, true);
-        } else {
-            var closed = await workStatusCloseOpenSession(id, actor, now);
-            if (!closed) {
-                await workStatusInsertSession({
-                    task_id: id,
-                    on_actor: actor,
-                    on_at: now,
-                    off_actor: actor,
-                    off_at: now
-                });
+            var claimed = await workStatusTryClaimOn(id);
+            if (!claimed) {
+                await workStatusShowBusyConflict(id, actor);
+                return;
             }
-            await workStatusSetTaskOn(id, false);
+            try {
+                var now = new Date().toISOString();
+                await workStatusInsertSession({ task_id: id, on_actor: actor, on_at: now });
+            } catch (insErr) {
+                if (workStatusIsConflictError(insErr)) {
+                    await workStatusShowBusyConflict(id, actor);
+                    return;
+                }
+                throw insErr;
+            }
+        } else {
+            await workStatusTurnOffTask(id, actor);
         }
         saveWorkStatusNickname();
         await loadWorkStatusTasks();
