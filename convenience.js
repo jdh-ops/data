@@ -410,7 +410,7 @@ function excelMergeDownloadAll() {
 var CONVENIENCE_FEATURES = [
     { id: 'excelMerge', title: '엑셀 합치기', description: '여러 엑셀 파일을 하나로 합치고 중복 행을 제거합니다.' },
     { id: 'urlConverter', title: 'URL 단축', description: '여러 URL을 붙여넣으면 지원 사이트는 단축해 주고, 복사할 수 있습니다.' },
-    { id: 'conv2', title: '제목2', description: '설명입니다.' },
+    { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' },
     { id: 'conv3', title: '제목3', description: '설명입니다.' },
     { id: 'conv4', title: '제목4', description: '설명입니다.' },
     { id: 'conv5', title: '제목5', description: '설명입니다.' }
@@ -463,6 +463,7 @@ function bindConvenienceCardClick(container) {
             var id = card.getAttribute('data-id');
             if (id === 'excelMerge') openExcelMergeModal();
             if (id === 'urlConverter') openUrlConverterModal();
+            if (id === 'workStatus') openWorkStatusModal();
         });
     });
 }
@@ -772,4 +773,498 @@ function fallbackCopyUrlConverter(text) {
         }
         if (sel) { sel.removeAllRanges(); if (range) sel.addRange(range); }
     }
+}
+
+/* ---------- 작업 상태 확인 모달 (편의 기능 3번) ---------- */
+var WORK_STATUS_NICK_KEY = 'convenience_work_status_nickname';
+var _workStatusEmail = '';
+var _workStatusPollTimer = null;
+var _workStatusBusyIds = {};
+var _workStatusTasks = [];
+var _workStatusOpenByTask = {};
+var _workStatusStore = null;
+var WORK_STATUS_TASKS_PKEY = '__work_status_tasks__';
+var WORK_STATUS_SESSIONS_PKEY = '__work_status_sessions__';
+
+function workStatusEscape(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatWorkStatusTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' '
+        + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function getWorkStatusActor() {
+    var nickEl = document.getElementById('workStatusNickname');
+    var nick = nickEl ? nickEl.value.trim() : '';
+    if (nick) return nick;
+    return (_workStatusEmail || '').trim();
+}
+
+function saveWorkStatusNickname() {
+    var nickEl = document.getElementById('workStatusNickname');
+    if (!nickEl) return;
+    try { localStorage.setItem(WORK_STATUS_NICK_KEY, nickEl.value); } catch (e) {}
+}
+
+function workStatusNextTitle(tasks) {
+    var used = {};
+    (tasks || []).forEach(function (t) { used[t.title] = true; });
+    var n = 1;
+    while (used['작업' + n]) n++;
+    return '작업' + n;
+}
+
+function workStatusDb() {
+    return window._supabase || null;
+}
+
+function workStatusIsMissingTableError(err) {
+    var m = ((err && (err.message || err.code || '')) + ' ' + ((err && err.details) || '')).toString();
+    return /PGRST205|schema cache|Could not find the table|relation .*work_status/i.test(m);
+}
+
+function workStatusMapRowTask(r) {
+    return {
+        id: r.id,
+        title: r.col1_val || '',
+        is_on: r.col2_val === '1' || r.col2_val === 'true',
+        sort_order: parseInt(r.col3_val, 10) || 0
+    };
+}
+
+function workStatusMapRowSession(r) {
+    return {
+        id: r.id,
+        task_id: parseInt(r.col1_val, 10),
+        on_actor: r.col2_val || '',
+        on_at: r.col3_val || '',
+        off_actor: r.col4_val || null,
+        off_at: r.col5_val || null
+    };
+}
+
+function workStatusSessionIsOpen(s) {
+    return !s.off_at;
+}
+
+async function workStatusEnsureStore() {
+    if (_workStatusStore) return _workStatusStore;
+    var db = workStatusDb();
+    if (!db) throw new Error('DB 연결이 없습니다.');
+    var res = await db.from('work_status_tasks').select('id').limit(1);
+    if (!res.error) {
+        _workStatusStore = 'table';
+        return _workStatusStore;
+    }
+    if (workStatusIsMissingTableError(res.error)) {
+        _workStatusStore = 'rows';
+        return _workStatusStore;
+    }
+    throw res.error;
+}
+
+async function workStatusFetchTasks() {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_tasks').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true });
+        if (res.error) throw res.error;
+        return res.data || [];
+    }
+    var rows = await db.from('data_rows').select('id, col1_val, col2_val, col3_val').eq('project_key', WORK_STATUS_TASKS_PKEY).order('id', { ascending: true });
+    if (rows.error) throw rows.error;
+    return (rows.data || []).map(workStatusMapRowTask).sort(function (a, b) {
+        return (a.sort_order - b.sort_order) || (a.id - b.id);
+    });
+}
+
+async function workStatusInsertTasks(list) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_tasks').insert(list);
+        if (res.error) throw res.error;
+        return;
+    }
+    var payload = list.map(function (t) {
+        return {
+            project_key: WORK_STATUS_TASKS_PKEY,
+            col1_val: t.title,
+            col2_val: t.is_on ? '1' : '0',
+            col3_val: String(t.sort_order || 0)
+        };
+    });
+    var ins = await db.from('data_rows').insert(payload);
+    if (ins.error) throw ins.error;
+}
+
+async function workStatusSetTaskOn(id, isOn) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_tasks').update({ is_on: isOn }).eq('id', id);
+        if (res.error) throw res.error;
+        return;
+    }
+    var res = await db.from('data_rows').update({ col2_val: isOn ? '1' : '0' }).eq('id', id).eq('project_key', WORK_STATUS_TASKS_PKEY);
+    if (res.error) throw res.error;
+}
+
+async function workStatusRemoveTask(id) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_tasks').delete().eq('id', id);
+        if (res.error) throw res.error;
+        return;
+    }
+    var delSess = await db.from('data_rows').delete().eq('project_key', WORK_STATUS_SESSIONS_PKEY).eq('col1_val', String(id));
+    if (delSess.error) throw delSess.error;
+    var delTask = await db.from('data_rows').delete().eq('id', id).eq('project_key', WORK_STATUS_TASKS_PKEY);
+    if (delTask.error) throw delTask.error;
+}
+
+async function workStatusFetchOpenSessions() {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_sessions').select('id, task_id, on_actor, on_at').is('off_at', null);
+        if (res.error) throw res.error;
+        return res.data || [];
+    }
+    var res = await db.from('data_rows').select('id, col1_val, col2_val, col3_val, col4_val, col5_val').eq('project_key', WORK_STATUS_SESSIONS_PKEY);
+    if (res.error) throw res.error;
+    return (res.data || []).map(workStatusMapRowSession).filter(workStatusSessionIsOpen);
+}
+
+async function workStatusInsertSession(row) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_sessions').insert(row).select('id').single();
+        if (res.error) throw res.error;
+        return res.data;
+    }
+    var ins = await db.from('data_rows').insert({
+        project_key: WORK_STATUS_SESSIONS_PKEY,
+        col1_val: String(row.task_id),
+        col2_val: row.on_actor || '',
+        col3_val: row.on_at || '',
+        col4_val: row.off_actor || '',
+        col5_val: row.off_at || ''
+    }).select('id').single();
+    if (ins.error) throw ins.error;
+    return ins.data;
+}
+
+async function workStatusCloseOpenSession(taskId, actor, at) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var open = await db.from('work_status_sessions')
+            .select('id')
+            .eq('task_id', taskId)
+            .is('off_at', null)
+            .order('on_at', { ascending: false })
+            .limit(1);
+        if (open.error) throw open.error;
+        if (open.data && open.data.length) {
+            var up = await db.from('work_status_sessions').update({ off_actor: actor, off_at: at }).eq('id', open.data[0].id);
+            if (up.error) throw up.error;
+            return true;
+        }
+        return false;
+    }
+    var res = await db.from('data_rows').select('id, col1_val, col3_val, col5_val').eq('project_key', WORK_STATUS_SESSIONS_PKEY).eq('col1_val', String(taskId));
+    if (res.error) throw res.error;
+    var opens = (res.data || []).filter(function (r) { return !r.col5_val; });
+    opens.sort(function (a, b) { return String(b.col3_val || '').localeCompare(String(a.col3_val || '')); });
+    if (opens.length) {
+        var up = await db.from('data_rows').update({ col4_val: actor, col5_val: at }).eq('id', opens[0].id);
+        if (up.error) throw up.error;
+        return true;
+    }
+    return false;
+}
+
+async function workStatusFetchSessions(taskId) {
+    var db = workStatusDb();
+    var store = await workStatusEnsureStore();
+    if (store === 'table') {
+        var res = await db.from('work_status_sessions')
+            .select('id, on_actor, on_at, off_actor, off_at')
+            .eq('task_id', taskId)
+            .order('on_at', { ascending: false });
+        if (res.error) throw res.error;
+        return res.data || [];
+    }
+    var res = await db.from('data_rows').select('id, col1_val, col2_val, col3_val, col4_val, col5_val').eq('project_key', WORK_STATUS_SESSIONS_PKEY).eq('col1_val', String(taskId));
+    if (res.error) throw res.error;
+    return (res.data || []).map(workStatusMapRowSession).sort(function (a, b) {
+        return String(b.on_at || '').localeCompare(String(a.on_at || ''));
+    });
+}
+
+async function workStatusLoadActor() {
+    var emailEl = document.getElementById('workStatusEmail');
+    var nickEl = document.getElementById('workStatusNickname');
+    _workStatusEmail = '';
+    var db = workStatusDb();
+    try {
+        if (db && db.auth) {
+            var res = await db.auth.getUser();
+            var user = res.data && res.data.user;
+            if (user && user.email) _workStatusEmail = user.email;
+        }
+    } catch (e) {}
+    if (emailEl) emailEl.textContent = _workStatusEmail || '(로그인 정보 없음)';
+    if (nickEl && !nickEl.value) {
+        try {
+            var saved = localStorage.getItem(WORK_STATUS_NICK_KEY);
+            if (saved) nickEl.value = saved;
+        } catch (e) {}
+    }
+}
+
+function openWorkStatusModal() {
+    var modal = document.getElementById('workStatusModal');
+    if (modal) modal.style.display = 'flex';
+    workStatusLoadActor();
+    loadWorkStatusTasks();
+    if (_workStatusPollTimer) clearInterval(_workStatusPollTimer);
+    _workStatusPollTimer = setInterval(function () {
+        if (_workStatusBusyIds && Object.keys(_workStatusBusyIds).length) return;
+        loadWorkStatusTasks();
+    }, 8000);
+}
+
+function closeWorkStatusModal() {
+    var modal = document.getElementById('workStatusModal');
+    if (modal) modal.style.display = 'none';
+    if (_workStatusPollTimer) {
+        clearInterval(_workStatusPollTimer);
+        _workStatusPollTimer = null;
+    }
+    closeWorkStatusHistoryModal();
+}
+
+function setWorkStatusMessage(text, isError) {
+    var msg = document.getElementById('workStatusMessage');
+    if (!msg) return;
+    msg.textContent = text || '';
+    msg.style.color = isError ? '#c53030' : '#64748b';
+}
+
+async function loadWorkStatusTasks() {
+    var wrap = document.getElementById('workStatusCards');
+    if (!wrap) return;
+    var db = workStatusDb();
+    if (!db) {
+        setWorkStatusMessage('DB 연결이 없습니다. Supabase 스크립트와 로그인을 확인해 주세요.', true);
+        wrap.innerHTML = '';
+        return;
+    }
+    var user = null;
+    try {
+        var u = await db.auth.getUser();
+        user = u.data && u.data.user;
+    } catch (e) {}
+    if (!user) {
+        setWorkStatusMessage('로그인 정보가 없습니다. 회사 계정으로 로그인한 뒤 이용해 주세요. 기록의 ‘누가’는 로그인 이메일 또는 위에 입력한 닉네임입니다.', true);
+        wrap.innerHTML = '';
+        return;
+    }
+    try {
+        var tasks = await workStatusFetchTasks();
+        if (tasks.length === 0) {
+            await workStatusInsertTasks([
+                { title: '작업1', sort_order: 0, is_on: false },
+                { title: '작업2', sort_order: 1, is_on: false }
+            ]);
+            return loadWorkStatusTasks();
+        }
+        var openSessions = await workStatusFetchOpenSessions();
+        _workStatusOpenByTask = {};
+        (openSessions || []).forEach(function (s) { _workStatusOpenByTask[s.task_id] = s; });
+        _workStatusTasks = tasks;
+        setWorkStatusMessage('');
+        renderWorkStatusCards();
+    } catch (err) {
+        setWorkStatusMessage('작업 목록을 불러오지 못했습니다. ' + (err && err.message ? err.message : String(err)), true);
+        wrap.innerHTML = '';
+    }
+}
+
+function renderWorkStatusCards() {
+    var wrap = document.getElementById('workStatusCards');
+    if (!wrap) return;
+    wrap.innerHTML = (_workStatusTasks || []).map(function (task) {
+        var on = !!task.is_on;
+        var open = _workStatusOpenByTask[task.id];
+        var who = open && open.on_actor ? open.on_actor : '';
+        var statusText = on
+            ? ('진행 중' + (who ? ' · ' + who : ''))
+            : '대기 중';
+        var busy = !!_workStatusBusyIds[task.id];
+        return '<div class="work-status-card' + (on ? ' is-on' : '') + '" data-task-id="' + task.id + '">' +
+            '<div class="work-status-card-head">' +
+            '<div class="work-status-card-title">' + workStatusEscape(task.title) + '</div>' +
+            '<button type="button" class="work-status-switch' + (on ? ' on' : '') + '"' +
+            (busy ? ' disabled' : '') +
+            ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
+            ' title="' + (on ? '끄기' : '켜기') + '"' +
+            ' onclick="toggleWorkStatusTask(' + task.id + ')">' +
+            '<span class="work-status-switch-knob"></span></button>' +
+            '</div>' +
+            '<div class="work-status-card-status">' + workStatusEscape(statusText) + '</div>' +
+            '<div class="work-status-card-actions">' +
+            '<button type="button" class="work-status-hist-btn" onclick="openWorkStatusHistoryModal(' + task.id + ')">기록보기</button>' +
+            '<button type="button" class="work-status-del-btn" onclick="deleteWorkStatusTask(' + task.id + ')">삭제</button>' +
+            '</div></div>';
+    }).join('');
+}
+
+async function workStatusRequireUser() {
+    var db = workStatusDb();
+    if (!db) {
+        alert('DB 연결이 없습니다.');
+        return null;
+    }
+    try {
+        var u = await db.auth.getUser();
+        if (u.data && u.data.user) return u.data.user;
+    } catch (e) {}
+    alert('기록 저장을 위해 회사 계정으로 로그인해 주세요.');
+    return null;
+}
+
+async function toggleWorkStatusTask(id) {
+    if (_workStatusBusyIds[id]) return;
+    var actor = getWorkStatusActor();
+    if (!actor) {
+        alert('닉네임을 입력하거나, 로그인한 계정 이메일을 사용할 수 있어야 합니다.');
+        return;
+    }
+    if (!(await workStatusRequireUser())) return;
+    var task = null;
+    for (var i = 0; i < _workStatusTasks.length; i++) {
+        if (_workStatusTasks[i].id === id) { task = _workStatusTasks[i]; break; }
+    }
+    if (!task) return;
+    _workStatusBusyIds[id] = true;
+    renderWorkStatusCards();
+    try {
+        var now = new Date().toISOString();
+        if (!task.is_on) {
+            await workStatusInsertSession({ task_id: id, on_actor: actor, on_at: now });
+            await workStatusSetTaskOn(id, true);
+        } else {
+            var closed = await workStatusCloseOpenSession(id, actor, now);
+            if (!closed) {
+                await workStatusInsertSession({
+                    task_id: id,
+                    on_actor: actor,
+                    on_at: now,
+                    off_actor: actor,
+                    off_at: now
+                });
+            }
+            await workStatusSetTaskOn(id, false);
+        }
+        saveWorkStatusNickname();
+        await loadWorkStatusTasks();
+    } catch (err) {
+        alert('저장 실패: ' + (err && err.message ? err.message : String(err)));
+        await loadWorkStatusTasks();
+    }
+    delete _workStatusBusyIds[id];
+    renderWorkStatusCards();
+}
+
+async function addWorkStatusTask() {
+    if (!(await workStatusRequireUser())) return;
+    var inp = document.getElementById('workStatusNewTitle');
+    var title = (inp && inp.value.trim()) ? inp.value.trim() : workStatusNextTitle(_workStatusTasks);
+    var maxOrder = 0;
+    (_workStatusTasks || []).forEach(function (t) {
+        if ((t.sort_order || 0) > maxOrder) maxOrder = t.sort_order || 0;
+    });
+    try {
+        await workStatusInsertTasks([{ title: title, sort_order: maxOrder + 1, is_on: false }]);
+    } catch (err) {
+        alert('작업 추가 실패: ' + (err && err.message ? err.message : String(err)));
+        return;
+    }
+    if (inp) inp.value = '';
+    await loadWorkStatusTasks();
+}
+
+async function deleteWorkStatusTask(id) {
+    var task = null;
+    for (var i = 0; i < _workStatusTasks.length; i++) {
+        if (_workStatusTasks[i].id === id) { task = _workStatusTasks[i]; break; }
+    }
+    var label = task ? task.title : '이 작업';
+    if (!confirm('"' + label + '" 카드와 기록을 삭제할까요?')) return;
+    if (!(await workStatusRequireUser())) return;
+    try {
+        await workStatusRemoveTask(id);
+    } catch (err) {
+        alert('삭제 실패: ' + (err && err.message ? err.message : String(err)));
+        return;
+    }
+    closeWorkStatusHistoryModal();
+    await loadWorkStatusTasks();
+}
+
+async function openWorkStatusHistoryModal(taskId) {
+    var modal = document.getElementById('workStatusHistoryModal');
+    var titleEl = document.getElementById('workStatusHistoryTitle');
+    var listEl = document.getElementById('workStatusHistoryList');
+    if (!modal || !listEl) return;
+    var task = null;
+    for (var i = 0; i < _workStatusTasks.length; i++) {
+        if (_workStatusTasks[i].id === taskId) { task = _workStatusTasks[i]; break; }
+    }
+    if (titleEl) titleEl.textContent = (task ? task.title : '작업') + ' 기록';
+    listEl.innerHTML = '<p style="margin:0;font-size:13px;color:#64748b;">불러오는 중...</p>';
+    modal.style.display = 'flex';
+    if (!workStatusDb()) {
+        listEl.innerHTML = '<p style="margin:0;font-size:13px;color:#c53030;">DB 연결이 없습니다.</p>';
+        return;
+    }
+    try {
+        var rows = await workStatusFetchSessions(taskId);
+        if (!rows.length) {
+            listEl.innerHTML = '<p style="margin:0;font-size:13px;color:#64748b;">아직 기록이 없습니다.</p>';
+            return;
+        }
+        listEl.innerHTML = rows.map(function (row) {
+            var onWho = row.on_actor || '-';
+            var offWho = row.off_at ? (row.off_actor || '-') : '';
+            var onAt = formatWorkStatusTime(row.on_at) || '-';
+            var offAt = row.off_at ? (formatWorkStatusTime(row.off_at) || '-') : '진행 중';
+            return '<div class="work-status-hist-item">' +
+                '<div class="work-status-hist-row"><span class="work-status-hist-tag on">ON</span><span class="work-status-hist-who">' + workStatusEscape(onWho) + '</span><span class="work-status-hist-time">' + workStatusEscape(onAt) + '</span></div>' +
+                '<div class="work-status-hist-row"><span class="work-status-hist-tag off">OFF</span><span class="work-status-hist-who">' + workStatusEscape(offWho || (row.off_at ? '-' : '—')) + '</span><span class="work-status-hist-time">' + workStatusEscape(offAt) + '</span></div>' +
+                '</div>';
+        }).join('');
+    } catch (err) {
+        listEl.innerHTML = '<p style="margin:0;font-size:13px;color:#c53030;">기록을 불러오지 못했습니다. ' + workStatusEscape(err && err.message ? err.message : String(err)) + '</p>';
+    }
+}
+
+function closeWorkStatusHistoryModal() {
+    var modal = document.getElementById('workStatusHistoryModal');
+    if (modal) modal.style.display = 'none';
 }

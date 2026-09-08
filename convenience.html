@@ -89,6 +89,50 @@
         .convenience-order-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; background: #f8fafc; cursor: grab; }
         .convenience-order-item:active { cursor: grabbing; }
         .convenience-order-item .order-handle { color: #94a3b8; font-size: 14px; }
+        /* 작업 상태 확인 */
+        .work-status-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .work-status-card.is-on { border-color: #9ae6b4; background: #f0fff4; }
+        .work-status-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .work-status-card-title { font-size: 15px; font-weight: 700; color: #1e293b; }
+        .work-status-card-status { font-size: 12px; color: #64748b; }
+        .work-status-card.is-on .work-status-card-status { color: #276749; font-weight: 600; }
+        .work-status-card-actions { display: flex; gap: 8px; }
+        .work-status-hist-btn, .work-status-del-btn {
+            padding: 6px 10px; font-size: 12px; border-radius: 6px; cursor: pointer;
+        }
+        .work-status-hist-btn { flex: 1; border: 1px solid #cbd5e0; background: #fff; color: #334155; }
+        .work-status-del-btn { border: 1px solid #feb2b2; background: #fff5f5; color: #c53030; }
+        .work-status-switch {
+            width: 44px; height: 24px; border: none; border-radius: 999px; padding: 2px;
+            background: #cbd5e0; cursor: pointer; flex-shrink: 0; position: relative;
+        }
+        .work-status-switch.on { background: #38a169; }
+        .work-status-switch:disabled { opacity: 0.6; cursor: wait; }
+        .work-status-switch-knob {
+            display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); transform: translateX(0); transition: transform 0.15s ease;
+        }
+        .work-status-switch.on .work-status-switch-knob { transform: translateX(20px); }
+        .work-status-hist-item {
+            border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: #f8fafc;
+        }
+        .work-status-hist-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; padding: 3px 0; }
+        .work-status-hist-tag {
+            display: inline-block; min-width: 36px; text-align: center; font-size: 11px; font-weight: 700;
+            border-radius: 4px; padding: 2px 6px;
+        }
+        .work-status-hist-tag.on { background: #c6f6d5; color: #276749; }
+        .work-status-hist-tag.off { background: #e2e8f0; color: #475569; }
+        .work-status-hist-who { flex: 1; min-width: 0; word-break: break-all; }
+        .work-status-hist-time { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
         /* 이 페이지는 사이드바 없이 본문만 세로 배치 */
         body { background: #f1f5f9; padding: 24px; display: block !important; height: auto; min-height: 100vh; overflow-y: auto; }
         /* 이 페이지는 단일 섹션만 있으므로 편의 기능 본문 항상 표시 */
@@ -186,6 +230,50 @@
         </div>
     </div>
 
+    <!-- 작업 상태 확인 모달 (편의 기능 3번) -->
+    <div id="workStatusModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeWorkStatusModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 640px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 18px;">작업 상태 확인</h3>
+                <button type="button" onclick="closeWorkStatusModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <p style="margin: 0 0 16px; font-size: 13px; color: #64748b;">토글로 작업을 켜고 끄면 누가 언제 눌렀는지 ON/OFF 세트로 저장됩니다.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                <div>
+                    <label for="workStatusNickname" style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">닉네임 (선택)</label>
+                    <input type="text" id="workStatusNickname" placeholder="비워두면 로그인 이메일을 사용합니다" oninput="saveWorkStatusNickname()" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">현재 계정</div>
+                    <div id="workStatusEmail" style="padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #334155; background: #f8fafc; min-height: 36px; box-sizing: border-box;">-</div>
+                </div>
+            </div>
+            <div id="workStatusMessage" style="font-size: 12px; color: #64748b; margin-bottom: 10px; min-height: 16px;"></div>
+            <div id="workStatusCards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;"></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                <input type="text" id="workStatusNewTitle" placeholder="새 작업 이름" onkeypress="if(event.key==='Enter') addWorkStatusTask()" style="flex: 1; min-width: 120px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                <button type="button" onclick="addWorkStatusTask()" style="padding: 8px 12px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">작업 추가</button>
+                <button type="button" onclick="loadWorkStatusTasks()" style="padding: 8px 12px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">새로고침</button>
+                <button type="button" onclick="closeWorkStatusModal()" style="padding: 8px 12px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 작업 상태 기록 모달 -->
+    <div id="workStatusHistoryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 1003; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeWorkStatusHistoryModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 id="workStatusHistoryTitle" style="margin: 0; font-size: 18px;">기록</h3>
+                <button type="button" onclick="closeWorkStatusHistoryModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div id="workStatusHistoryList"></div>
+            <div style="margin-top: 16px; text-align: right;">
+                <button type="button" onclick="closeWorkStatusHistoryModal()" style="padding: 8px 14px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer;">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="config.js"></script>
     <script src="convenience.js"></script>
