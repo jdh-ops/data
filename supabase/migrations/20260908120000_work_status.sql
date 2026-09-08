@@ -48,6 +48,23 @@ create policy "work_status_tasks_update_authenticated"
 create policy "work_status_tasks_delete_authenticated"
   on public.work_status_tasks for delete to authenticated using (true);
 
+drop policy if exists "work_status_tasks_select_anon" on public.work_status_tasks;
+drop policy if exists "work_status_tasks_insert_anon" on public.work_status_tasks;
+drop policy if exists "work_status_tasks_update_anon" on public.work_status_tasks;
+drop policy if exists "work_status_tasks_delete_anon" on public.work_status_tasks;
+
+create policy "work_status_tasks_select_anon"
+  on public.work_status_tasks for select to anon using (true);
+
+create policy "work_status_tasks_insert_anon"
+  on public.work_status_tasks for insert to anon with check (true);
+
+create policy "work_status_tasks_update_anon"
+  on public.work_status_tasks for update to anon using (true) with check (true);
+
+create policy "work_status_tasks_delete_anon"
+  on public.work_status_tasks for delete to anon using (true);
+
 drop policy if exists "work_status_sessions_select_authenticated" on public.work_status_sessions;
 drop policy if exists "work_status_sessions_insert_authenticated" on public.work_status_sessions;
 drop policy if exists "work_status_sessions_update_authenticated" on public.work_status_sessions;
@@ -64,6 +81,23 @@ create policy "work_status_sessions_update_authenticated"
 
 create policy "work_status_sessions_delete_authenticated"
   on public.work_status_sessions for delete to authenticated using (true);
+
+drop policy if exists "work_status_sessions_select_anon" on public.work_status_sessions;
+drop policy if exists "work_status_sessions_insert_anon" on public.work_status_sessions;
+drop policy if exists "work_status_sessions_update_anon" on public.work_status_sessions;
+drop policy if exists "work_status_sessions_delete_anon" on public.work_status_sessions;
+
+create policy "work_status_sessions_select_anon"
+  on public.work_status_sessions for select to anon using (true);
+
+create policy "work_status_sessions_insert_anon"
+  on public.work_status_sessions for insert to anon with check (true);
+
+create policy "work_status_sessions_update_anon"
+  on public.work_status_sessions for update to anon using (true) with check (true);
+
+create policy "work_status_sessions_delete_anon"
+  on public.work_status_sessions for delete to anon using (true);
 
 insert into public.work_status_tasks (title, sort_order)
 select v.title, v.sort_order

@@ -240,7 +240,7 @@
             <p style="margin: 0 0 16px; font-size: 13px; color: #64748b;">토글로 작업을 켜고 끄면 누가 언제 눌렀는지 ON/OFF 세트로 저장됩니다.</p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                 <div>
-                    <label for="workStatusNickname" style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">닉네임 (선택)</label>
+                    <label id="workStatusNicknameLabel" for="workStatusNickname" style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">닉네임 (선택)</label>
                     <input type="text" id="workStatusNickname" placeholder="비워두면 로그인 이메일을 사용합니다" oninput="saveWorkStatusNickname()" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
                 </div>
                 <div>

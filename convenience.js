@@ -804,17 +804,45 @@ function formatWorkStatusTime(iso) {
         + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 }
 
-function getWorkStatusActor() {
+function getWorkStatusNickname() {
     var nickEl = document.getElementById('workStatusNickname');
-    var nick = nickEl ? nickEl.value.trim() : '';
+    return nickEl ? nickEl.value.trim() : '';
+}
+
+function getWorkStatusActor() {
+    var nick = getWorkStatusNickname();
     if (nick) return nick;
     return (_workStatusEmail || '').trim();
+}
+
+function workStatusNeedsNickname() {
+    return !(_workStatusEmail || '').trim();
+}
+
+function workStatusUpdateNicknameUi() {
+    var label = document.getElementById('workStatusNicknameLabel');
+    var nickEl = document.getElementById('workStatusNickname');
+    var required = workStatusNeedsNickname();
+    if (label) label.textContent = required ? '닉네임 (필수)' : '닉네임 (선택)';
+    if (nickEl) {
+        nickEl.placeholder = required
+            ? '로그인되지 않았습니다. 닉네임을 입력하세요'
+            : '비워두면 로그인 이메일을 사용합니다';
+        if (required) nickEl.setAttribute('required', 'required');
+        else nickEl.removeAttribute('required');
+    }
 }
 
 function saveWorkStatusNickname() {
     var nickEl = document.getElementById('workStatusNickname');
     if (!nickEl) return;
     try { localStorage.setItem(WORK_STATUS_NICK_KEY, nickEl.value); } catch (e) {}
+    if (getWorkStatusActor()) {
+        var msg = document.getElementById('workStatusMessage');
+        if (msg && /닉네임/.test(msg.textContent || '')) setWorkStatusMessage('');
+    } else if (workStatusNeedsNickname()) {
+        setWorkStatusMessage('닉네임을 입력하면 켜기/끄기를 기록할 수 있습니다.', false);
+    }
 }
 
 function workStatusNextTitle(tasks) {
@@ -1037,12 +1065,13 @@ async function workStatusLoadActor() {
             if (saved) nickEl.value = saved;
         } catch (e) {}
     }
+    workStatusUpdateNicknameUi();
 }
 
-function openWorkStatusModal() {
+async function openWorkStatusModal() {
     var modal = document.getElementById('workStatusModal');
     if (modal) modal.style.display = 'flex';
-    workStatusLoadActor();
+    await workStatusLoadActor();
     loadWorkStatusTasks();
     if (_workStatusPollTimer) clearInterval(_workStatusPollTimer);
     _workStatusPollTimer = setInterval(function () {
@@ -1073,17 +1102,7 @@ async function loadWorkStatusTasks() {
     if (!wrap) return;
     var db = workStatusDb();
     if (!db) {
-        setWorkStatusMessage('DB 연결이 없습니다. Supabase 스크립트와 로그인을 확인해 주세요.', true);
-        wrap.innerHTML = '';
-        return;
-    }
-    var user = null;
-    try {
-        var u = await db.auth.getUser();
-        user = u.data && u.data.user;
-    } catch (e) {}
-    if (!user) {
-        setWorkStatusMessage('로그인 정보가 없습니다. 회사 계정으로 로그인한 뒤 이용해 주세요. 기록의 ‘누가’는 로그인 이메일 또는 위에 입력한 닉네임입니다.', true);
+        setWorkStatusMessage('DB 연결이 없습니다. Supabase 스크립트 로드를 확인해 주세요.', true);
         wrap.innerHTML = '';
         return;
     }
@@ -1100,7 +1119,11 @@ async function loadWorkStatusTasks() {
         _workStatusOpenByTask = {};
         (openSessions || []).forEach(function (s) { _workStatusOpenByTask[s.task_id] = s; });
         _workStatusTasks = tasks;
-        setWorkStatusMessage('');
+        if (!getWorkStatusActor() && workStatusNeedsNickname()) {
+            setWorkStatusMessage('닉네임을 입력하면 켜기/끄기를 기록할 수 있습니다.', false);
+        } else {
+            setWorkStatusMessage('');
+        }
         renderWorkStatusCards();
     } catch (err) {
         setWorkStatusMessage('작업 목록을 불러오지 못했습니다. ' + (err && err.message ? err.message : String(err)), true);
@@ -1137,28 +1160,26 @@ function renderWorkStatusCards() {
     }).join('');
 }
 
-async function workStatusRequireUser() {
-    var db = workStatusDb();
-    if (!db) {
+function workStatusRequireActor() {
+    if (!workStatusDb()) {
         alert('DB 연결이 없습니다.');
-        return null;
+        return '';
     }
-    try {
-        var u = await db.auth.getUser();
-        if (u.data && u.data.user) return u.data.user;
-    } catch (e) {}
-    alert('기록 저장을 위해 회사 계정으로 로그인해 주세요.');
-    return null;
+    var actor = getWorkStatusActor();
+    if (!actor) {
+        alert('로그인 정보가 없습니다. 닉네임을 입력해 주세요.');
+        var nickEl = document.getElementById('workStatusNickname');
+        if (nickEl) nickEl.focus();
+        return '';
+    }
+    saveWorkStatusNickname();
+    return actor;
 }
 
 async function toggleWorkStatusTask(id) {
     if (_workStatusBusyIds[id]) return;
-    var actor = getWorkStatusActor();
-    if (!actor) {
-        alert('닉네임을 입력하거나, 로그인한 계정 이메일을 사용할 수 있어야 합니다.');
-        return;
-    }
-    if (!(await workStatusRequireUser())) return;
+    var actor = workStatusRequireActor();
+    if (!actor) return;
     var task = null;
     for (var i = 0; i < _workStatusTasks.length; i++) {
         if (_workStatusTasks[i].id === id) { task = _workStatusTasks[i]; break; }
@@ -1195,7 +1216,7 @@ async function toggleWorkStatusTask(id) {
 }
 
 async function addWorkStatusTask() {
-    if (!(await workStatusRequireUser())) return;
+    if (!workStatusRequireActor()) return;
     var inp = document.getElementById('workStatusNewTitle');
     var title = (inp && inp.value.trim()) ? inp.value.trim() : workStatusNextTitle(_workStatusTasks);
     var maxOrder = 0;
@@ -1219,7 +1240,7 @@ async function deleteWorkStatusTask(id) {
     }
     var label = task ? task.title : '이 작업';
     if (!confirm('"' + label + '" 카드와 기록을 삭제할까요?')) return;
-    if (!(await workStatusRequireUser())) return;
+    if (!workStatusRequireActor()) return;
     try {
         await workStatusRemoveTask(id);
     } catch (err) {
