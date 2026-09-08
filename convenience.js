@@ -406,14 +406,11 @@ function excelMergeDownloadAll() {
     XLSX.writeFile(wb, 'merged.xlsx');
 }
 
-// 편의 기능: 예시 5개 (id, title, description)
+// 편의 기능 (id, title, description)
 var CONVENIENCE_FEATURES = [
     { id: 'excelMerge', title: '엑셀 합치기', description: '여러 엑셀 파일을 하나로 합치고 중복 행을 제거합니다.' },
     { id: 'urlConverter', title: 'URL 단축', description: '여러 URL을 붙여넣으면 지원 사이트는 단축해 주고, 복사할 수 있습니다.' },
-    { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' },
-    { id: 'conv3', title: '제목3', description: '설명입니다.' },
-    { id: 'conv4', title: '제목4', description: '설명입니다.' },
-    { id: 'conv5', title: '제목5', description: '설명입니다.' }
+    { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' }
 ];
 var CONVENIENCE_STORAGE_FAV = 'page3_convenience_favorites';
 
