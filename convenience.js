@@ -827,6 +827,10 @@ function workStatusNeedsNickname() {
     return !(_workStatusEmail || '').trim();
 }
 
+function workStatusIsLoggedIn() {
+    return !workStatusNeedsNickname();
+}
+
 function workStatusUpdateNicknameUi() {
     var label = document.getElementById('workStatusNicknameLabel');
     var nickEl = document.getElementById('workStatusNickname');
@@ -1186,10 +1190,13 @@ function renderWorkStatusCards() {
             '<span class="work-status-switch-knob"></span></button>' +
             '</div>' +
             '<div class="work-status-card-status">' + workStatusEscape(statusText) + '</div>' +
-            '<div class="work-status-card-actions">' +
-            '<button type="button" class="work-status-hist-btn" onclick="openWorkStatusHistoryModal(' + task.id + ')">기록보기</button>' +
-            '<button type="button" class="work-status-del-btn" onclick="deleteWorkStatusTask(' + task.id + ')">삭제</button>' +
-            '</div></div>';
+            (workStatusIsLoggedIn()
+                ? '<div class="work-status-card-actions">' +
+                  '<button type="button" class="work-status-hist-btn" onclick="openWorkStatusHistoryModal(' + task.id + ')">기록보기</button>' +
+                  '<button type="button" class="work-status-del-btn" onclick="deleteWorkStatusTask(' + task.id + ')">삭제</button>' +
+                  '</div>'
+                : '') +
+            '</div>';
     }).join('');
 }
 
@@ -1353,6 +1360,10 @@ async function addWorkStatusTask() {
 }
 
 async function deleteWorkStatusTask(id) {
+    if (!workStatusIsLoggedIn()) {
+        alert('로그인한 사용자만 삭제할 수 있습니다.');
+        return;
+    }
     var task = null;
     for (var i = 0; i < _workStatusTasks.length; i++) {
         if (_workStatusTasks[i].id === id) { task = _workStatusTasks[i]; break; }
@@ -1371,6 +1382,10 @@ async function deleteWorkStatusTask(id) {
 }
 
 async function openWorkStatusHistoryModal(taskId) {
+    if (!workStatusIsLoggedIn()) {
+        alert('로그인한 사용자만 기록을 볼 수 있습니다.');
+        return;
+    }
     var modal = document.getElementById('workStatusHistoryModal');
     var titleEl = document.getElementById('workStatusHistoryTitle');
     var listEl = document.getElementById('workStatusHistoryList');
