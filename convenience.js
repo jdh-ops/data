@@ -410,7 +410,8 @@ function excelMergeDownloadAll() {
 var CONVENIENCE_FEATURES = [
     { id: 'excelMerge', title: '엑셀 합치기', description: '여러 엑셀 파일을 하나로 합치고 중복 행을 제거합니다.' },
     { id: 'urlConverter', title: 'URL 단축', description: '여러 URL을 붙여넣으면 지원 사이트는 단축해 주고, 복사할 수 있습니다.' },
-    { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' }
+    { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' },
+    { id: 'laborChecker', title: '단순노동 체크기', description: '내가 어디까지 했더라?' }
 ];
 var CONVENIENCE_STORAGE_FAV = 'page3_convenience_favorites';
 
@@ -461,6 +462,7 @@ function bindConvenienceCardClick(container) {
             if (id === 'excelMerge') openExcelMergeModal();
             if (id === 'urlConverter') openUrlConverterModal();
             if (id === 'workStatus') openWorkStatusModal();
+            if (id === 'laborChecker') openLaborCheckerModal();
         });
     });
 }
@@ -1430,4 +1432,349 @@ async function openWorkStatusHistoryModal(taskId) {
 function closeWorkStatusHistoryModal() {
     var modal = document.getElementById('workStatusHistoryModal');
     if (modal) modal.style.display = 'none';
+}
+
+/* ---------- 단순노동 체크기 (편의 기능 4번) ---------- */
+var LABOR_CHECKER_MAX_ITEMS = 50;
+var LABOR_CHECKER_MAX_NUMBERS = 9999;
+var _laborChecker = {
+    active: false,
+    totalNumbers: null,
+    itemCount: 0,
+    current: 1,
+    maxReached: 1,
+    records: {}
+};
+
+function laborCheckerEscape(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function laborCheckerEmptyLabels(count) {
+    var labels = [];
+    for (var i = 0; i < count; i++) labels.push('');
+    return labels;
+}
+
+function laborCheckerEmptyChecks(count) {
+    var checks = [];
+    for (var i = 0; i < count; i++) checks.push(false);
+    return checks;
+}
+
+function laborCheckerEnsureRecord(num) {
+    var key = String(num);
+    if (_laborChecker.records[key]) return _laborChecker.records[key];
+    var prev = num > 1 ? _laborChecker.records[String(num - 1)] : null;
+    var rec = {
+        labels: prev && prev.labels ? prev.labels.slice() : laborCheckerEmptyLabels(_laborChecker.itemCount),
+        checks: laborCheckerEmptyChecks(_laborChecker.itemCount)
+    };
+    if (rec.labels.length !== _laborChecker.itemCount) rec.labels = laborCheckerEmptyLabels(_laborChecker.itemCount);
+    _laborChecker.records[key] = rec;
+    return rec;
+}
+
+function laborCheckerIsNumberComplete(num) {
+    var rec = _laborChecker.records[String(num)];
+    if (!rec || !rec.checks || rec.checks.length !== _laborChecker.itemCount) return false;
+    for (var i = 0; i < rec.checks.length; i++) {
+        if (!rec.checks[i]) return false;
+    }
+    return rec.checks.length > 0;
+}
+
+function laborCheckerAreAllComplete() {
+    var total = _laborChecker.totalNumbers;
+    if (!total) return false;
+    for (var n = 1; n <= total; n++) {
+        if (!laborCheckerIsNumberComplete(n)) return false;
+    }
+    return true;
+}
+
+function openLaborCheckerModal() {
+    var modal = document.getElementById('laborCheckerModal');
+    if (modal) modal.style.display = 'flex';
+    laborCheckerBindTooltip();
+    if (!_laborChecker.active) {
+        var numInput = document.getElementById('laborCheckerNumberInput');
+        var itemInput = document.getElementById('laborCheckerItemInput');
+        if (numInput) numInput.value = '';
+        if (itemInput) itemInput.value = '1';
+        laborCheckerCreate();
+        return;
+    }
+    renderLaborCheckerBoard();
+}
+
+function closeLaborCheckerModal() {
+    laborCheckerHideTip();
+    var modal = document.getElementById('laborCheckerModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function laborCheckerCreate() {
+    var numInput = document.getElementById('laborCheckerNumberInput');
+    var itemInput = document.getElementById('laborCheckerItemInput');
+    var numRaw = numInput ? String(numInput.value || '').trim() : '';
+    var itemRaw = itemInput ? String(itemInput.value || '').trim() : '';
+    var itemCount = parseInt(itemRaw, 10);
+    if (!itemRaw || isNaN(itemCount) || itemCount < 1) {
+        alert('항목에 1 이상의 숫자를 입력하세요.');
+        return;
+    }
+    if (itemCount > LABOR_CHECKER_MAX_ITEMS) {
+        alert('항목은 최대 ' + LABOR_CHECKER_MAX_ITEMS + '개까지 만들 수 있습니다.');
+        return;
+    }
+    var totalNumbers = null;
+    if (numRaw !== '') {
+        totalNumbers = parseInt(numRaw, 10);
+        if (isNaN(totalNumbers) || totalNumbers < 0) {
+            alert('번호에 0 이상의 숫자를 입력하거나 비워 두세요.');
+            return;
+        }
+        if (totalNumbers > LABOR_CHECKER_MAX_NUMBERS) {
+            alert('번호는 최대 ' + LABOR_CHECKER_MAX_NUMBERS + '까지 입력할 수 있습니다.');
+            return;
+        }
+        if (totalNumbers === 0) totalNumbers = null;
+    }
+    _laborChecker.active = true;
+    _laborChecker.totalNumbers = totalNumbers;
+    _laborChecker.itemCount = itemCount;
+    _laborChecker.current = 1;
+    _laborChecker.maxReached = 1;
+    _laborChecker.records = {};
+    laborCheckerEnsureRecord(1);
+    renderLaborCheckerBoard();
+}
+
+function laborCheckerReset() {
+    if (!_laborChecker.active) return;
+    laborCheckerHideTip();
+    Object.keys(_laborChecker.records).forEach(function (key) {
+        var rec = _laborChecker.records[key];
+        if (rec) rec.checks = laborCheckerEmptyChecks(_laborChecker.itemCount);
+    });
+    _laborChecker.current = 1;
+    _laborChecker.maxReached = 1;
+    laborCheckerEnsureRecord(1);
+    renderLaborCheckerBoard();
+}
+
+function laborCheckerMaxCurrent() {
+    return _laborChecker.totalNumbers || _laborChecker.maxReached;
+}
+
+function laborCheckerRemainValue() {
+    return Math.max(0, laborCheckerMaxCurrent() - _laborChecker.current);
+}
+
+function laborCheckerSetCurrent(next) {
+    if (!_laborChecker.active) return false;
+    next = Math.round(Number(next));
+    if (isNaN(next) || next < 1) next = 1;
+    var max = laborCheckerMaxCurrent();
+    if (next > max) next = max;
+    if (next === _laborChecker.current) return false;
+    _laborChecker.current = next;
+    laborCheckerEnsureRecord(next);
+    return true;
+}
+
+function laborCheckerMove(delta) {
+    if (laborCheckerSetCurrent(_laborChecker.current + delta)) renderLaborCheckerBoard();
+}
+
+var LABOR_CHECKER_DRAG_PX = 12;
+var _laborCheckerDrag = null;
+
+function laborCheckerOnWheel(e) {
+    if (!_laborChecker.active || !e) return;
+    var modal = document.getElementById('laborCheckerModal');
+    if (!modal || modal.style.display === 'none') return;
+    var t = e.target;
+    var tag = t && t.tagName ? t.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    var delta = e.deltaY > 0 ? 1 : -1;
+    laborCheckerMove(delta);
+}
+
+function laborCheckerStartDrag(kind, e) {
+    if (!_laborChecker.active || !e) return;
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    var startValue = kind === 'passed' ? _laborChecker.current - 1 : laborCheckerRemainValue();
+    _laborCheckerDrag = {
+        kind: kind,
+        startX: e.clientX,
+        startY: e.clientY,
+        startValue: startValue
+    };
+    document.addEventListener('mousemove', laborCheckerOnDrag);
+    document.addEventListener('mouseup', laborCheckerEndDrag);
+}
+
+function laborCheckerOnDrag(e) {
+    if (!_laborCheckerDrag) return;
+    var dy = _laborCheckerDrag.startY - e.clientY;
+    var dx = e.clientX - _laborCheckerDrag.startX;
+    var dist = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+    var nextValue = _laborCheckerDrag.startValue + Math.round(dist / LABOR_CHECKER_DRAG_PX);
+    var nextCurrent = _laborCheckerDrag.kind === 'passed'
+        ? nextValue + 1
+        : laborCheckerMaxCurrent() - nextValue;
+    if (laborCheckerSetCurrent(nextCurrent)) renderLaborCheckerBoard();
+}
+
+function laborCheckerEndDrag() {
+    _laborCheckerDrag = null;
+    document.removeEventListener('mousemove', laborCheckerOnDrag);
+    document.removeEventListener('mouseup', laborCheckerEndDrag);
+}
+
+function laborCheckerOnLabel(index, value, el) {
+    if (!_laborChecker.active) return;
+    var rec = laborCheckerEnsureRecord(_laborChecker.current);
+    rec.labels[index] = value;
+    if (el && _laborCheckerTipInput === el) laborCheckerShowTip(el);
+}
+
+var _laborCheckerTipBound = false;
+var _laborCheckerTipInput = null;
+
+function laborCheckerBindTooltip() {
+    if (_laborCheckerTipBound) return;
+    _laborCheckerTipBound = true;
+    document.addEventListener('mouseover', function (e) {
+        var t = e.target;
+        var input = t && t.closest ? t.closest('#laborCheckerModal .labor-checker-item-input') : null;
+        if (input) laborCheckerShowTip(input);
+    });
+    document.addEventListener('mouseout', function (e) {
+        var t = e.target;
+        var input = t && t.closest ? t.closest('#laborCheckerModal .labor-checker-item-input') : null;
+        if (!input) return;
+        var next = e.relatedTarget;
+        if (next && input.contains(next)) return;
+        laborCheckerHideTip();
+    });
+}
+
+function laborCheckerShowTip(input) {
+    var tip = document.getElementById('laborCheckerTooltip');
+    var text = input && input.value ? input.value : '';
+    if (!tip || !text) {
+        laborCheckerHideTip();
+        return;
+    }
+    _laborCheckerTipInput = input;
+    tip.textContent = text;
+    tip.classList.add('is-on');
+    var rect = input.getBoundingClientRect();
+    var pad = 8;
+    var tw = tip.offsetWidth;
+    var th = tip.offsetHeight;
+    var left = rect.left + (rect.width / 2) - (tw / 2);
+    if (left < pad) left = pad;
+    if (left + tw > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - tw - pad);
+    var top = rect.bottom + 6;
+    if (top + th > window.innerHeight - pad) {
+        top = rect.top - th - 6;
+        if (top < pad) top = pad;
+    }
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+}
+
+function laborCheckerHideTip() {
+    _laborCheckerTipInput = null;
+    var tip = document.getElementById('laborCheckerTooltip');
+    if (!tip) return;
+    tip.classList.remove('is-on');
+    tip.textContent = '';
+}
+
+function laborCheckerOnCheck(index, checked) {
+    if (!_laborChecker.active) return;
+    var rec = laborCheckerEnsureRecord(_laborChecker.current);
+    var wasComplete = laborCheckerIsNumberComplete(_laborChecker.current);
+    rec.checks[index] = !!checked;
+    var nowComplete = laborCheckerIsNumberComplete(_laborChecker.current);
+    if (nowComplete && !wasComplete) {
+        if (_laborChecker.totalNumbers && laborCheckerAreAllComplete()) {
+            renderLaborCheckerBoard();
+            return;
+        }
+        if (_laborChecker.totalNumbers && _laborChecker.current >= _laborChecker.totalNumbers) {
+            renderLaborCheckerBoard();
+            return;
+        }
+        _laborChecker.current += 1;
+        if (_laborChecker.current > _laborChecker.maxReached) _laborChecker.maxReached = _laborChecker.current;
+        laborCheckerEnsureRecord(_laborChecker.current);
+    }
+    renderLaborCheckerBoard();
+}
+
+function renderLaborCheckerBoard() {
+    var board = document.getElementById('laborCheckerBoard');
+    var doneEl = document.getElementById('laborCheckerDone');
+    if (!board) return;
+    if (!_laborChecker.active) {
+        board.style.display = 'none';
+        if (doneEl) doneEl.style.display = 'none';
+        laborCheckerHideTip();
+        return;
+    }
+    board.style.display = 'block';
+    laborCheckerHideTip();
+    var current = _laborChecker.current;
+    var rec = laborCheckerEnsureRecord(current);
+    var total = _laborChecker.totalNumbers;
+    var canUp = current > 1;
+    var canDown = current < laborCheckerMaxCurrent();
+    var passed = current - 1;
+    var remain = laborCheckerRemainValue();
+    var cells = '';
+    for (var i = 0; i < _laborChecker.itemCount; i++) {
+        var labelText = rec.labels[i] || '';
+        var labelAttr = laborCheckerEscape(labelText);
+        cells += '<div class="labor-checker-cell">' +
+            '<input type="text" class="labor-checker-item-input" value="' + labelAttr + '" placeholder="항목" oninput="laborCheckerOnLabel(' + i + ', this.value, this)">' +
+            '<label class="labor-checker-check-area">' +
+            '<input type="checkbox" class="labor-checker-check" ' + (rec.checks[i] ? 'checked' : '') + ' onchange="laborCheckerOnCheck(' + i + ', this.checked)">' +
+            '</label>' +
+            '</div>';
+    }
+    board.innerHTML =
+        '<div class="labor-checker-wrap">' +
+            '<div class="labor-checker-count-box is-drag" id="laborCheckerPassedBox" title="드래그하여 변경" onmousedown="laborCheckerStartDrag(\'passed\', event)">' +
+                '<span class="labor-checker-count-label">지나온</span><span>' + passed + '</span>' +
+            '</div>' +
+            '<div class="labor-checker-main">' +
+                '<div class="labor-checker-num-col">' +
+                    '<button type="button" class="labor-checker-arrow" onclick="laborCheckerMove(-1)" ' + (canUp ? '' : 'disabled') + ' aria-label="이전 번호">▲</button>' +
+                    '<div class="labor-checker-num" title="마우스 휠로 변경">' + current + '</div>' +
+                    '<button type="button" class="labor-checker-arrow" onclick="laborCheckerMove(1)" ' + (canDown ? '' : 'disabled') + ' aria-label="다음 번호">▼</button>' +
+                '</div>' +
+                '<div class="labor-checker-table-wrap">' +
+                    '<div class="labor-checker-items">' + cells + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="labor-checker-count-box is-drag" id="laborCheckerRemainBox" title="드래그하여 변경" onmousedown="laborCheckerStartDrag(\'remain\', event)">' +
+                '<span class="labor-checker-count-label">남음</span><span>' + remain + '</span>' +
+            '</div>' +
+        '</div>';
+    if (doneEl) {
+        var allDone = !!total && laborCheckerAreAllComplete();
+        doneEl.style.display = allDone ? 'block' : 'none';
+    }
 }

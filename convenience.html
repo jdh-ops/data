@@ -133,6 +133,167 @@
         .work-status-hist-tag.off { background: #e2e8f0; color: #475569; }
         .work-status-hist-who { flex: 1; min-width: 0; word-break: break-all; }
         .work-status-hist-time { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        /* 단순노동 체크기 */
+        .labor-checker-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .labor-checker-main {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .labor-checker-num-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding-top: 8px;
+        }
+        .labor-checker-num {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+            min-width: 48px;
+            line-height: 1.2;
+            cursor: default;
+            user-select: none;
+        }
+        .labor-checker-arrow {
+            width: 36px;
+            height: 28px;
+            border: 1px solid #cbd5e0;
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #334155;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .labor-checker-arrow:hover:not(:disabled) { background: #f1f5f9; }
+        .labor-checker-arrow:disabled { opacity: 0.4; cursor: not-allowed; }
+        .labor-checker-count-box {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 72px;
+            padding: 8px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            font-size: 18px;
+            font-weight: 700;
+            color: #334155;
+            font-variant-numeric: tabular-nums;
+            user-select: none;
+            touch-action: none;
+        }
+        .labor-checker-count-box.is-drag {
+            cursor: ew-resize;
+        }
+        .labor-checker-count-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            margin: 0;
+        }
+        .labor-checker-table-wrap {
+            min-width: 0;
+            max-width: calc(100% - 72px);
+        }
+        .labor-checker-items {
+            display: flex;
+            flex-wrap: wrap;
+            border-top: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
+            max-width: 100%;
+        }
+        .labor-checker-cell {
+            box-sizing: border-box;
+            flex: 0 0 78px;
+            width: 78px;
+            padding: 0;
+            text-align: center;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+            background: #fff;
+        }
+        .labor-checker-item-input {
+            width: calc(100% - 12px);
+            min-width: 0;
+            margin: 8px 6px 6px;
+            padding: 4px 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+            box-sizing: border-box;
+            display: block;
+        }
+        .labor-checker-tooltip {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            max-width: min(280px, calc(100vw - 16px));
+            background: #1e293b;
+            color: #fff;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-all;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+            pointer-events: none;
+        }
+        .labor-checker-tooltip.is-on { display: block; }
+        .labor-checker-check-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 56px;
+            margin: 0;
+            padding: 10px 6px 12px;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .labor-checker-check-area:hover {
+            background: #f8fafc;
+        }
+        .labor-checker-check {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            pointer-events: none;
+        }
+        .labor-checker-done {
+            margin-top: 16px;
+            padding: 14px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: #276749;
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 10px;
+        }
         /* 이 페이지는 사이드바 없이 본문만 세로 배치 */
         body { background: #f1f5f9; padding: 24px; display: block !important; height: auto; min-height: 100vh; overflow-y: auto; }
         /* 이 페이지는 단일 섹션만 있으므로 편의 기능 본문 항상 표시 */
@@ -281,6 +442,31 @@
             <button type="button" onclick="forceOffWorkStatusTask()" style="width: 100%; padding: 10px 14px; background: #c53030; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">무시하고 종료하기</button>
         </div>
     </div>
+
+    <!-- 단순노동 체크기 모달 (편의 기능 4번) -->
+    <div id="laborCheckerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeLaborCheckerModal()" onwheel="laborCheckerOnWheel(event)">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 640px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">단순노동 체크기</h3>
+                <button type="button" onclick="closeLaborCheckerModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 16px;">
+                <div>
+                    <label for="laborCheckerNumberInput" style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">번호</label>
+                    <input type="number" id="laborCheckerNumberInput" min="1" placeholder="비워두면 무한" onkeypress="if(event.key==='Enter') laborCheckerCreate()" style="width: 120px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label for="laborCheckerItemInput" style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">항목</label>
+                    <input type="number" id="laborCheckerItemInput" min="1" value="1" placeholder="체크 칸 수" onkeypress="if(event.key==='Enter') laborCheckerCreate()" style="width: 120px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+                </div>
+                <button type="button" onclick="laborCheckerCreate()" style="padding: 8px 16px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">생성</button>
+                <button type="button" onclick="laborCheckerReset()" style="padding: 8px 16px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">리셋</button>
+            </div>
+            <div id="laborCheckerBoard" style="display: none;"></div>
+            <div id="laborCheckerDone" class="labor-checker-done" style="display: none;">완료</div>
+        </div>
+    </div>
+    <div id="laborCheckerTooltip" class="labor-checker-tooltip" role="tooltip"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
