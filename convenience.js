@@ -411,7 +411,8 @@ var CONVENIENCE_FEATURES = [
     { id: 'excelMerge', title: '엑셀 합치기', description: '여러 엑셀 파일을 하나로 합치고 중복 행을 제거합니다.' },
     { id: 'urlConverter', title: 'URL 단축', description: '여러 URL을 붙여넣으면 지원 사이트는 단축해 주고, 복사할 수 있습니다.' },
     { id: 'workStatus', title: '작업 상태 확인', description: '특정 작업을 누가 하고 있는지 켜짐/꺼짐으로 확인하고, ON/OFF 이력을 세트로 기록합니다.' },
-    { id: 'laborChecker', title: '단순노동 체크기', description: '내가 어디까지 했더라?' }
+    { id: 'laborChecker', title: '단순노동 체크기', description: '내가 어디까지 했더라?' },
+    { id: 'urlOpener', title: 'URL 여러개 열기(크롬 전용)', description: '여러 URL을 n개씩 새 탭으로 열고, 이 기능으로 연 탭을 닫을 수 있습니다.' }
 ];
 var CONVENIENCE_STORAGE_FAV = 'page3_convenience_favorites';
 
@@ -463,19 +464,28 @@ function bindConvenienceCardClick(container) {
             if (id === 'urlConverter') openUrlConverterModal();
             if (id === 'workStatus') openWorkStatusModal();
             if (id === 'laborChecker') openLaborCheckerModal();
+            if (id === 'urlOpener') openUrlOpenerModal();
         });
     });
+}
+
+function convenienceCardTitleHtml(title) {
+    return (title || '')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\(크롬 전용\)/g, '<br>(크롬 전용)');
 }
 
 function buildConvenienceCardHtml(feature, isFavoriteRow) {
     var favIds = getConvenienceFavorites();
     var isFav = favIds.indexOf(feature.id) !== -1;
     var thumbStyle = 'background: linear-gradient(135deg, #334155 0%, #1e293b 100%);';
+    var titleHtml = convenienceCardTitleHtml(feature.title);
     return '<div class="convenience-card" data-id="' + feature.id + '" style="width: 100%;">' +
         '<div style="width:100%;height:100%;min-height:90px;' + thumbStyle + '" class="card-thumb-wrap"></div>' +
-        '<div class="card-title-top">' + (feature.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+        '<div class="card-title-top">' + titleHtml + '</div>' +
         '<div class="card-overlay">' +
-        '<div class="card-title">' + (feature.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+        '<div class="card-title">' + titleHtml + '</div>' +
         '<div class="card-desc">' + (feature.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
         '</div>' +
         '<button type="button" class="card-menu-btn" aria-label="메뉴">⋮</button>' +
@@ -1777,4 +1787,337 @@ function renderLaborCheckerBoard() {
         var allDone = !!total && laborCheckerAreAllComplete();
         doneEl.style.display = allDone ? 'block' : 'none';
     }
+}
+
+/* ---------- URL 여러개 열기 (편의 기능 5번) ---------- */
+var _urlOpener = {
+    urls: [],
+    nextIndex: 0,
+    batchSize: 5,
+    closePrevious: false,
+    opened: [],
+    marked: {}
+};
+var _urlOpenerTimer = null;
+
+function urlOpenerEscape(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function urlOpenerSetMessage(text, isError) {
+    var el = document.getElementById('urlOpenerMessage');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = isError ? '#c53030' : '#334155';
+}
+
+function urlOpenerParseInput(text) {
+    var raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    var parts = raw.split(/[\n\t]+/);
+    var urls = [];
+    for (var i = 0; i < parts.length; i++) {
+        var s = parts[i].trim().replace(/^["']+|["']+$/g, '').trim();
+        if (!s) continue;
+        var m = s.match(/https?:\/\/[^\s<>"']+/i);
+        if (m) {
+            urls.push(m[0].replace(/[.,;)\]]+$/g, ''));
+            continue;
+        }
+        var token = s.split(/\s/)[0];
+        if (/^www\./i.test(token)) {
+            urls.push('https://' + token.replace(/[.,;)\]]+$/g, ''));
+            continue;
+        }
+        if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}([/:?#].*)?$/i.test(token)) {
+            urls.push('https://' + token.replace(/[.,;)\]]+$/g, ''));
+        }
+    }
+    return urls;
+}
+
+function urlOpenerGetBatchSize() {
+    var inp = document.getElementById('urlOpenerBatchSize');
+    var n = inp ? parseInt(inp.value, 10) : _urlOpener.batchSize;
+    if (!n || n < 1) n = 1;
+    _urlOpener.batchSize = n;
+    if (inp && String(inp.value) !== String(n)) inp.value = String(n);
+    return n;
+}
+
+function urlOpenerSyncBatchSize() {
+    urlOpenerGetBatchSize();
+}
+
+function urlOpenerSyncClosePrev() {
+    var el = document.getElementById('urlOpenerClosePrev');
+    _urlOpener.closePrevious = !!(el && el.checked);
+}
+
+function urlOpenerPruneClosed() {
+    _urlOpener.opened = _urlOpener.opened.filter(function (item) {
+        return item && item.win && !item.win.closed;
+    });
+}
+
+function urlOpenerCloseItems(items) {
+    (items || []).forEach(function (item) {
+        try {
+            if (item && item.win && !item.win.closed) item.win.close();
+        } catch (e) {}
+    });
+    urlOpenerPruneClosed();
+}
+
+function urlOpenerRenderCount() {
+    var el = document.getElementById('urlOpenerCountLabel');
+    if (el) el.textContent = '총 ' + _urlOpener.urls.length + '개';
+}
+
+function urlOpenerRenderOpenTabs() {
+    urlOpenerPruneClosed();
+    var wrap = document.getElementById('urlOpenerOpenTabs');
+    if (!wrap) return;
+    if (_urlOpener.opened.length === 0) {
+        wrap.innerHTML = '<span style="font-size: 13px; color: #94a3b8;">열린 탭 없음</span>';
+        return;
+    }
+    wrap.innerHTML = _urlOpener.opened.map(function (item) {
+        var marked = _urlOpener.marked[item.num] ? ' is-marked' : '';
+        return '<button type="button" class="url-opener-num-btn' + marked + '" onclick="urlOpenerToggleMark(' + item.num + ')">' + item.num + '</button>';
+    }).join('');
+}
+
+function urlOpenerRenderTable() {
+    var tbody = document.getElementById('urlOpenerTableBody');
+    var selectAll = document.getElementById('urlOpenerSelectAll');
+    if (!tbody) return;
+    if (selectAll) selectAll.checked = false;
+    if (_urlOpener.urls.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="padding: 20px; text-align: center; color: #94a3b8;">URL이 없습니다. 오른쪽에 붙여넣은 뒤 넣기를 누르세요.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = _urlOpener.urls.map(function (url, i) {
+        var num = i + 1;
+        var marked = _urlOpener.marked[num] ? ' class="is-marked"' : '';
+        return '<tr' + marked + '>' +
+            '<td class="check"><input type="checkbox" class="url-opener-row-check" data-index="' + i + '"></td>' +
+            '<td class="num">' + num + '</td>' +
+            '<td class="url-cell">' + urlOpenerEscape(url) + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function urlOpenerToggleSelectAll(el) {
+    var tbody = document.getElementById('urlOpenerTableBody');
+    if (!tbody) return;
+    var on = !!(el && el.checked);
+    tbody.querySelectorAll('input.url-opener-row-check').forEach(function (c) { c.checked = on; });
+}
+
+function urlOpenerDeleteSelected() {
+    var tbody = document.getElementById('urlOpenerTableBody');
+    if (!tbody) return;
+    var checks = tbody.querySelectorAll('input.url-opener-row-check:checked');
+    if (!checks.length) {
+        alert('삭제할 행을 선택하세요.');
+        return;
+    }
+    var removeIdx = {};
+    for (var i = 0; i < checks.length; i++) {
+        var idx = parseInt(checks[i].getAttribute('data-index'), 10);
+        if (!isNaN(idx)) removeIdx[idx] = true;
+    }
+    var newUrls = [];
+    var oldToNew = {};
+    for (var j = 0; j < _urlOpener.urls.length; j++) {
+        if (removeIdx[j]) continue;
+        oldToNew[j] = newUrls.length;
+        newUrls.push(_urlOpener.urls[j]);
+    }
+    var removedBeforeNext = 0;
+    for (var k = 0; k < _urlOpener.nextIndex; k++) {
+        if (removeIdx[k]) removedBeforeNext++;
+    }
+    _urlOpener.nextIndex = Math.max(0, _urlOpener.nextIndex - removedBeforeNext);
+    if (_urlOpener.nextIndex > newUrls.length) _urlOpener.nextIndex = newUrls.length;
+
+    var newMarked = {};
+    Object.keys(_urlOpener.marked).forEach(function (key) {
+        var oldIdx = parseInt(key, 10) - 1;
+        if (oldToNew[oldIdx] != null) newMarked[oldToNew[oldIdx] + 1] = true;
+    });
+    _urlOpener.marked = newMarked;
+
+    var keptOpened = [];
+    _urlOpener.opened.forEach(function (item) {
+        if (removeIdx[item.index]) {
+            try { if (item.win && !item.win.closed) item.win.close(); } catch (e) {}
+            return;
+        }
+        if (oldToNew[item.index] == null) return;
+        item.index = oldToNew[item.index];
+        item.num = item.index + 1;
+        keptOpened.push(item);
+    });
+    _urlOpener.opened = keptOpened;
+    _urlOpener.urls = newUrls;
+    urlOpenerRenderCount();
+    urlOpenerRenderOpenTabs();
+    urlOpenerRenderTable();
+}
+
+function urlOpenerDeleteAll() {
+    if (_urlOpener.urls.length === 0) {
+        alert('삭제할 URL이 없습니다.');
+        return;
+    }
+    if (!confirm('URL ' + _urlOpener.urls.length + '개를 모두 삭제할까요?')) return;
+    urlOpenerCloseItems(_urlOpener.opened.slice());
+    _urlOpener.urls = [];
+    _urlOpener.nextIndex = 0;
+    _urlOpener.marked = {};
+    _urlOpener.opened = [];
+    urlOpenerSetMessage('');
+    urlOpenerRenderCount();
+    urlOpenerRenderOpenTabs();
+    urlOpenerRenderTable();
+}
+
+function urlOpenerRenderMain() {
+    var batchInp = document.getElementById('urlOpenerBatchSize');
+    var closePrev = document.getElementById('urlOpenerClosePrev');
+    if (batchInp) batchInp.value = String(_urlOpener.batchSize || 5);
+    if (closePrev) closePrev.checked = !!_urlOpener.closePrevious;
+    urlOpenerRenderCount();
+    urlOpenerRenderOpenTabs();
+}
+
+function urlOpenerToggleMark(num) {
+    if (_urlOpener.marked[num]) delete _urlOpener.marked[num];
+    else _urlOpener.marked[num] = true;
+    urlOpenerRenderOpenTabs();
+    var inputModal = document.getElementById('urlOpenerInputModal');
+    if (inputModal && inputModal.style.display === 'flex') urlOpenerRenderTable();
+}
+
+function openUrlOpenerModal() {
+    var modal = document.getElementById('urlOpenerModal');
+    if (!modal) return;
+    urlOpenerRenderMain();
+    urlOpenerSetMessage('');
+    modal.style.display = 'flex';
+    if (_urlOpenerTimer) clearInterval(_urlOpenerTimer);
+    _urlOpenerTimer = setInterval(function () {
+        var before = _urlOpener.opened.length;
+        urlOpenerPruneClosed();
+        if (_urlOpener.opened.length !== before) urlOpenerRenderOpenTabs();
+    }, 1000);
+}
+
+function closeUrlOpenerModal() {
+    closeUrlOpenerInputModal();
+    var modal = document.getElementById('urlOpenerModal');
+    if (modal) modal.style.display = 'none';
+    if (_urlOpenerTimer) {
+        clearInterval(_urlOpenerTimer);
+        _urlOpenerTimer = null;
+    }
+}
+
+function openUrlOpenerInputModal() {
+    var modal = document.getElementById('urlOpenerInputModal');
+    if (!modal) return;
+    urlOpenerRenderTable();
+    modal.style.display = 'flex';
+    var ta = document.getElementById('urlOpenerInputText');
+    if (ta) setTimeout(function () { ta.focus(); }, 0);
+}
+
+function closeUrlOpenerInputModal() {
+    var modal = document.getElementById('urlOpenerInputModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function urlOpenerAddUrls() {
+    var ta = document.getElementById('urlOpenerInputText');
+    var parsed = urlOpenerParseInput(ta ? ta.value : '');
+    if (parsed.length === 0) {
+        alert('추가할 URL이 없습니다. 한 줄에 하나씩 붙여넣으세요.');
+        return;
+    }
+    for (var i = 0; i < parsed.length; i++) _urlOpener.urls.push(parsed[i]);
+    if (ta) ta.value = '';
+    urlOpenerRenderCount();
+    urlOpenerRenderTable();
+}
+
+function urlOpenerOpenNext() {
+    urlOpenerPruneClosed();
+    urlOpenerSyncClosePrev();
+    var n = urlOpenerGetBatchSize();
+    if (_urlOpener.urls.length === 0) {
+        urlOpenerSetMessage('먼저 URL을 넣어 주세요.', true);
+        return;
+    }
+    if (_urlOpener.nextIndex >= _urlOpener.urls.length) {
+        urlOpenerSetMessage('더 열 URL이 없습니다.', true);
+        return;
+    }
+    if (_urlOpener.closePrevious) urlOpenerCloseItems(_urlOpener.opened.slice());
+    var start = _urlOpener.nextIndex;
+    var opened = 0;
+    var blocked = false;
+    for (var i = 0; i < n && (start + i) < _urlOpener.urls.length; i++) {
+        var idx = start + i;
+        var win = window.open(_urlOpener.urls[idx], '_blank');
+        if (!win) {
+            blocked = true;
+            break;
+        }
+        _urlOpener.opened.push({ index: idx, num: idx + 1, win: win });
+        opened++;
+    }
+    _urlOpener.nextIndex = start + opened;
+    urlOpenerRenderOpenTabs();
+    if (blocked && opened === 0) {
+        urlOpenerSetMessage('팝업이 차단되었습니다. 이 사이트 팝업을 허용한 뒤 다시 눌러 주세요.', true);
+    } else if (blocked) {
+        urlOpenerSetMessage(opened + '개 탭을 연 뒤 나머지가 차단되었습니다. 팝업을 허용해 주세요.', true);
+    } else {
+        var last = start + opened;
+        var remain = _urlOpener.urls.length - _urlOpener.nextIndex;
+        urlOpenerSetMessage(remain > 0
+            ? (opened + '개 탭을 열었습니다. (' + (start + 1) + '–' + last + '번, 다음 ' + (_urlOpener.nextIndex + 1) + '번, ' + remain + '개 남음)')
+            : (opened + '개 탭을 열었습니다. (' + (start + 1) + '–' + last + '번, 마지막까지 열림, 0개 남음)'));
+    }
+}
+
+function urlOpenerCloseBatch() {
+    urlOpenerPruneClosed();
+    var n = urlOpenerGetBatchSize();
+    if (_urlOpener.opened.length === 0) {
+        urlOpenerSetMessage('이 기능으로 연 탭이 없습니다.', true);
+        return;
+    }
+    var toClose = _urlOpener.opened.slice(0, n);
+    var count = toClose.length;
+    urlOpenerCloseItems(toClose);
+    urlOpenerRenderOpenTabs();
+    urlOpenerSetMessage(count + '개 탭을 닫았습니다.');
+}
+
+function urlOpenerCloseAll() {
+    urlOpenerPruneClosed();
+    if (_urlOpener.opened.length === 0) {
+        urlOpenerSetMessage('이 기능으로 연 탭이 없습니다.', true);
+        return;
+    }
+    var count = _urlOpener.opened.length;
+    urlOpenerCloseItems(_urlOpener.opened.slice());
+    urlOpenerRenderOpenTabs();
+    urlOpenerSetMessage(count + '개 탭을 모두 닫았습니다.');
 }

@@ -30,6 +30,7 @@
             color: #fff;
             font-size: 14px;
             font-weight: 600;
+            line-height: 1.35;
         }
         .convenience-card .card-overlay {
             position: absolute;
@@ -294,6 +295,62 @@
             border: 1px solid #9ae6b4;
             border-radius: 10px;
         }
+        /* URL 여러개 열기 */
+        .url-opener-num-btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 8px;
+            border: 1px solid #cbd5e0;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            font-variant-numeric: tabular-nums;
+        }
+        .url-opener-num-btn:hover { background: #f1f5f9; }
+        .url-opener-num-btn.is-marked {
+            background: #e53e3e;
+            border-color: #c53030;
+            color: #fff;
+        }
+        .url-opener-num-btn.is-marked:hover { background: #c53030; }
+        .url-opener-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .url-opener-table th, .url-opener-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            vertical-align: top;
+        }
+        .url-opener-table th {
+            background: #f8fafc;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .url-opener-table .check {
+            width: 36px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .url-opener-table .num {
+            width: 52px;
+            text-align: center;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .url-opener-table .url-cell {
+            word-break: break-all;
+            color: #334155;
+        }
+        .url-opener-table tr.is-marked td {
+            background: #fc8181;
+            color: #742a2a;
+        }
+        .url-opener-table tr.is-marked .url-cell { color: #742a2a; }
         /* 이 페이지는 사이드바 없이 본문만 세로 배치 */
         body { background: #f1f5f9; padding: 24px; display: block !important; height: auto; min-height: 100vh; overflow-y: auto; }
         /* 이 페이지는 단일 섹션만 있으므로 편의 기능 본문 항상 표시 */
@@ -467,6 +524,75 @@
         </div>
     </div>
     <div id="laborCheckerTooltip" class="labor-checker-tooltip" role="tooltip"></div>
+
+    <!-- URL 여러개 열기 모달 (편의 기능 5번) -->
+    <div id="urlOpenerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1002; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeUrlOpenerModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 80%; max-width: 80%; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px; box-sizing: border-box;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">URL 여러개 열기(크롬 전용)</h3>
+                <button type="button" onclick="closeUrlOpenerModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px;">
+                <div style="flex-shrink: 0; width: 120px;">
+                    <button type="button" onclick="openUrlOpenerInputModal()" style="width: 100%; padding: 10px 12px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">URL 넣기</button>
+                    <div id="urlOpenerCountLabel" style="margin-top: 8px; font-size: 13px; color: #475569; text-align: center;">총 0개</div>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">열린 탭</div>
+                    <div id="urlOpenerOpenTabs" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px;"></div>
+                </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                <label for="urlOpenerBatchSize" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #334155;">
+                    n개씩
+                    <input type="number" id="urlOpenerBatchSize" min="1" value="5" onchange="urlOpenerSyncBatchSize()" style="width: 64px; padding: 8px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; box-sizing: border-box; text-align: center;">
+                </label>
+                <button type="button" onclick="urlOpenerOpenNext()" style="padding: 8px 16px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">열기</button>
+                <button type="button" onclick="urlOpenerCloseBatch()" style="padding: 8px 16px; background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">닫기</button>
+                <button type="button" onclick="urlOpenerCloseAll()" style="padding: 8px 16px; background: #c53030; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">모두 닫기</button>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #334155; margin-left: 4px;">
+                    <input type="checkbox" id="urlOpenerClosePrev" onchange="urlOpenerSyncClosePrev()">
+                    이전 탭 닫고 열기
+                </label>
+            </div>
+            <div id="urlOpenerMessage" style="margin-top: 12px; font-size: 16px; font-weight: 600; color: #334155; min-height: 22px; line-height: 1.45;"></div>
+        </div>
+    </div>
+
+    <!-- URL 넣기 모달 -->
+    <div id="urlOpenerInputModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 1005; align-items: center; justify-content: center; overflow-y: auto;" onclick="if(event.target===this) closeUrlOpenerInputModal()">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 760px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin: 20px;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 18px;">URL 넣기</h3>
+                <button type="button" onclick="closeUrlOpenerInputModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #64748b; padding: 0 4px; line-height: 1;">×</button>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: stretch; min-height: 280px;">
+                <div style="flex: 1.5; min-width: 0; display: flex; flex-direction: column;">
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: auto; max-height: 60vh; background: #fff; flex: 1;">
+                        <table class="url-opener-table">
+                            <thead>
+                                <tr>
+                                    <th class="check"><input type="checkbox" id="urlOpenerSelectAll" title="전체 선택" onclick="urlOpenerToggleSelectAll(this)"></th>
+                                    <th class="num">번호</th>
+                                    <th>URL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="urlOpenerTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="button" onclick="urlOpenerDeleteSelected()" style="padding: 8px 16px; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">삭제</button>
+                        <button type="button" onclick="urlOpenerDeleteAll()" style="padding: 8px 16px; background: #c53030; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">전체 삭제</button>
+                    </div>
+                </div>
+                <div style="width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+                    <label for="urlOpenerInputText" style="font-size: 12px; font-weight: 600; color: #64748b;">새로운 URL</label>
+                    <textarea id="urlOpenerInputText" placeholder="엑셀이나 메모에서 복사한 URL을 붙여넣으세요. 한 줄에 하나." style="flex: 1; min-height: 180px; width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 13px; resize: vertical; box-sizing: border-box;" onkeydown="if(event.ctrlKey && event.key==='Enter') urlOpenerAddUrls()"></textarea>
+                    <button type="button" onclick="urlOpenerAddUrls()" style="padding: 10px 16px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">넣기</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
