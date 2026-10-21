@@ -696,6 +696,16 @@ function convertUrlBySite(urlStr) {
             var asonMatch = u.pathname.match(/\/product\/[^/]+\/(\d+)(?:\/|$)/);
             if (asonMatch) return { url: u.origin + '/product/detail.html?product_no=' + asonMatch[1], site: 'ason' };
         }
+        if (host === 'atelierchoux.com') {
+            // 예시: https://atelierchoux.com/ko-kr/collections/wrapping-paper-and-gift-boxes/products/gift-box-monceau
+            // → https://atelierchoux.com/ko-kr/products/gift-box-monceau
+            var atelierProduct = u.pathname.match(/\/products\/([^/?#]+)/i);
+            if (atelierProduct) {
+                var atelierLocale = u.pathname.match(/^\/([a-z]{2}(?:-[a-z]{2})?)\//i);
+                var atelierPrefix = atelierLocale ? '/' + atelierLocale[1] : '';
+                return { url: u.origin + atelierPrefix + '/products/' + atelierProduct[1], site: 'atelierchoux' };
+            }
+        }
     } catch (e) {}
     return { url: s, site: null };
 }
@@ -710,7 +720,7 @@ function runUrlConverter() {
         if (msgEl) { msgEl.textContent = '변환할 URL을 입력해 주세요.'; msgEl.style.color = '#64748b'; }
         return;
     }
-    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, somsoc: 0, soonsung: 0, marithe: 0, ason: 0, none: 0 };
+    var count = { shopee: 0, lazada: 0, taobao: 0, markgonzales: 0, temu: 0, soupmall: 0, pdrnmall: 0, pleatsme: 0, cosrx: 0, melable: 0, ohana: 0, somsoc: 0, soonsung: 0, marithe: 0, ason: 0, atelierchoux: 0, none: 0 };
     var converted = lines.map(function (line) {
         var r = convertUrlBySite(line);
         if (r.site === 'shopee') count.shopee++;
@@ -728,6 +738,7 @@ function runUrlConverter() {
         else if (r.site === 'soonsung') count.soonsung++;
         else if (r.site === 'marithe') count.marithe++;
         else if (r.site === 'ason') count.ason++;
+        else if (r.site === 'atelierchoux') count.atelierchoux++;
         else count.none++;
         return r.url;
     });
@@ -748,11 +759,12 @@ function runUrlConverter() {
     if (count.soonsung) parts.push('순성 ' + count.soonsung + '개');
     if (count.marithe) parts.push('마리떼 ' + count.marithe + '개');
     if (count.ason) parts.push('애즈온 ' + count.ason + '개');
+    if (count.atelierchoux) parts.push('아뜰리에 슈 ' + count.atelierchoux + '개');
     if (parts.length) parts.push('변환됨');
     if (count.none) parts.push('(변환 불가 ' + count.none + '개)');
     if (msgEl) {
         msgEl.textContent = parts.join(' ');
-        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana && !count.somsoc && !count.soonsung && !count.marithe && !count.ason ? '#64748b' : '#1e293b';
+        msgEl.style.color = count.none && !count.shopee && !count.lazada && !count.taobao && !count.markgonzales && !count.temu && !count.soupmall && !count.pdrnmall && !count.pleatsme && !count.cosrx && !count.melable && !count.ohana && !count.somsoc && !count.soonsung && !count.marithe && !count.ason && !count.atelierchoux ? '#64748b' : '#1e293b';
     }
 }
 
